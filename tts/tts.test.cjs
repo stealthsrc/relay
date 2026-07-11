@@ -1,0 +1,100 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const test = require("node:test");
+const vm = require("node:vm");
+
+test("TTS Browser Source plays FIFO and handles skip without double advancing", async () => {
+  const sockets = [];
+  const timers = new Map();
+  let nextTimerId = 1;
+  const audio = {
+    src: "",
+    volume: 1,
+    onended: null,
+    onerror: null,
+    pause() {},
+    load() {},
+    play() { return Promise.resolve(); },
+    removeAttribute(name) {
+      if (name === "src") this.src = "";
+    },
+  };
+
+  class MockWebSocket {
+    constructor(url) {
+      this.url = url;
+      this.listeners = new Map();
+      sockets.push(this);
+    }
+
+    addEventListener(type, listener) {
+      this.listeners.set(type, listener);
+    }
+
+    emit(type, data) {
+      this.listeners.get(type)?.({ data });
+    }
+
+    close() {}
+  }
+
+  const location = {
+    protocol: "http:",
+    host: "127.0.0.1:4590",
+    href: "http://127.0.0.1:4590/tts?secret=private",
+    search: "?secret=private",
+    replace() {},
+  };
+  const window = {
+    location,
+    addEventListener() {},
+    clearTimeout(id) { timers.delete(id); },
+    setTimeout(callback) {
+      const id = nextTimerId++;
+      timers.set(id, callback);
+      return id;
+    },
+  };
+  const context = vm.createContext({
+    URL,
+    URLSearchParams,
+    WebSocket: MockWebSocket,
+    document: { querySelector: () => audio },
+    encodeURIComponent,
+    window,
+  });
+  const source = fs.readFileSync(__dirname + "/tts.js", "utf8");
+  vm.runInContext(source, context);
+
+  const socket = sockets[0];
+  assert.match(socket.url, /role=tts&secret=private$/);
+  socket.emit("message", JSON.stringify({ type: "config", payload: { mediaVolume: 25 } }));
+  assert.equal(audio.volume, 0.25);
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "1" } }));
+  const firstEnded = audio.onended;
+  assert.match(audio.src, /\/tts-audio\/1\?secret=private$/);
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "2" } }));
+  assert.match(audio.src, /\/tts-audio\/1\?secret=private$/);
+
+  firstEnded();
+  assert.match(audio.src, /\/tts-audio\/2\?secret=private$/);
+  firstEnded();
+  assert.match(audio.src, /\/tts-audio\/2\?secret=private$/);
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "3" } }));
+  socket.emit("message", JSON.stringify({ type: "skip" }));
+  assert.match(audio.src, /\/tts-audio\/3\?secret=private$/);
+  socket.emit("message", JSON.stringify({ type: "clear" }));
+  assert.equal(audio.src, "");
+  assert.equal(audio.onended, null);
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "4" } }));
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "5" } }));
+  await new Promise((resolve) => setImmediate(resolve));
+  const watchdog = timers.values().next().value;
+  watchdog();
+  assert.match(audio.src, /\/tts-audio\/5\?secret=private$/);
+  socket.emit("close");
+  assert.equal(audio.src, "");
+});

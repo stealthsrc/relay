@@ -1,0 +1,431 @@
+const imageElement = document.querySelector("#image");
+const videoElement = document.querySelector("#video");
+const audioElement = document.querySelector("#audio");
+const audioCardElement = document.querySelector("#audio-card");
+const audioArtworkElement = document.querySelector("#audio-artwork");
+const audioTitleElement = document.querySelector("#audio-title");
+const audioArtistElement = document.querySelector("#audio-artist");
+const authorElement = document.querySelector("#author");
+const authorAvatarElement = document.querySelector("#author-avatar");
+const authorNameElement = document.querySelector("#author-name");
+const widgetParameters = new URLSearchParams(window.location.search);
+const relaySecret = widgetParameters.get("secret") || "";
+const isWidgetWindow = widgetParameters.get("widget") === "1";
+let interfaceLanguage = widgetParameters.get("lang") || "en";
+const relayMode = document.querySelector('meta[name="relay-mode"]')?.content || "all";
+const moveLabelElement = document.querySelector("#widget-move-label");
+const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
+
+window.setWidgetLocked = (locked) => {
+  document.documentElement.classList.toggle("widget-window", isWidgetWindow);
+  document.documentElement.classList.toggle("widget-edit", isWidgetWindow && !locked);
+};
+
+window.setWidgetLocked(widgetParameters.get("locked") === "1");
+
+const FADE_DURATION_MS = 320;
+const FALLBACK_AVATAR = "/overlay-assets/relay-radar.png";
+const queue = [];
+
+let config = {
+  displayDurationMs: 8000,
+  gifDurationMs: 8000,
+  mediaVolume: 50,
+  showAuthor: true,
+};
+let currentMedia;
+let activeVisual;
+let activePlayback;
+let clearLoadListeners = () => {};
+let displayTimer;
+let fadeTimer;
+let mediaWatchdog;
+let playbackGeneration = 0;
+let reconnectTimer;
+let reconnectDelayMs = 1000;
+let socket;
+let pendingPort;
+let isUnloading = false;
+
+function mediaSources(media) {
+  if (media.cachedMediaId) {
+    return [`/media-cache/${encodeURIComponent(media.cachedMediaId)}?secret=${encodeURIComponent(relaySecret)}`];
+  }
+  if (media.kind === "audio" && media.audioId) {
+    return [`/media-audio/${encodeURIComponent(media.audioId)}?secret=${encodeURIComponent(relaySecret)}`];
+  }
+  return [media.url, media.proxyUrl].filter(
+    (source, index, sources) => source && sources.indexOf(source) === index,
+  );
+}
+
+function setAudioArtwork(media) {
+  audioArtworkElement.onerror = () => {
+    audioArtworkElement.onerror = null;
+    audioArtworkElement.src = FALLBACK_AVATAR;
+  };
+  audioArtworkElement.src = media.artworkId
+    ? `/media-artwork/${encodeURIComponent(media.artworkId)}?secret=${encodeURIComponent(relaySecret)}`
+    : FALLBACK_AVATAR;
+}
+
+function setAuthor(media) {
+  if (config.showAuthor && media.author) {
+    authorAvatarElement.onerror = () => {
+      authorAvatarElement.onerror = null;
+      authorAvatarElement.src = FALLBACK_AVATAR;
+    };
+    authorAvatarElement.src = media.author.displayAvatarUrl || FALLBACK_AVATAR;
+    authorNameElement.textContent = media.author.username;
+    authorElement.hidden = false;
+  } else {
+    authorElement.hidden = true;
+  }
+}
+
+function fitVisualToViewport(element, width, height) {
+  if (!width || !height || !window.innerWidth || !window.innerHeight) return;
+  const fitByWidth = width / height >= window.innerWidth / window.innerHeight;
+  element.style.width = fitByWidth ? "100%" : "auto";
+  element.style.height = fitByWidth ? "auto" : "100%";
+}
+
+function resetElements() {
+  clearLoadListeners();
+  clearLoadListeners = () => {};
+  window.clearTimeout(displayTimer);
+  window.clearTimeout(fadeTimer);
+  window.clearTimeout(mediaWatchdog);
+
+  for (const element of [imageElement, videoElement]) {
+    element.classList.remove("is-visible", "is-hiding");
+    element.removeAttribute("src");
+    element.style.width = "";
+    element.style.height = "";
+  }
+  for (const element of [videoElement, audioElement]) {
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+  }
+  videoElement.loop = false;
+  audioCardElement.classList.remove("is-visible", "is-hiding");
+  audioCardElement.hidden = true;
+  audioTitleElement.textContent = "";
+  audioArtistElement.textContent = "";
+  audioArtistElement.hidden = true;
+  setAudioArtwork({});
+  authorElement.classList.remove("is-visible");
+  authorElement.hidden = true;
+  authorAvatarElement.removeAttribute("src");
+  activeVisual = undefined;
+  activePlayback = undefined;
+}
+
+function revealMedia({ timed = false } = {}) {
+  if (!currentMedia || !activeVisual) {
+    return;
+  }
+  activeVisual.classList.add("is-visible");
+  if (!authorElement.hidden) {
+    authorElement.classList.add("is-visible");
+  }
+  if (timed) {
+    const durationMs = currentMedia.kind === "gif"
+      ? config.gifDurationMs
+      : config.displayDurationMs;
+    displayTimer = window.setTimeout(hideCurrentMedia, durationMs);
+  }
+}
+
+function finishCurrentMedia(expectedGeneration = playbackGeneration) {
+  if (!currentMedia || expectedGeneration !== playbackGeneration) return;
+  resetElements();
+  currentMedia = undefined;
+  showNextMedia();
+}
+
+function hideCurrentMedia(expectedGeneration = playbackGeneration) {
+  if (!currentMedia || expectedGeneration !== playbackGeneration) {
+    return;
+  }
+  window.clearTimeout(displayTimer);
+  activePlayback?.pause();
+  activeVisual?.classList.remove("is-visible");
+  activeVisual?.classList.add("is-hiding");
+  authorElement.classList.remove("is-visible");
+  fadeTimer = window.setTimeout(() => finishCurrentMedia(expectedGeneration), FADE_DURATION_MS);
+}
+
+function skipCurrentMedia() {
+  if (currentMedia) {
+    finishCurrentMedia();
+  } else {
+    showNextMedia();
+  }
+}
+
+function loadImage(media, generation) {
+  activeVisual = imageElement;
+  const sources = mediaSources(media);
+  let sourceIndex = 0;
+  let revealed = false;
+
+  const clear = () => {
+    imageElement.removeEventListener("load", onLoad);
+    imageElement.removeEventListener("error", onError);
+  };
+  const onLoad = () => {
+    if (revealed || generation !== playbackGeneration) {
+      return;
+    }
+    revealed = true;
+    fitVisualToViewport(imageElement, imageElement.naturalWidth, imageElement.naturalHeight);
+    clear();
+    revealMedia({ timed: true });
+  };
+  const onError = () => {
+    if (generation !== playbackGeneration) return;
+    clear();
+    sourceIndex += 1;
+    if (sourceIndex < sources.length) {
+      trySource();
+    } else {
+      hideCurrentMedia(generation);
+    }
+  };
+  const trySource = () => {
+    imageElement.addEventListener("load", onLoad, { once: true });
+    imageElement.addEventListener("error", onError, { once: true });
+    imageElement.src = sources[sourceIndex];
+  };
+
+  clearLoadListeners = clear;
+  mediaWatchdog = window.setTimeout(() => hideCurrentMedia(generation), 15000);
+  if (sources.length === 0) {
+    hideCurrentMedia();
+    return;
+  }
+  trySource();
+  if (imageElement.complete && imageElement.naturalWidth > 0) {
+    onLoad();
+  }
+}
+
+function loadPlayback(media, playbackElement, visualElement, generation) {
+  activePlayback = playbackElement;
+  activeVisual = visualElement;
+  const isTimedGif = media.kind === "gif";
+  const mustMute = isWidgetWindow || isTimedGif;
+  playbackElement.loop = isTimedGif;
+  playbackElement.muted = mustMute;
+  playbackElement.volume = mustMute
+    ? 0
+    : Math.min(1, Math.max(0, config.mediaVolume / 100));
+  const sources = mediaSources(media);
+  let sourceIndex = 0;
+
+  const clearSourceListeners = () => {
+    playbackElement.removeEventListener("loadeddata", onLoaded);
+    playbackElement.removeEventListener("error", onError);
+  };
+  const clear = () => {
+    clearSourceListeners();
+    playbackElement.removeEventListener("ended", onEnded);
+    for (const eventName of ["playing", "timeupdate", "waiting", "stalled", "abort", "emptied"]) {
+      playbackElement.removeEventListener(eventName, playbackStateChanged);
+    }
+  };
+  const armWatchdog = (delay = 20000) => {
+    window.clearTimeout(mediaWatchdog);
+    mediaWatchdog = window.setTimeout(() => hideCurrentMedia(generation), delay);
+  };
+  const playbackStateChanged = (event) => {
+    if (generation !== playbackGeneration) return;
+    if (event.type === "playing" || event.type === "timeupdate") armWatchdog(20000);
+    else armWatchdog(15000);
+  };
+  const onEnded = () => {
+    if (!isTimedGif) hideCurrentMedia(generation);
+  };
+  const onLoaded = () => {
+    if (generation !== playbackGeneration) return;
+    if (visualElement === videoElement) {
+      fitVisualToViewport(videoElement, videoElement.videoWidth, videoElement.videoHeight);
+    }
+    clearSourceListeners();
+    revealMedia({ timed: isTimedGif });
+    armWatchdog();
+    playbackElement.play().catch(() => hideCurrentMedia(generation));
+  };
+  const onError = () => {
+    clearSourceListeners();
+    sourceIndex += 1;
+    if (sourceIndex < sources.length) {
+      trySource();
+    } else {
+      hideCurrentMedia(generation);
+    }
+  };
+  const trySource = () => {
+    playbackElement.addEventListener("loadeddata", onLoaded, { once: true });
+    playbackElement.addEventListener("error", onError, { once: true });
+    playbackElement.src = sources[sourceIndex];
+    playbackElement.load();
+  };
+
+  playbackElement.addEventListener("ended", onEnded, { once: true });
+  for (const eventName of ["playing", "timeupdate", "waiting", "stalled", "abort", "emptied"]) {
+    playbackElement.addEventListener(eventName, playbackStateChanged);
+  }
+  clearLoadListeners = clear;
+  armWatchdog(15000);
+  if (sources.length === 0) {
+    hideCurrentMedia();
+    return;
+  }
+  trySource();
+}
+
+function showNextMedia() {
+  if (currentMedia || queue.length === 0) {
+    return;
+  }
+  currentMedia = queue.shift();
+  const generation = ++playbackGeneration;
+  setAuthor(currentMedia);
+
+  if (
+    currentMedia.kind === "video"
+    || (currentMedia.kind === "gif" && currentMedia.contentType?.startsWith("video/"))
+  ) {
+    loadPlayback(currentMedia, videoElement, videoElement, generation);
+  } else if (currentMedia.kind === "audio") {
+    audioTitleElement.textContent = currentMedia.title || currentMedia.filename || "Discord audio";
+    audioArtistElement.textContent = currentMedia.artist || "";
+    audioArtistElement.hidden = !currentMedia.artist;
+    setAudioArtwork(currentMedia);
+    audioCardElement.hidden = false;
+    loadPlayback(currentMedia, audioElement, audioCardElement, generation);
+  } else {
+    loadImage(currentMedia, generation);
+  }
+}
+
+function clearOverlay() {
+  queue.length = 0;
+  finishCurrentMedia();
+}
+
+function enqueueMedia(mediaEvent) {
+  if (
+    (relayMode === "visual" && mediaEvent.kind === "audio")
+    || (relayMode === "audio" && mediaEvent.kind !== "audio")
+  ) {
+    return;
+  }
+  queue.push(mediaEvent);
+  showNextMedia();
+}
+
+function handleMessage(event) {
+  let message;
+  try {
+    message = JSON.parse(event.data);
+  } catch {
+    return;
+  }
+
+  if (message.type === "config") {
+    config = { ...config, ...message.payload };
+    const configuredPort = Number(message.payload?.port);
+    if (
+      Number.isInteger(configuredPort)
+      && configuredPort > 0
+      && configuredPort <= 65535
+      && String(configuredPort) !== window.location.port
+    ) {
+      pendingPort = configuredPort;
+    }
+    const volume = Math.min(1, Math.max(0, config.mediaVolume / 100));
+    videoElement.muted = isWidgetWindow || currentMedia?.kind === "gif";
+    audioElement.muted = isWidgetWindow;
+    videoElement.volume = videoElement.muted ? 0 : volume;
+    audioElement.volume = isWidgetWindow ? 0 : volume;
+    if (!config.showAuthor) {
+      authorElement.classList.remove("is-visible");
+      authorElement.hidden = true;
+    }
+  } else if (message.type === "media") {
+    enqueueMedia(message.payload);
+  } else if (message.type === "image") {
+    enqueueMedia({ kind: "image", ...message.payload });
+  } else if (message.type === "skip") {
+    skipCurrentMedia();
+  } else if (message.type === "clear") {
+    clearOverlay();
+  } else if (message.type === "serverMove") {
+    pendingPort = message.payload.port;
+  } else if (message.type === "appearance") {
+    applyAppearance(message.payload);
+  }
+}
+
+function applyAppearance(preferences = {}) {
+  interfaceLanguage = ["en", "fr", "es", "de"].includes(preferences.language)
+    ? preferences.language : interfaceLanguage;
+  document.documentElement.lang = interfaceLanguage;
+  document.documentElement.dataset.theme = preferences.theme || "dark";
+  const rgb = Array.isArray(preferences.accentRgb) ? preferences.accentRgb : [88, 185, 137];
+  document.documentElement.style.setProperty("--accent", `rgb(${rgb.join(" ")})`);
+  document.documentElement.style.setProperty("--font-scale", String((preferences.fontScale || 100) / 100));
+  if (moveLabelElement) moveLabelElement.textContent = moveLabels[interfaceLanguage] || moveLabels.en;
+}
+
+applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 185, 137] });
+
+function scheduleReconnect() {
+  if (isUnloading || reconnectTimer) {
+    return;
+  }
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = undefined;
+    connect();
+  }, reconnectDelayMs);
+  reconnectDelayMs = Math.min(reconnectDelayMs * 2, 10000);
+}
+
+function moveToPendingPort() {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.port = String(pendingPort);
+  window.setTimeout(() => window.location.replace(nextUrl), 500);
+}
+
+function connect() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  socket = new WebSocket(
+    `${protocol}//${window.location.host}/ws?role=overlay&secret=${encodeURIComponent(relaySecret)}`,
+  );
+  socket.addEventListener("open", () => {
+    reconnectDelayMs = 1000;
+  });
+  socket.addEventListener("message", handleMessage);
+  socket.addEventListener("close", () => {
+    clearOverlay();
+    if (pendingPort) {
+      moveToPendingPort();
+      return;
+    }
+    scheduleReconnect();
+  });
+  socket.addEventListener("error", () => socket.close());
+}
+
+window.addEventListener("beforeunload", () => {
+  isUnloading = true;
+  clearOverlay();
+  window.clearTimeout(reconnectTimer);
+  socket?.close();
+});
+
+connect();

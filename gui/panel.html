@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: http://127.0.0.1:* https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; media-src http://127.0.0.1:* https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src ws://127.0.0.1:*; frame-src http://127.0.0.1:*"
+    >
+    <title>Relay</title>
+    <link rel="stylesheet" href="./panel.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand__logo" src="./assets/relay-radar.png" alt="">
+          <div class="brand__copy">
+            <strong>Relay</strong>
+          </div>
+        </div>
+
+        <nav class="navigation" aria-label="Primary navigation">
+          <button class="navigation__item is-active" type="button" data-page-target="overview">
+            <span class="navigation__index">01</span>
+            <span data-i18n="navOverview">Overview</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="media">
+            <span class="navigation__index">02</span>
+            <span data-i18n="navMedia">Media</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="overlay">
+            <span class="navigation__index">03</span>
+            <span data-i18n="navOverlay">Overlay</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="moderation">
+            <span class="navigation__index">04</span>
+            <span data-i18n="navModeration">Moderation</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="history">
+            <span class="navigation__index">05</span>
+            <span data-i18n="navHistory">History</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="help">
+            <span class="navigation__index">06</span>
+            <span data-i18n="navHelp">Help</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="personalization">
+            <span class="navigation__index">07</span>
+            <span data-i18n="navPersonalization">Personalization</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="about">
+            <span class="navigation__index">08</span>
+            <span data-i18n="navAbout">About</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__footer">
+          <button id="language-toggle" class="utility-button" type="button" aria-label="Switch language">
+            <span data-i18n="language">Language</span>
+            <strong id="language-value">EN</strong>
+          </button>
+          <button id="theme-toggle" class="utility-button" type="button" aria-label="Switch theme">
+            <span data-i18n="appearance">Appearance</span>
+            <strong id="theme-value">Light</strong>
+          </button>
+          <span class="version">Windows · v1.0.0</span>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <div>
+            <p id="page-kicker" class="kicker">System</p>
+            <h1 id="page-title">Overview</h1>
+          </div>
+          <div class="status-strip" aria-label="Relay status">
+            <div class="status" id="bot-status">
+              <span class="status__light"></span>
+              <img id="bot-avatar" class="status__avatar" alt="" hidden>
+              <span id="bot-label">Bot offline</span>
+            </div>
+            <div class="status" id="server-status">
+              <span class="status__light"></span>
+              <span id="server-label">Server offline</span>
+            </div>
+            <div class="status status--count">
+              <span id="client-count">0</span>
+              <span data-i18n="overlays">overlays</span>
+            </div>
+          </div>
+        </header>
+
+        <main class="pages">
+          <section class="page is-active" data-page="overview">
+            <div class="page-intro">
+              <p class="kicker" data-i18n="overviewKicker">Local broadcast</p>
+              <h2 data-i18n="overviewTitle">One channel. Every screen.</h2>
+              <p data-i18n="overviewCopy">Connect Discord once, choose a channel, then keep the relay running quietly in the tray.</p>
+            </div>
+
+            <div class="split-layout">
+              <section class="panel-section">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">01</span>
+                    <h3 data-i18n="credentialsTitle">Discord connection</h3>
+                  </div>
+                  <span id="credential-state" class="save-state" role="status"></span>
+                </div>
+                <p class="section-copy" data-i18n="credentialsCopy">Credentials are encrypted by Windows and never shown again.</p>
+                <form id="credential-form" class="form-grid">
+                  <label class="field field--wide">
+                    <span data-i18n="clientId">Discord client ID</span>
+                    <input id="client-id" name="clientId" inputmode="numeric" autocomplete="off" maxlength="20" required>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="botToken">Discord bot token</span>
+                    <input id="discord-token" name="token" type="password" autocomplete="new-password" required>
+                  </label>
+                  <button class="button button--primary field--wide" type="submit" data-i18n="connectBot">Encrypt and start bot</button>
+                </form>
+                <div id="invite-row" class="invite-row" hidden>
+                  <label class="field">
+                    <span data-i18n="inviteUrl">Bot invitation URL</span>
+                    <span class="url-field">
+                      <input id="invite-url" type="text" readonly aria-label="Discord bot invitation URL">
+                      <button id="copy-invite" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="panel-section">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">02</span>
+                    <h3 data-i18n="routingTitle">Input routing</h3>
+                  </div>
+                  <span class="section-actions">
+                    <span id="save-state" class="save-state" role="status"></span>
+                    <button id="refresh-channels" class="button button--quiet" type="button" data-i18n="refreshChannels">Refresh channels</button>
+                  </span>
+                </div>
+                <p class="section-copy" data-i18n="routingCopy">Choose one Discord channel for media and another for spoken messages.</p>
+                <form id="routing-form" class="form-grid">
+                  <label class="field field--wide">
+                    <span data-i18n="mediaChannel">Media channel</span>
+                    <select id="channel" name="watchedChannelId">
+                      <option value="">Select a visible text channel</option>
+                    </select>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="ttsChannel">TTS message channel</span>
+                    <select id="tts-channel" name="ttsChannelId">
+                      <option value="">TTS disabled</option>
+                    </select>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="localPort">Local port</span>
+                    <input id="port" name="port" type="number" min="1024" max="65535" step="1" required>
+                  </label>
+                  <button class="button button--primary field--wide" type="submit" data-i18n="saveRouting">Save routing</button>
+                </form>
+              </section>
+            </div>
+          </section>
+
+          <section class="page" data-page="media" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="mediaKicker">Playback queue</p>
+              <h2 data-i18n="mediaTitle">Media, on your terms.</h2>
+              <p data-i18n="mediaCopy">Images use a display timer. Video and audio continue naturally until they end.</p>
+            </div>
+
+            <section class="transport">
+              <div class="transport__identity">
+                <img src="./assets/relay-radar.png" alt="">
+                <div>
+                  <span class="transport__label" data-i18n="transportLabel">Live transport</span>
+                  <strong data-i18n="transportReady">Ready for the next media</strong>
+                </div>
+              </div>
+              <button id="skip-media" class="button button--skip" type="button">
+                <span data-i18n="skip">Skip media</span>
+                <kbd>Ctrl Alt S</kbd>
+              </button>
+            </section>
+
+            <section class="panel-section panel-section--wide">
+              <div class="section-heading">
+                <div>
+                  <span class="section-number">03</span>
+                  <h3 data-i18n="playbackTitle">Playback settings</h3>
+                </div>
+                <span id="media-save-state" class="save-state" role="status"></span>
+              </div>
+              <form id="media-form" class="settings-list">
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="imageDuration">Image duration</strong>
+                    <small data-i18n="imageDurationHelp">Used for static images only.</small>
+                  </span>
+                  <span class="field__unit field__unit--short">
+                    <input id="duration" name="displayDurationSeconds" type="number" min="1" max="60" step="1" required>
+                    <small data-i18n="seconds">sec</small>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="gifDuration">GIF duration</strong>
+                    <small data-i18n="gifDurationHelp">Animated GIFs loop for this duration.</small>
+                  </span>
+                  <span class="field__unit field__unit--short">
+                    <input id="gif-duration" name="gifDurationSeconds" type="number" min="1" max="60" step="1" required>
+                    <small data-i18n="seconds">sec</small>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="mediaVolume">Media volume</strong>
+                    <small data-i18n="mediaVolumeHelp">Applied to video, audio and spoken messages.</small>
+                  </span>
+                  <span class="volume-control">
+                    <input id="media-volume" type="range" min="0" max="100" step="1">
+                    <output id="media-volume-value">50%</output>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="ttsCharacterLimit">TTS character limit</strong>
+                    <small data-i18n="ttsCharacterLimitHelp">Use 0 for unlimited message length.</small>
+                  </span>
+                  <span class="field__unit field__unit--short">
+                    <input id="tts-character-limit" name="ttsCharacterLimit" type="number" min="0" max="4294967295" step="1" required>
+                    <small data-i18n="characters">chars</small>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="ttsQueueLimit">TTS queue capacity</strong>
+                    <small data-i18n="ttsQueueLimitHelp">Maximum waiting messages, from 1 to 50.</small>
+                  </span>
+                  <span class="field__unit field__unit--short">
+                    <input id="tts-queue-limit" name="ttsQueueLimit" type="number" min="1" max="50" step="1" required>
+                    <small data-i18n="items">items</small>
+                  </span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="showAuthor">Show author</strong>
+                    <small data-i18n="showAuthorHelp">Display the Discord name and avatar over media.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="show-author" name="showAuthor" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <div class="settings-actions">
+                  <p data-i18n="supportedFormats">Images, GIF, MP4/WebM and common audio formats are accepted.</p>
+                  <button class="button button--primary" type="submit" data-i18n="savePlayback">Save playback</button>
+                </div>
+              </form>
+            </section>
+          </section>
+
+          <section class="page" data-page="overlay" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="overlayKicker">Program output</p>
+              <h2 data-i18n="overlayTitle">What OBS receives.</h2>
+              <p data-i18n="overlayCopy">The canvas stays transparent until media enters the queue.</p>
+            </div>
+
+            <section class="preview-section">
+              <div class="preview-toolbar">
+                <span data-i18n="livePreview">Live preview</span>
+                <span class="preview-badge" data-i18n="transparentCanvas">Transparent canvas</span>
+              </div>
+              <div class="preview-shell">
+                <iframe id="preview" title="Live OBS overlay preview"></iframe>
+              </div>
+            </section>
+
+            <div class="split-layout split-layout--overlay">
+              <section class="panel-section">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">04</span>
+                    <h3 data-i18n="browserSource">OBS Browser Sources</h3>
+                  </div>
+                </div>
+                <p class="section-copy" data-i18n="browserSourceHelp">Add each private URL as a separate OBS Browser Source.</p>
+                <div class="source-field">
+                  <span data-i18n="visualSource">Visual media</span>
+                  <div class="url-field">
+                    <input id="overlay-url" type="text" readonly aria-label="OBS visual Browser Source URL">
+                    <button id="copy-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                  </div>
+                </div>
+                <div class="source-field">
+                  <span data-i18n="audioSource">Audio, music and voice messages</span>
+                  <div class="url-field">
+                    <input id="audio-url" type="text" readonly aria-label="OBS audio Browser Source URL">
+                    <button id="copy-audio-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                  </div>
+                </div>
+                <div class="source-field">
+                  <span data-i18n="ttsSource">TTS audio</span>
+                  <div class="url-field">
+                    <input id="tts-url" type="text" readonly aria-label="OBS TTS Browser Source URL">
+                    <button id="copy-tts-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                  </div>
+                </div>
+                <button id="regenerate-secret" class="text-button" type="button" data-i18n="regenerateSecret">Reconnect OBS sources</button>
+              </section>
+
+              <section class="panel-section">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">05</span>
+                    <h3 data-i18n="floatingWidget">Media floating widget</h3>
+                  </div>
+                </div>
+                <p id="widget-state" class="section-copy">Widget hidden</p>
+                <div class="button-row">
+                  <button id="toggle-widget" class="button button--primary" type="button">Show widget</button>
+                  <button id="lock-widget" class="button button--quiet" type="button">Unlock to move</button>
+                </div>
+                <p class="fine-print" data-i18n="widgetHelp">Unlock, position it on any monitor, then lock it to pass clicks through.</p>
+              </section>
+            </div>
+
+            <div class="notification-output-grid">
+              <section class="panel-section panel-section--wide notification-output-card" data-output="obs">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">06</span>
+                    <h3 data-i18n="obsNotificationOutput">OBS TTS notification overlay</h3>
+                  </div>
+                  <span id="obs-notification-save-state" class="save-state" role="status"></span>
+                </div>
+                <p class="section-copy" data-i18n="obsNotificationOutputHelp">Independent Browser Source displayed only inside OBS.</p>
+                <div class="source-field notification-output-url">
+                  <span data-i18n="notificationSource">TTS notifications</span>
+                  <div class="url-field">
+                    <input id="notification-url" type="text" readonly aria-label="OBS TTS notification Browser Source URL">
+                    <button id="copy-notification-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                  </div>
+                </div>
+                <label class="notification-output-switch">
+                  <span>
+                    <strong data-i18n="enableObsNotifications">Enable OBS overlay</strong>
+                    <small data-i18n="enableObsNotificationsHelp">Does not change the Windows widget.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="tts-notifications-obs" name="ttsNotificationsObsEnabled" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </section>
+
+              <section class="panel-section panel-section--wide notification-output-card" data-output="windows">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">07</span>
+                    <h3 data-i18n="windowsNotificationWidget">Windows TTS notification widget</h3>
+                  </div>
+                </div>
+                <p id="notification-widget-state" class="section-copy">Widget hidden</p>
+                <p class="fine-print notification-output-copy" data-i18n="windowsNotificationWidgetHelp">Independent desktop window that can be placed on any monitor.</p>
+                <div class="notification-output-actions">
+                  <label class="inline-switch">
+                    <span data-i18n="showNotificationWidget">Show on Windows</span>
+                    <span class="switch">
+                      <input id="notification-widget-enabled" type="checkbox">
+                      <span class="switch__track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <button id="lock-notification-widget" class="button button--quiet" type="button">Unlock to move</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="page" data-page="moderation" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="moderationKicker">Broadcast safety</p>
+              <h2 data-i18n="moderationTitle">You decide what reaches OBS.</h2>
+              <p data-i18n="moderationCopy">Optionally hold incoming media until you approve it locally.</p>
+            </div>
+
+            <section class="panel-section panel-section--wide moderation-settings">
+              <div class="section-heading">
+                <div>
+                  <span class="section-number">04</span>
+                  <h3 data-i18n="moderationSettings">Moderation settings</h3>
+                </div>
+                <span id="moderation-save-state" class="save-state" role="status"></span>
+              </div>
+              <form id="moderation-form" class="settings-list">
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="enableModeration">Enable manual moderation</strong>
+                    <small data-i18n="enableModerationHelp">When disabled, media keeps flowing directly to OBS.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="moderation-enabled" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="allowImages">Images and GIFs</strong>
+                    <small data-i18n="allowImagesHelp">Allow these items to enter the approval queue.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="moderation-allow-images" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="allowVideos">Videos</strong>
+                    <small data-i18n="allowVideosHelp">Allow video files to enter the approval queue.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="moderation-allow-videos" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="allowAudio">Audio</strong>
+                    <small data-i18n="allowAudioHelp">Allow audio files to enter the approval queue.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="moderation-allow-audio" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <div class="settings-actions">
+                  <p data-i18n="moderationLocalOnly">Decisions stay local and never notify Discord users.</p>
+                  <button class="button button--primary" type="submit" data-i18n="saveModeration">Save moderation</button>
+                </div>
+              </form>
+            </section>
+
+            <div class="moderation-header">
+              <div>
+                <span class="kicker" data-i18n="pendingMedia">Pending media</span>
+                <strong id="moderation-count">0 / 50</strong>
+              </div>
+              <button id="clear-pending-media" class="button button--quiet" type="button" data-i18n="clearPending">Reject all</button>
+            </div>
+            <p id="moderation-empty" class="empty-state" data-i18n="moderationEmpty">No media is waiting for approval.</p>
+            <ol id="moderation-list" class="history-list moderation-list"></ol>
+          </section>
+
+          <section class="page" data-page="history" hidden>
+            <div class="history-header">
+              <div class="page-intro page-intro--compact">
+                <p class="kicker" data-i18n="historyKicker">Last 50 items</p>
+                <h2 data-i18n="historyTitle">Media history</h2>
+                <p data-i18n="historyCopy">Replay a previous item or clear every connected overlay.</p>
+              </div>
+              <button id="clear-overlay" class="button button--quiet" type="button" data-i18n="clearOverlay">Clear overlay</button>
+            </div>
+            <p id="history-empty" class="empty-state" data-i18n="historyEmpty">Waiting for the first Discord media.</p>
+            <ol id="history-list" class="history-list"></ol>
+          </section>
+
+          <section class="page help-page" data-page="help" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="helpKicker">Setup guide</p>
+              <h2 data-i18n="helpTitle">From Discord to OBS.</h2>
+              <p data-i18n="helpCopy">Follow these steps once, then keep Relay running quietly in the system tray.</p>
+            </div>
+
+            <div class="help-start">
+              <span class="help-start__index">01—06</span>
+              <div>
+                <strong data-i18n="helpStartTitle">Recommended setup order</strong>
+                <p data-i18n="helpStartCopy">Discord application, permissions, channels, OBS sources, widgets, then a live test.</p>
+              </div>
+            </div>
+
+            <div class="help-accordions">
+              <details class="help-disclosure" open>
+                <summary>
+                  <span class="help-disclosure__number">01</span>
+                  <span>
+                    <strong data-i18n="helpDiscordTitle">Create the Discord bot</strong>
+                    <small data-i18n="helpDiscordSummary">Application, bot token and client ID</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ol>
+                    <li data-i18n="helpDiscordStep1">Open the Discord Developer Portal and create a New Application.</li>
+                    <li data-i18n="helpDiscordStep2">Open Bot, create or reset the token, then copy it once.</li>
+                    <li data-i18n="helpDiscordStep3">Copy the Application ID from General Information; this is the client ID.</li>
+                    <li data-i18n="helpDiscordStep4">Paste both values into Relay. They are encrypted by Windows.</li>
+                  </ol>
+                  <button class="help-link" type="button" data-help-link="discord" data-i18n="openDiscordPortal">Open Discord Developer Portal</button>
+                </div>
+              </details>
+
+              <details class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">02</span>
+                  <span>
+                    <strong data-i18n="helpIntentTitle">Enable permissions and intents</strong>
+                    <small data-i18n="helpIntentSummary">Required to read normal messages</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ol>
+                    <li data-i18n="helpIntentStep1">In Bot → Privileged Gateway Intents, enable Message Content Intent.</li>
+                    <li data-i18n="helpIntentStep2">Use Relay's invitation URL to add the bot to your Discord server.</li>
+                    <li data-i18n="helpIntentStep3">Give the bot View Channel and Read Message History in both watched channels.</li>
+                  </ol>
+                  <p class="help-note" data-i18n="helpIntentNote">“Disallowed gateway intents” means Message Content Intent is still disabled; the token does not need regeneration.</p>
+                </div>
+              </details>
+
+              <details class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">03</span>
+                  <span>
+                    <strong data-i18n="helpChannelsTitle">Configure Discord channels</strong>
+                    <small data-i18n="helpChannelsSummary">Separate media and spoken messages</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ol>
+                    <li data-i18n="helpChannelsStep1">Create one text channel for images, GIFs, videos and audio.</li>
+                    <li data-i18n="helpChannelsStep2">Create a second text channel for plain TTS messages.</li>
+                    <li data-i18n="helpChannelsStep3">Select both channels on Overview and save routing.</li>
+                    <li data-i18n="helpChannelsStep4">French and English messages automatically use the matching Windows voice.</li>
+                  </ol>
+                </div>
+              </details>
+
+              <details class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">04</span>
+                  <span>
+                    <strong data-i18n="helpObsTitle">Install the OBS Browser Sources</strong>
+                    <small data-i18n="helpObsSummary">Media, TTS audio and notifications</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ol>
+                    <li data-i18n="helpObsStep1">In OBS, add a separate Browser Source for each URL shown on Overlay.</li>
+                    <li data-i18n="helpObsStep2">Use the visual URL for media and keep its transparent background.</li>
+                    <li data-i18n="helpObsStep3">Use the TTS URL as a dedicated audio Browser Source and enable OBS audio control.</li>
+                    <li data-i18n="helpObsStep4">Use the notifications URL for the PS5-style message card.</li>
+                    <li data-i18n="helpObsStep5">Keep the private URLs unchanged; Relay reconnects them after every restart.</li>
+                  </ol>
+                  <button class="help-link" type="button" data-help-link="obs" data-i18n="openObsGuide">Open OBS Browser Source guide</button>
+                </div>
+              </details>
+
+              <details class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">05</span>
+                  <span>
+                    <strong data-i18n="helpWidgetsTitle">Place the Windows widgets</strong>
+                    <small data-i18n="helpWidgetsSummary">Move, lock and show on any monitor</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ol>
+                    <li data-i18n="helpWidgetsStep1">Open Overlay and show the media or notification widget.</li>
+                    <li data-i18n="helpWidgetsStep2">Leave it unlocked, drag it to the desired monitor and position.</li>
+                    <li data-i18n="helpWidgetsStep3">Lock it so mouse clicks pass through to applications underneath.</li>
+                    <li data-i18n="helpWidgetsStep4">Visibility, lock state and position are restored on restart.</li>
+                  </ol>
+                </div>
+              </details>
+
+              <details class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">06</span>
+                  <span>
+                    <strong data-i18n="helpTroubleshootingTitle">Troubleshooting</strong>
+                    <small data-i18n="helpTroubleshootingSummary">Fast checks when nothing appears</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content">
+                  <ul>
+                    <li data-i18n="helpTroubleshooting1">No media: verify the selected media channel and the bot's channel permissions.</li>
+                    <li data-i18n="helpTroubleshooting2">No TTS: verify the separate TTS channel and Windows speech packs.</li>
+                    <li data-i18n="helpTroubleshooting3">No notification: enable Show TTS notifications in OBS, then send a new message.</li>
+                    <li data-i18n="helpTroubleshooting4">Blank OBS source: refresh it once and confirm Relay is running on the displayed local port.</li>
+                    <li data-i18n="helpTroubleshooting5">Never regenerate a Discord token for a gateway-intent error; enable the intent instead.</li>
+                  </ul>
+                </div>
+              </details>
+
+              <details id="privacy-details" class="help-disclosure">
+                <summary>
+                  <span class="help-disclosure__number">07</span>
+                  <span>
+                    <strong data-i18n="privacyDetailsTitle">Privacy and regional rights</strong>
+                    <small data-i18n="privacyDetailsSummary">GDPR and equivalent laws worldwide</small>
+                  </span>
+                  <i aria-hidden="true"></i>
+                </summary>
+                <div class="help-disclosure__content privacy-details">
+                  <p data-i18n="privacyDetailsLocal">Relay has no telemetry, analytics, advertising or developer-operated collection service. It does not create a remote Relay account or user profile.</p>
+                  <p data-i18n="privacyDetailsFlow">Discord messages necessarily pass through Discord before reaching the bot. OBS sources and Windows widgets communicate locally through 127.0.0.1. Credentials are protected by Windows and preferences remain in the local application configuration.</p>
+                  <p data-i18n="privacyDetailsRights">Your applicable rights depend on your place of residence and local law, including the GDPR in the EU/EEA and equivalent privacy laws in other regions. Relay does not infer or collect your location.</p>
+                  <p class="privacy-disclaimer" data-i18n="privacyDisclaimer">Product information only—not legal advice. External services remain governed by their own privacy terms.</p>
+                  <button class="help-link" type="button" data-help-link="privacy-global" data-i18n="privacyGlobalReference">View worldwide privacy legislation — UNCTAD</button>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <section class="page personalization-page" data-page="personalization" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="personalizationKicker">Interface</p>
+              <h2 data-i18n="personalizationTitle">Make Relay yours.</h2>
+              <p data-i18n="personalizationCopy">Changes apply immediately to Relay, Windows widgets and OBS outputs.</p>
+            </div>
+            <section class="panel-section personalization-card">
+              <div class="personalization-grid">
+                <label class="source-field">
+                  <span data-i18n="language">Language</span>
+                  <select id="interface-language">
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="de">Deutsch</option>
+                  </select>
+                </label>
+                <label class="source-field">
+                  <span data-i18n="themeLabel">Theme</span>
+                  <select id="interface-theme">
+                    <option value="light" data-i18n="light">Light</option>
+                    <option value="dark" data-i18n="dark">Dark</option>
+                  </select>
+                </label>
+              </div>
+              <fieldset class="personalization-fieldset">
+                <legend data-i18n="accentColor">Accent color</legend>
+                <div class="rgb-controls">
+                  <label>R <input id="accent-r" type="number" min="0" max="255" value="88"></label>
+                  <label>G <input id="accent-g" type="number" min="0" max="255" value="185"></label>
+                  <label>B <input id="accent-b" type="number" min="0" max="255" value="137"></label>
+                  <input id="accent-picker" class="accent-preview" type="color" value="#58b989" aria-label="Choose accent color">
+                </div>
+              </fieldset>
+              <label class="source-field font-scale-control">
+                <span><span data-i18n="fontSize">Text size</span> <strong id="font-scale-value">100%</strong></span>
+                <input id="font-scale" type="range" min="80" max="140" step="5" value="100">
+              </label>
+              <div class="personalization-preview">
+                <span class="kicker" data-i18n="livePreview">Live preview</span>
+                <strong data-i18n="previewTitle">Relay interface preview</strong>
+                <p data-i18n="previewCopy">Readable text with your selected accent color.</p>
+                <button class="button button--primary" type="button" data-i18n="previewButton">Example button</button>
+              </div>
+              <div class="settings-actions">
+                <p id="personalization-state" role="status"></p>
+                <button id="reset-personalization" class="button button--quiet" type="button" data-i18n="resetDefaults">Restore defaults</button>
+              </div>
+            </section>
+          </section>
+
+          <section class="page about-page" data-page="about" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="aboutKicker">About Relay</p>
+              <h2 data-i18n="aboutTitle">Built locally. Made to disappear.</h2>
+              <p data-i18n="aboutCopy">Relay connects Discord to OBS and Windows while keeping credentials and traffic on this computer.</p>
+            </div>
+
+            <section class="about-card">
+              <div class="about-card__identity">
+                <img src="./assets/relay-radar.png" alt="">
+                <div>
+                  <span class="kicker">Relay</span>
+                  <strong>Relay</strong>
+                  <small>Windows · v1.0.0</small>
+                </div>
+              </div>
+              <div class="about-card__statement">
+                <span class="section-number">LOCAL / 01</span>
+                <p data-i18n="aboutStatement">A private broadcast utility for media, spoken messages and notifications—with permanent local OBS sources.</p>
+              </div>
+            </section>
+
+            <section class="about-profile">
+              <div class="about-profile__copy">
+                <span class="kicker" data-i18n="aboutCreatorLabel">Creator</span>
+                <h3>Stealthy</h3>
+                <p data-i18n="aboutCreatorCopy">Explore the creator's projects and source work on GitHub.</p>
+              </div>
+              <button class="about-github" type="button" data-help-link="github">
+                <span>
+                  <small>GitHub</small>
+                  <strong>@stealthsrc</strong>
+                </span>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M6 14 14 6M8 6h6v6"></path>
+                </svg>
+              </button>
+            </section>
+
+            <aside class="privacy-card" aria-labelledby="privacy-card-title">
+              <span class="privacy-card__mark" aria-hidden="true">
+                <svg viewBox="0 0 20 20">
+                  <path d="M10 2.5 16 5v4.2c0 3.8-2.4 6.7-6 8.3-3.6-1.6-6-4.5-6-8.3V5l6-2.5Z"></path>
+                  <path d="m7.2 10 1.8 1.8 3.8-4"></path>
+                </svg>
+              </span>
+              <div>
+                <strong id="privacy-card-title" data-i18n="privacyCardTitle">No data collection by Relay</strong>
+                <p data-i18n="privacyCardCopy">No telemetry, analytics, advertising or developer-held user profile. Local settings stay on this computer; Discord remains an external service.</p>
+              </div>
+              <button id="privacy-reference" class="privacy-card__link" type="button" data-i18n="privacyCardLink">Privacy and regional rights</button>
+            </aside>
+
+            <footer class="about-footer">
+              <span data-i18n="aboutPrivacy">Credentials encrypted by Windows</span>
+              <span data-i18n="aboutNetwork">Local server · 127.0.0.1</span>
+            </footer>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <template id="history-item-template">
+      <li class="history-item">
+        <div class="history-item__visual">
+          <img class="history-item__thumb" alt="">
+          <span class="history-item__type"></span>
+        </div>
+        <div class="history-item__meta">
+          <strong class="history-item__filename"></strong>
+          <span class="history-item__author"></span>
+        </div>
+        <time class="history-item__time"></time>
+        <button class="button button--quiet history-item__replay" type="button" data-i18n="replay">Replay</button>
+      </li>
+    </template>
+
+    <template id="moderation-item-template">
+      <li class="history-item moderation-item">
+        <div class="history-item__visual">
+          <img class="history-item__thumb" alt="">
+          <span class="history-item__type"></span>
+        </div>
+        <div class="history-item__meta">
+          <strong class="history-item__filename"></strong>
+          <span class="history-item__author"></span>
+        </div>
+        <time class="history-item__time"></time>
+        <div class="moderation-item__actions">
+          <button class="button button--quiet moderation-item__reject" type="button" data-i18n="reject">Reject</button>
+          <button class="button button--primary moderation-item__approve" type="button" data-i18n="approve">Approve</button>
+        </div>
+      </li>
+    </template>
+
+    <script type="module" src="./panel.js"></script>
+  </body>
+</html>

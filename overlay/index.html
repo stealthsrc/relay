@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="relay-mode" content="all">
+    <title>Relay</title>
+    <link rel="stylesheet" href="/overlay-assets/overlay.css">
+  </head>
+  <body>
+    <main id="overlay" class="overlay" aria-live="polite">
+      <img id="image" class="overlay__media overlay__image" alt="">
+      <video id="video" class="overlay__media overlay__video" playsinline preload="auto"></video>
+      <section id="audio-card" class="audio-card" hidden>
+        <img id="audio-artwork" class="audio-card__artwork" src="/overlay-assets/relay-radar.png" alt="">
+        <div class="audio-card__copy">
+          <span class="audio-card__label">Now playing</span>
+          <strong id="audio-title" class="audio-card__title"></strong>
+          <span id="audio-artist" class="audio-card__artist" hidden></span>
+          <span class="audio-card__wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+      </section>
+      <audio id="audio" preload="auto"></audio>
+      <section id="author" class="overlay__author" hidden>
+        <img id="author-avatar" class="overlay__avatar" alt="">
+        <span id="author-name"></span>
+      </section>
+    </main>
+    <div id="widget-move-layer" class="widget-move-layer" data-tauri-drag-region>
+      <span id="widget-move-label" class="widget-move-badge">Move overlay</span>
+    </div>
+    <script src="/overlay-assets/overlay.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,245 @@
+:root {
+  --accent: rgb(88 185 137);
+  --font-scale: 1;
+  color-scheme: dark;
+  font-family: Bahnschrift, "Arial Narrow", sans-serif;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.widget-move-layer {
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  display: none;
+  border: 2px dashed rgb(255 255 255 / 72%);
+  background: rgb(255 255 255 / 7%);
+  cursor: move;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.widget-move-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  color: #fff;
+  background: #111;
+  font: 700 12px Arial, sans-serif;
+  pointer-events: none;
+}
+
+.widget-move-badge,
+.audio-card__label,
+.audio-card__title,
+.audio-card__artist,
+.author__name {
+  font-size: calc(1em * var(--font-scale));
+}
+
+.audio-card__wave i {
+  background: var(--accent);
+}
+
+html.widget-edit .widget-move-layer {
+  display: block;
+}
+
+.overlay {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  place-items: center;
+}
+
+.overlay__media {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  visibility: hidden;
+  opacity: 0;
+  object-fit: contain;
+  object-position: center;
+  transform: translate(-50%, -50%) scale(0.985);
+  transition: opacity 320ms ease, transform 320ms ease;
+  will-change: opacity, transform;
+}
+
+.overlay__media.is-visible {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.overlay__media.is-hiding {
+  visibility: visible;
+}
+
+.overlay__video {
+  background: transparent;
+}
+
+.audio-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  width: min(520px, calc(100% - 32px));
+  gap: 22px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 22px;
+  color: #fff;
+  background: rgb(8 8 8 / 94%);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.audio-card.is-visible,
+.audio-card.is-hiding {
+  visibility: visible;
+}
+
+.audio-card.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.audio-card[hidden] {
+  display: none;
+}
+
+.audio-card__artwork {
+  width: 104px;
+  height: 104px;
+  border-radius: 20px;
+  object-fit: cover;
+}
+
+.audio-card__copy {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.audio-card__label {
+  color: rgb(255 255 255 / 55%);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.audio-card__title {
+  overflow: hidden;
+  font-size: clamp(18px, 4vw, 28px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-card__artist {
+  overflow: hidden;
+  color: rgb(255 255 255 / 68%);
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-card__wave {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  gap: 5px;
+}
+
+.audio-card__wave i {
+  width: 3px;
+  height: 8px;
+  border-radius: 999px;
+  background: #fff;
+  animation: wave 900ms ease-in-out infinite alternate;
+}
+
+.audio-card__wave i:nth-child(2),
+.audio-card__wave i:nth-child(4) {
+  animation-delay: -420ms;
+}
+
+.audio-card__wave i:nth-child(3) {
+  animation-delay: -680ms;
+}
+
+@keyframes wave {
+  to {
+    height: 22px;
+    opacity: 0.45;
+  }
+}
+
+.overlay__author {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(0 0 0 / 72%);
+  opacity: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  transform: translateY(8px);
+  transition: opacity 240ms ease 80ms, transform 240ms ease 80ms;
+}
+
+.overlay__author.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.overlay__author[hidden] {
+  display: none;
+}
+
+.overlay__avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay__media,
+  .audio-card,
+  .overlay__author {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}

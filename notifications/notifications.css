@@ -1,0 +1,188 @@
+:root {
+  --accent: rgb(88 185 137);
+  --font-scale: 1;
+  color-scheme: dark;
+  font-family: Bahnschrift, "Segoe UI Variable Display", sans-serif;
+}
+
+.notification-card__eyebrow,
+.notification-card__author,
+.notification-card__message,
+.notification-move-badge {
+  font-size: calc(1em * var(--font-scale));
+}
+
+.notification-card__presence,
+.notification-card__signal {
+  background: var(--accent);
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.notification-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.notification-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 4px;
+  width: min(470px, calc(100vw - 32px));
+  min-height: 94px;
+  box-sizing: border-box;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 14px 14px 16px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 18px;
+  color: #f7f8fb;
+  background: rgb(10 12 16 / 94%);
+  box-shadow: none;
+  opacity: 0;
+  transform: translateX(34px) scale(0.98);
+  transition: opacity 220ms ease, transform 360ms cubic-bezier(0.2, 0.9, 0.24, 1.12);
+  backdrop-filter: blur(18px);
+}
+
+.notification-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: #9fc9ff;
+  box-shadow: 0 0 18px #72adff;
+  content: "";
+}
+
+.notification-card.is-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.notification-card__avatar-shell {
+  position: relative;
+  width: 58px;
+  height: 58px;
+}
+
+.notification-card__avatar {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #050505;
+}
+
+.notification-card__presence {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #0a0c10;
+  border-radius: 50%;
+  background: #7ddaa8;
+}
+
+.notification-card__copy {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 2px;
+}
+
+.notification-card__eyebrow {
+  color: rgb(211 225 244 / 58%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.notification-card__author {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-card__message {
+  display: -webkit-box;
+  margin: 1px 0 0;
+  overflow: hidden;
+  color: rgb(244 247 252 / 76%);
+  font-size: 12px;
+  line-height: 1.25;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.notification-card__signal {
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgb(159 201 255 / 24%);
+  box-shadow: 0 0 12px rgb(114 173 255 / 26%);
+}
+
+.notification-move-layer {
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  display: none;
+  box-sizing: border-box;
+  border: 2px dashed rgb(159 201 255 / 82%);
+  background: rgb(159 201 255 / 7%);
+  cursor: move;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.notification-move-badge {
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #fff;
+  background: #0a0c10;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+html.notification-widget .notification-stage {
+  padding: 8px;
+}
+
+html.notification-widget .notification-card {
+  width: 100%;
+}
+
+html.widget-edit .notification-move-layer {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification-card {
+    transition-duration: 1ms;
+  }
+}

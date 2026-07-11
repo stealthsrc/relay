@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Relay</title>
+    <link rel="stylesheet" href="tray.css">
+  </head>
+  <body>
+    <main class="tray-panel">
+      <header class="tray-header">
+        <img class="tray-logo" src="assets/relay-radar.png" alt="">
+        <div class="tray-brand">
+          <strong>Relay</strong>
+        </div>
+        <span id="relay-indicator" class="relay-indicator" aria-label="Relay status"></span>
+      </header>
+
+      <section class="status-rack" aria-label="Connection status">
+        <div class="status-cell">
+          <span class="status-label">Discord</span>
+          <strong id="discord-status">Checking</strong>
+          <small id="discord-detail">Connecting…</small>
+        </div>
+        <div class="status-cell">
+          <span class="status-label">Local relay</span>
+          <strong id="server-status">Checking</strong>
+          <small id="server-detail">0 outputs</small>
+        </div>
+      </section>
+
+      <button id="open-panel" class="primary-action" type="button">
+        <span>
+          <small>System</small>
+          <strong>Open control panel</strong>
+        </span>
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M7 4.5 12.5 10 7 15.5"></path>
+        </svg>
+      </button>
+
+      <section class="widget-section">
+        <div class="section-label">
+          <span>Display widgets</span>
+          <small>Windows</small>
+        </div>
+
+        <article class="widget-row">
+          <div class="widget-copy">
+            <span class="widget-icon" aria-hidden="true">M</span>
+            <span>
+              <strong>Media overlay</strong>
+              <small id="media-widget-state">Hidden</small>
+            </span>
+          </div>
+          <div class="widget-actions">
+            <button id="toggle-media-widget" class="chip" type="button">Show</button>
+            <button id="lock-media-widget" class="icon-button" type="button" aria-label="Lock media widget">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path class="lock-shackle" d="M6.5 9V6.8a3.5 3.5 0 0 1 7 0V9"></path>
+                <rect x="4.5" y="8.5" width="11" height="8" rx="2"></rect>
+              </svg>
+            </button>
+          </div>
+        </article>
+
+        <article class="widget-row">
+          <div class="widget-copy">
+            <span class="widget-icon widget-icon--signal" aria-hidden="true">T</span>
+            <span>
+              <strong>TTS notifications</strong>
+              <small id="notification-widget-state">Hidden</small>
+            </span>
+          </div>
+          <div class="widget-actions">
+            <button id="toggle-notification-widget" class="chip" type="button">Show</button>
+            <button id="lock-notification-widget" class="icon-button" type="button" aria-label="Lock notification widget">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path class="lock-shackle" d="M6.5 9V6.8a3.5 3.5 0 0 1 7 0V9"></path>
+                <rect x="4.5" y="8.5" width="11" height="8" rx="2"></rect>
+              </svg>
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <footer class="tray-footer">
+        <span><i aria-hidden="true"></i> Running locally</span>
+        <button id="quit" type="button">Quit Relay</button>
+      </footer>
+    </main>
+    <script src="tray.js" defer></script>
+  </body>
+</html>
