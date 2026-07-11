@@ -164,7 +164,7 @@ impl EventHandler for Handler {
 
     async fn message_update(
         &self,
-        _context: Context,
+        context: Context,
         _old: Option<Message>,
         new: Option<Message>,
         event: MessageUpdateEvent,
@@ -173,23 +173,31 @@ impl EventHandler for Handler {
             submit_embedded_gifs(&self.core, &message).await;
             return;
         }
-        let Some(author) = event.author else {
-            return;
-        };
         let Some(embeds) = event.embeds else {
             return;
         };
-        let message = DeferredEmbedMessage {
-            channel_id: event.channel_id.to_string(),
-            message_id: event.id.to_string(),
-            author,
-            timestamp: event
-                .timestamp
-                .map(|timestamp| timestamp.unix_timestamp().max(0) as u64 * 1_000)
-                .unwrap_or_else(current_timestamp_ms),
-            embeds,
-        };
-        submit_deferred_embeds(&self.core, message).await;
+        if let Some(author) = event.author {
+            let message = DeferredEmbedMessage {
+                channel_id: event.channel_id.to_string(),
+                message_id: event.id.to_string(),
+                author,
+                timestamp: event
+                    .timestamp
+                    .map(|timestamp| timestamp.unix_timestamp().max(0) as u64 * 1_000)
+                    .unwrap_or_else(current_timestamp_ms),
+                embeds,
+            };
+            submit_deferred_embeds(&self.core, message).await;
+            return;
+        }
+
+        let watched_channel_id = self.core.config.read().await.watched_channel_id.clone();
+        if watched_channel_id.is_empty() || event.channel_id.to_string() != watched_channel_id {
+            return;
+        }
+        if let Ok(message) = context.http.get_message(event.channel_id, event.id).await {
+            submit_embedded_gifs(&self.core, &message).await;
+        }
     }
 
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
