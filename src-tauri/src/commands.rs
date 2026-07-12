@@ -433,6 +433,27 @@ pub async fn control_audio(
 }
 
 #[tauri::command]
+pub async fn get_media_artwork(
+    core: State<'_, Arc<AppCore>>,
+    artwork_id: String,
+) -> Result<tauri::ipc::Response, String> {
+    if artwork_id.is_empty()
+        || artwork_id.len() > 64
+        || !artwork_id
+            .chars()
+            .all(|character| character.is_ascii_digit())
+    {
+        return Err("Invalid media artwork ID.".into());
+    }
+    let cache = core.media_artwork.read().await;
+    let artwork = cache
+        .iter()
+        .find(|artwork| artwork.id == artwork_id)
+        .ok_or_else(|| "The media artwork is no longer available.".to_string())?;
+    Ok(tauri::ipc::Response::new(artwork.bytes.to_vec()))
+}
+
+#[tauri::command]
 pub async fn approve_pending_media(core: State<'_, Arc<AppCore>>, id: u64) -> Result<(), String> {
     core.approve_media(id)
         .await

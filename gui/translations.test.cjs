@@ -4,6 +4,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
+const panelHtml = fs.readFileSync(__dirname + "/panel.html", "utf8");
 const dictionarySource = panelSource.slice(
   panelSource.indexOf("const translations ="),
   panelSource.indexOf("const pageMetadata ="),
@@ -34,4 +35,11 @@ test("translation values contain no UTF-8 mojibake", () => {
   for (const language of Object.keys(translations)) {
     assert.doesNotMatch(Object.values(translations[language]).join("\n"), /Ã.|â€|Â./, language);
   }
+});
+
+test("the top bar audio player exposes only previous, pause and skip controls", () => {
+  assert.match(panelHtml, /id="now-playing"[\s\S]*id="previous-audio"[\s\S]*id="toggle-audio"[\s\S]*id="skip-audio"/);
+  assert.doesNotMatch(panelHtml, /shuffle-audio|repeat-audio|next-audio/);
+  assert.match(panelSource, /message\.type === "audioPlayback"/);
+  assert.match(panelSource, /invoke\("control_audio"/);
 });

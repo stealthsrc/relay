@@ -21,7 +21,7 @@ use crate::{
     bot::start_bot,
     commands::{
         apply_config, approve_pending_media, clear_notification_sound, clear_overlay,
-        clear_pending_media, control_audio, get_bootstrap, get_runtime_status,
+        clear_pending_media, control_audio, get_bootstrap, get_media_artwork, get_runtime_status,
         get_widget_bootstrap, pick_notification_sound, refresh_channels, regenerate_secret,
         reject_pending_media, replay_media, save_command_settings, save_credentials,
         set_interface_preferences, set_notification_sound_enabled,
@@ -117,6 +117,7 @@ pub fn run() {
             replay_media,
             skip_media,
             control_audio,
+            get_media_artwork,
             approve_pending_media,
             reject_pending_media,
             clear_pending_media,

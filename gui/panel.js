@@ -451,6 +451,23 @@ Object.assign(translations.de, {
   activityTextHelp: "Wird im Bot-Profil und in der Mitgliederliste angezeigt.", saveBotPresence: "Bot-Status speichern", botPresenceSaved: "Bot-Status gespeichert",
 });
 
+Object.assign(translations.en, {
+  nowPlaying: "Now playing", previousAudio: "Previous audio", pauseAudio: "Pause audio",
+  resumeAudio: "Resume audio", skipAudio: "Skip audio",
+});
+Object.assign(translations.fr, {
+  nowPlaying: "Lecture en cours", previousAudio: "Audio précédent", pauseAudio: "Mettre en pause",
+  resumeAudio: "Reprendre la lecture", skipAudio: "Passer l’audio",
+});
+Object.assign(translations.es, {
+  nowPlaying: "Reproduciendo", previousAudio: "Audio anterior", pauseAudio: "Pausar audio",
+  resumeAudio: "Reanudar audio", skipAudio: "Omitir audio",
+});
+Object.assign(translations.de, {
+  nowPlaying: "Aktuelle Wiedergabe", previousAudio: "Vorheriges Audio", pauseAudio: "Audio pausieren",
+  resumeAudio: "Audio fortsetzen", skipAudio: "Audio überspringen",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -571,6 +588,15 @@ const themeToggleButton = $("#theme-toggle");
 const themeValueElement = $("#theme-value");
 const pageTitleElement = $("#page-title");
 const pageKickerElement = $("#page-kicker");
+const nowPlayingElement = $("#now-playing");
+const nowPlayingArtworkElement = $("#now-playing-artwork");
+const nowPlayingTitleElement = $("#now-playing-title");
+const nowPlayingArtistElement = $("#now-playing-artist");
+const previousAudioButton = $("#previous-audio");
+const toggleAudioButton = $("#toggle-audio");
+const skipAudioButton = $("#skip-audio");
+const pauseAudioIcon = $("#pause-audio-icon");
+const playAudioIcon = $("#play-audio-icon");
 
 const history = [];
 let bootstrap;
@@ -588,6 +614,9 @@ let theme = localStorage.getItem("relay-theme")
 let accentRgb = parseStoredAccent();
 let fontScale = clamp(Number(localStorage.getItem("relay-font-scale")) || 100, 80, 140);
 let personalizationTimer;
+const audioPlaybackTargets = new Map();
+let currentAudioPlayback;
+let nowPlayingArtworkUrl;
 
 function t(key) {
   return translations[language][key] || translations.en[key] || key;
@@ -605,6 +634,7 @@ function applyLanguage() {
   languageValueElement.textContent = language.toUpperCase();
   applyTranslations();
   updatePageHeading();
+  renderNowPlaying();
   if (bootstrap) {
     setBotStatus(bootstrap.bot);
     setServerStatus(bootstrap.server);
@@ -623,6 +653,85 @@ function applyTheme() {
   localStorage.setItem("relay-theme", theme);
   themeValueElement.textContent = t(theme);
   invoke("set_window_theme", { theme }).catch(() => {});
+}
+
+function activeAudioPlayback() {
+  const states = [...audioPlaybackTargets.values()];
+  return states.find(({ status }) => status === "playing")
+    || states.find(({ status }) => status === "paused");
+}
+
+function releaseNowPlayingArtwork() {
+  if (nowPlayingArtworkUrl) URL.revokeObjectURL(nowPlayingArtworkUrl);
+  nowPlayingArtworkUrl = undefined;
+}
+
+async function loadNowPlayingArtwork(media) {
+  releaseNowPlayingArtwork();
+  nowPlayingArtworkElement.onerror = () => {
+    nowPlayingArtworkElement.onerror = null;
+    nowPlayingArtworkElement.src = "./assets/relay-radar.png";
+  };
+  nowPlayingArtworkElement.src = media.author?.displayAvatarUrl || "./assets/relay-radar.png";
+  if (!media.artworkId) return;
+  try {
+    const bytes = await invoke("get_media_artwork", { artworkId: media.artworkId });
+    if (currentAudioPlayback?.media.artworkId !== media.artworkId) return;
+    nowPlayingArtworkUrl = URL.createObjectURL(new Blob([bytes]));
+    nowPlayingArtworkElement.src = nowPlayingArtworkUrl;
+  } catch {}
+}
+
+function renderNowPlaying() {
+  const playback = activeAudioPlayback();
+  if (!playback) {
+    currentAudioPlayback = undefined;
+    nowPlayingElement.hidden = true;
+    releaseNowPlayingArtwork();
+    return;
+  }
+  const mediaChanged = currentAudioPlayback?.media.url !== playback.media.url;
+  currentAudioPlayback = playback;
+  nowPlayingElement.hidden = false;
+  nowPlayingTitleElement.textContent = playback.media.title || playback.media.filename || "Discord audio";
+  nowPlayingArtistElement.textContent = playback.media.artist || playback.media.author?.username || "Discord";
+  const paused = playback.status === "paused";
+  pauseAudioIcon.hidden = paused;
+  playAudioIcon.hidden = !paused;
+  const toggleLabel = t(paused ? "resumeAudio" : "pauseAudio");
+  toggleAudioButton.title = toggleLabel;
+  toggleAudioButton.setAttribute("aria-label", toggleLabel);
+  previousAudioButton.title = t("previousAudio");
+  previousAudioButton.setAttribute("aria-label", t("previousAudio"));
+  skipAudioButton.title = t("skipAudio");
+  skipAudioButton.setAttribute("aria-label", t("skipAudio"));
+  const audioHistory = history.filter(({ kind }) => kind === "audio");
+  const historyIndex = audioHistory.findIndex(({ url }) => url === playback.media.url);
+  previousAudioButton.disabled = historyIndex < 0 || historyIndex >= audioHistory.length - 1;
+  if (mediaChanged) loadNowPlayingArtwork(playback.media);
+}
+
+function updateAudioPlayback(playback) {
+  const existing = audioPlaybackTargets.get(playback.target);
+  if (playback.status === "idle") {
+    if (!existing || existing.media.url === playback.media.url) audioPlaybackTargets.delete(playback.target);
+  } else {
+    audioPlaybackTargets.delete(playback.target);
+    audioPlaybackTargets.set(playback.target, playback);
+  }
+  renderNowPlaying();
+}
+
+async function controlCurrentAudio(action) {
+  if (!currentAudioPlayback) return;
+  for (const button of [previousAudioButton, toggleAudioButton, skipAudioButton]) button.disabled = true;
+  try {
+    await invoke("control_audio", { action, currentUrl: currentAudioPlayback.media.url });
+  } catch (error) {
+    mediaSaveStateElement.textContent = String(error);
+  } finally {
+    renderNowPlaying();
+  }
 }
 
 function clamp(value, minimum, maximum) {
@@ -918,6 +1027,10 @@ function setServerStatus(status) {
   serverStatusElement.classList.toggle("is-online", status.connected);
   serverLabelElement.textContent = status.connected ? t("serverOnline") : status.error || t("serverOffline");
   clientCountElement.textContent = String(status.overlayClients || 0);
+  if (!status.connected) {
+    audioPlaybackTargets.clear();
+    renderNowPlaying();
+  }
 }
 
 function applyConfig(config) {
@@ -1159,6 +1272,8 @@ function handleServerMessage(event) {
     replaceHistory(message.payload);
   } else if (message.type === "media") {
     if (message.payload) rememberMedia(message.payload);
+  } else if (message.type === "audioPlayback") {
+    if (message.payload?.media?.kind === "audio") updateAudioPlayback(message.payload);
   } else if (message.type === "clear") {
     history.length = 0;
     renderHistory();
@@ -1605,6 +1720,12 @@ skipMediaButton.addEventListener("click", async () => {
   }
 });
 
+previousAudioButton.addEventListener("click", () => controlCurrentAudio("previous"));
+toggleAudioButton.addEventListener("click", () => controlCurrentAudio(
+  currentAudioPlayback?.status === "paused" ? "resume" : "pause",
+));
+skipAudioButton.addEventListener("click", () => controlCurrentAudio("skip"));
+
 clearOverlayButton.addEventListener("click", async () => {
   try {
     await invoke("clear_overlay");
@@ -1618,6 +1739,7 @@ window.addEventListener("beforeunload", () => {
   window.clearTimeout(reconnectTimer);
   window.clearInterval(statusTimer);
   socket?.close();
+  releaseNowPlayingArtwork();
 });
 
 initializeOutputGeometryControls();

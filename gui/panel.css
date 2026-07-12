@@ -250,6 +250,109 @@ select:focus-visible {
   background: var(--canvas);
 }
 
+.topbar__heading {
+  flex: 0 0 auto;
+}
+
+.now-playing {
+  display: grid;
+  grid-template-columns: 42px minmax(90px, 1fr) auto;
+  width: min(380px, 40vw);
+  min-width: 270px;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px 5px 5px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  color: #fff;
+  background: #0a0a0a;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+
+.now-playing__artwork {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #171717;
+}
+
+.now-playing__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.now-playing__eyebrow {
+  color: rgb(255 255 255 / 48%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.now-playing__copy strong,
+.now-playing__artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-playing__copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.now-playing__artist {
+  color: rgb(255 255 255 / 58%);
+  font-size: 9px;
+}
+
+.now-playing__controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.now-playing__button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: rgb(255 255 255 / 72%);
+  background: transparent;
+}
+
+.now-playing__button:hover:not(:disabled) {
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+}
+
+.now-playing__button--primary {
+  color: #080808;
+  background: #fff;
+}
+
+.now-playing__button--primary:hover:not(:disabled) {
+  color: #080808;
+  background: var(--accent);
+}
+
+.now-playing__button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.now-playing__button svg {
+  width: 15px;
+  height: 15px;
+  fill: currentcolor;
+}
+
 .kicker {
   margin: 0 0 4px;
   color: var(--muted);
@@ -1733,6 +1836,20 @@ input[type="range"] {
   .status-strip {
     max-width: 370px;
     flex-wrap: wrap;
+  }
+
+  .topbar {
+    gap: 12px;
+    padding-inline: 18px;
+  }
+
+  .now-playing {
+    width: min(300px, 38vw);
+    min-width: 230px;
+  }
+
+  .now-playing__artist {
+    display: none;
   }
 
   .history-item {

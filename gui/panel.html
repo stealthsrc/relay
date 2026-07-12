@@ -74,10 +74,30 @@
 
       <div class="workspace">
         <header class="topbar">
-          <div>
+          <div class="topbar__heading">
             <p id="page-kicker" class="kicker">System</p>
             <h1 id="page-title">Overview</h1>
           </div>
+          <section id="now-playing" class="now-playing" aria-live="polite" hidden>
+            <img id="now-playing-artwork" class="now-playing__artwork" src="./assets/relay-radar.png" alt="">
+            <div class="now-playing__copy">
+              <span class="now-playing__eyebrow" data-i18n="nowPlaying">Now playing</span>
+              <strong id="now-playing-title"></strong>
+              <span id="now-playing-artist" class="now-playing__artist"></span>
+            </div>
+            <div class="now-playing__controls">
+              <button id="previous-audio" class="now-playing__button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 6l-9 6 9 6z"/></svg>
+              </button>
+              <button id="toggle-audio" class="now-playing__button now-playing__button--primary" type="button">
+                <svg id="pause-audio-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+                <svg id="play-audio-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <button id="skip-audio" class="now-playing__button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l9 6-9 6zm11-1h2v14h-2z"/></svg>
+              </button>
+            </div>
+          </section>
           <div class="status-strip" aria-label="Relay status">
             <div class="status" id="bot-status">
               <span class="status__light"></span>
