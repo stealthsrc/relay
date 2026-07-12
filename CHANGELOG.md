@@ -11,6 +11,18 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+### English
+
+#### Fixed
+
+- Windows notification widgets now grow to the minimum height required by their content scale, preventing the card from disappearing at 135% and above.
+
+### Français
+
+#### Corrigé
+
+- Les widgets de notifications Windows s’agrandissent désormais jusqu’à la hauteur minimale requise par leur échelle de contenu, ce qui empêche la carte de disparaître à partir de 135 %.
+
 ## [1.1.22] - 2026-07-12
 
 ### English

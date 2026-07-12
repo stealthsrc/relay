@@ -15,6 +15,8 @@ use crate::{
 
 const WINDOW_LABEL: &str = "notification-widget";
 const DEFAULT_MARGIN: i32 = 28;
+const CARD_BASE_HEIGHT: f64 = 94.0;
+const WIDGET_VERTICAL_PADDING: f64 = 16.0;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,7 +76,12 @@ pub async fn set_locked(
     Ok(state(app, &core).await)
 }
 
-pub fn clamp_requested_size(app: &AppHandle, width: f64, height: f64) -> Result<(f64, f64)> {
+pub fn clamp_requested_size(
+    app: &AppHandle,
+    width: f64,
+    height: f64,
+    content_scale: u16,
+) -> Result<(f64, f64)> {
     let monitor = app
         .get_webview_window(WINDOW_LABEL)
         .and_then(|window| window.current_monitor().ok().flatten())
@@ -83,14 +90,26 @@ pub fn clamp_requested_size(app: &AppHandle, width: f64, height: f64) -> Result<
         .context("no display is available")?;
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
+    let height = height.max(minimum_height_for_content_scale(content_scale));
     Ok((
         width.clamp(MIN_WIDGET_WIDTH, area.size.width as f64 / scale),
         height.clamp(MIN_WIDGET_HEIGHT, area.size.height as f64 / scale),
     ))
 }
 
-pub fn apply_configured_size(app: &AppHandle, width: f64, height: f64) -> Result<()> {
+fn minimum_height_for_content_scale(content_scale: u16) -> f64 {
+    let scale = f64::from(content_scale.clamp(50, 200)) / 100.0;
+    (CARD_BASE_HEIGHT * scale + WIDGET_VERTICAL_PADDING).ceil()
+}
+
+pub fn apply_configured_size(
+    app: &AppHandle,
+    width: f64,
+    height: f64,
+    content_scale: u16,
+) -> Result<()> {
     if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
+        apply_monitor_constraints(&window, minimum_height_for_content_scale(content_scale))?;
         window.set_size(LogicalSize::new(width, height))?;
     }
     Ok(())
@@ -123,13 +142,17 @@ async fn ensure_window(app: &AppHandle, core: Arc<AppCore>) -> Result<WebviewWin
     let width = config
         .notification_widget_width
         .clamp(MIN_WIDGET_WIDTH, max_width);
+    let minimum_height =
+        minimum_height_for_content_scale(config.notification_widget_geometry.content_scale)
+            .min(max_height);
     let height = config
         .notification_widget_height
+        .max(minimum_height)
         .clamp(MIN_WIDGET_HEIGHT, max_height);
     let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::External(url.parse()?))
         .title("Relay - TTS notifications")
         .inner_size(width, height)
-        .min_inner_size(MIN_WIDGET_WIDTH, MIN_WIDGET_HEIGHT)
+        .min_inner_size(MIN_WIDGET_WIDTH, minimum_height)
         .max_inner_size(max_width, max_height)
         .resizable(!config.notification_widget_locked)
         .decorations(false)
@@ -145,7 +168,7 @@ async fn ensure_window(app: &AppHandle, core: Arc<AppCore>) -> Result<WebviewWin
 
     window.set_position(position)?;
     apply_lock(&window, config.notification_widget_locked)?;
-    apply_monitor_constraints(&window)?;
+    apply_monitor_constraints(&window, minimum_height)?;
     watch_geometry(&window, core.clone());
     if width != config.notification_widget_width || height != config.notification_widget_height {
         core.update_config(|config| {
@@ -172,14 +195,18 @@ fn watch_geometry(window: &WebviewWindow, core: Arc<AppCore>) {
     let window = window.clone();
     window.clone().on_window_event(move |event| match event {
         tauri::WindowEvent::Moved(position) => {
-            let _ = apply_monitor_constraints(&window);
+            if let Some(minimum_height) = configured_minimum_height(&core) {
+                let _ = apply_monitor_constraints(&window, minimum_height);
+            }
             persist_position(core.clone(), *position);
         }
         tauri::WindowEvent::Resized(size) => {
             persist_size(core.clone(), &window, *size);
         }
         tauri::WindowEvent::ScaleFactorChanged { .. } => {
-            let _ = apply_monitor_constraints(&window);
+            if let Some(minimum_height) = configured_minimum_height(&core) {
+                let _ = apply_monitor_constraints(&window, minimum_height);
+            }
         }
         _ => {}
     });
@@ -273,17 +300,24 @@ fn resolved_geometry(
     Ok((position, max_width, max_height))
 }
 
-fn apply_monitor_constraints(window: &WebviewWindow) -> Result<()> {
+fn configured_minimum_height(core: &Arc<AppCore>) -> Option<f64> {
+    core.config.try_read().ok().map(|config| {
+        minimum_height_for_content_scale(config.notification_widget_geometry.content_scale)
+    })
+}
+
+fn apply_monitor_constraints(window: &WebviewWindow, minimum_height: f64) -> Result<()> {
     let monitor = window
         .current_monitor()?
         .context("no display is available")?;
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
+    let max_height = area.size.height as f64 / scale;
     window.set_size_constraints(WindowSizeConstraints {
         min_width: Some(tauri::LogicalUnit::new(MIN_WIDGET_WIDTH).into()),
-        min_height: Some(tauri::LogicalUnit::new(MIN_WIDGET_HEIGHT).into()),
+        min_height: Some(tauri::LogicalUnit::new(minimum_height.min(max_height)).into()),
         max_width: Some(tauri::LogicalUnit::new(area.size.width as f64 / scale).into()),
-        max_height: Some(tauri::LogicalUnit::new(area.size.height as f64 / scale).into()),
+        max_height: Some(tauri::LogicalUnit::new(max_height).into()),
     })?;
     Ok(())
 }
@@ -312,6 +346,8 @@ async fn widget_url(core: &Arc<AppCore>) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::minimum_height_for_content_scale;
+
     #[test]
     fn notification_widget_defaults_remain_compact() {
         assert_eq!(
@@ -321,5 +357,12 @@ mod tests {
             ),
             (510.0, 130.0)
         );
+    }
+
+    #[test]
+    fn notification_widget_height_keeps_scaled_content_visible() {
+        assert_eq!(minimum_height_for_content_scale(100), 110.0);
+        assert_eq!(minimum_height_for_content_scale(135), 143.0);
+        assert_eq!(minimum_height_for_content_scale(200), 204.0);
     }
 }
