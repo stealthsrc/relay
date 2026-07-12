@@ -8,6 +8,10 @@ const thumbnailSource = panelSource.slice(
   panelSource.indexOf("function isVideoThumbnail"),
   panelSource.indexOf("function replaceHistory"),
 );
+const historyRenderSource = panelSource.slice(
+  panelSource.indexOf("function renderHistory"),
+  panelSource.indexOf("function replaceHistory"),
+);
 
 function createHarness() {
   const videos = [];
@@ -92,6 +96,29 @@ test("history defers and snapshots direct video thumbnails", () => {
   assert.equal(video.currentTime, 0.1);
   video.emit("seeked");
   assert.equal(video.pauseCalls, 1);
+});
+
+test("history starts loading video thumbnails after rendering", () => {
+  const video = {
+    dataset: { thumbnailSource: "https://cdn.discordapp.com/video.mp4" },
+    src: "",
+    loadCalls: 0,
+    load() { this.loadCalls += 1; },
+  };
+  const context = vm.createContext({
+    history: [],
+    historyEmptyElement: {},
+    historyListElement: {
+      replaceChildren() {},
+      querySelectorAll() { return [video]; },
+    },
+  });
+  vm.runInContext(`${historyRenderSource}\nglobalThis.renderHistoryForTest = renderHistory;`, context);
+
+  context.renderHistoryForTest();
+
+  assert.equal(video.src, "https://cdn.discordapp.com/video.mp4");
+  assert.equal(video.loadCalls, 1);
 });
 
 test("history uses the authenticated cache for video GIF thumbnails", () => {

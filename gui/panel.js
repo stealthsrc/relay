@@ -1135,6 +1135,7 @@ function renderHistory() {
     });
     historyListElement.append(item);
   }
+  loadHistoryVideoThumbnails();
 }
 
 function isVideoThumbnail(kind, contentType) {
