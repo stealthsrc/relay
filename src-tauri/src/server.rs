@@ -28,7 +28,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use crate::{
     config::{AppConfig, OutputGeometry},
     credentials::load_or_create_relay_secret,
-    model::{RelayEvent, ServerStatus},
+    model::{AudioPlaybackState, MediaKind, RelayEvent, ServerStatus},
     state::{AppCore, ServerRuntime},
 };
 
@@ -109,6 +109,12 @@ struct AccessQuery {
     role: Option<String>,
     secret: Option<String>,
     token: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", content = "payload", rename_all = "camelCase")]
+enum OutputClientMessage {
+    AudioPlayback(AudioPlaybackState),
 }
 
 pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
@@ -685,6 +691,19 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
                     Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
                     Some(Ok(Message::Ping(payload))) => {
                         if sender.send(Message::Pong(payload)).await.is_err() { break; }
+                    }
+                    Some(Ok(Message::Text(text))) if is_output => {
+                        let Ok(OutputClientMessage::AudioPlayback(playback)) = serde_json::from_str(text.as_str()) else {
+                            let _ = sender.send(Message::Close(None)).await;
+                            break;
+                        };
+                        if !matches!(playback.media.kind, MediaKind::Audio)
+                            || !matches!(playback.target.as_str(), "obs" | "widget")
+                        {
+                            let _ = sender.send(Message::Close(None)).await;
+                            break;
+                        }
+                        let _ = state.core.relay_tx.send(RelayEvent::AudioPlayback(playback));
                     }
                     Some(Ok(_)) => {
                         let _ = sender.send(Message::Close(None)).await;

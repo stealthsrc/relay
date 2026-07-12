@@ -41,6 +41,38 @@ pub struct MediaEvent {
     pub message_id: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AudioPlaybackStatus {
+    Playing,
+    Paused,
+    Idle,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioPlaybackState {
+    pub status: AudioPlaybackStatus,
+    pub target: String,
+    pub media: MediaEvent,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AudioControlAction {
+    Pause,
+    Resume,
+    Skip,
+    Previous,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioControlEvent {
+    pub action: AudioControlAction,
+    pub media: Option<MediaEvent>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingMedia {
@@ -139,6 +171,8 @@ impl Default for InterfacePreferences {
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 pub enum RelayEvent {
     Media(MediaEvent),
+    AudioPlayback(AudioPlaybackState),
+    AudioControl(AudioControlEvent),
     Sticker(StickerEvent),
     Tts(TtsEvent),
     Config(AppConfig),

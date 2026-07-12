@@ -97,10 +97,13 @@ function createHarness(search = "?secret=private", mode = "all") {
     constructor(url) {
       this.url = url;
       this.listeners = new Map();
+      this.readyState = 1;
+      this.sent = [];
       sockets.push(this);
     }
     addEventListener(type, listener) { this.listeners.set(type, listener); }
     emit(type, data) { this.listeners.get(type)?.({ data }); }
+    send(data) { this.sent.push(JSON.parse(data)); }
     close() {}
   }
 
@@ -314,6 +317,29 @@ test("OBS audio uses the unchanged bytes cached by Relay", () => {
     elements["#audio"].src,
     "/media-audio/123456789012345678?secret=private",
   );
+});
+
+test("audio playback reports live state and follows player controls", async () => {
+  const { elements, socket } = createHarness("?secret=private", "audio");
+  const media = {
+    kind: "audio", url: "https://cdn.discordapp.com/track.mp3", filename: "track.mp3",
+  };
+  socket.emit("message", JSON.stringify({ type: "media", payload: media }));
+  elements["#audio"].emit("loadeddata");
+  elements["#audio"].emit("playing");
+  assert.equal(socket.sent.at(-1).type, "audioPlayback");
+  assert.equal(socket.sent.at(-1).payload.status, "playing");
+
+  socket.emit("message", JSON.stringify({ type: "audioControl", payload: { action: "pause" } }));
+  assert.equal(socket.sent.at(-1).payload.status, "paused");
+  assert.ok(elements["#audio"].pauseCalls > 0);
+
+  socket.emit("message", JSON.stringify({ type: "audioControl", payload: { action: "resume" } }));
+  await Promise.resolve();
+  assert.equal(socket.sent.at(-1).payload.status, "playing");
+
+  socket.emit("message", JSON.stringify({ type: "audioControl", payload: { action: "skip" } }));
+  assert.equal(socket.sent.at(-1).payload.status, "idle");
 });
 
 test("overlay clears playback and visuals when Relay stops", () => {

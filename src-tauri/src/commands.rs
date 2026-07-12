@@ -12,8 +12,8 @@ use crate::{
         save_discord_credentials,
     },
     model::{
-        BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, PendingMedia, RelayEvent,
-        ServerStatus,
+        AudioControlAction, AudioControlEvent, BotStatus, ChannelSummary, InterfacePreferences,
+        MediaEvent, PendingMedia, RelayEvent, ServerStatus,
     },
     notification_widget::{self, NotificationWidgetState},
     server::start_server,
@@ -393,6 +393,42 @@ pub async fn replay_media(core: State<'_, Arc<AppCore>>, message_id: String) -> 
 #[tauri::command]
 pub async fn skip_media(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
     let _ = core.relay_tx.send(RelayEvent::Skip);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn control_audio(
+    core: State<'_, Arc<AppCore>>,
+    action: String,
+    current_url: Option<String>,
+) -> Result<(), String> {
+    let (action, media) = match action.as_str() {
+        "pause" => (AudioControlAction::Pause, None),
+        "resume" => (AudioControlAction::Resume, None),
+        "skip" => (AudioControlAction::Skip, None),
+        "previous" => {
+            let history = core.history.read().await;
+            let audio = history
+                .iter()
+                .filter(|event| matches!(event.kind, crate::model::MediaKind::Audio))
+                .collect::<Vec<_>>();
+            let current_index = current_url
+                .as_deref()
+                .and_then(|url| audio.iter().position(|event| event.url == url));
+            let previous = current_index
+                .and_then(|index| audio.get(index + 1))
+                .or_else(|| current_index.is_none().then(|| audio.first()).flatten())
+                .ok_or_else(|| "No previous audio is available.".to_string())?;
+            (AudioControlAction::Previous, Some((*previous).clone()))
+        }
+        _ => return Err("Invalid audio control action.".into()),
+    };
+    let _ = core
+        .relay_tx
+        .send(RelayEvent::AudioControl(AudioControlEvent {
+            action,
+            media,
+        }));
     Ok(())
 }
 

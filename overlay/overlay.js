@@ -51,6 +51,18 @@ let reconnectDelayMs = 1000;
 let socket;
 let pendingPort;
 let isUnloading = false;
+let lastAudioPlaybackReport = "";
+
+function reportAudioPlayback(status, media = currentMedia) {
+  if (isPreview || media?.kind !== "audio" || socket?.readyState !== 1) return;
+  const reportKey = `${status}:${media.url}`;
+  if (reportKey === lastAudioPlaybackReport) return;
+  socket.send(JSON.stringify({
+    type: "audioPlayback",
+    payload: { status, target: isWidgetWindow ? "widget" : "obs", media },
+  }));
+  lastAudioPlaybackReport = reportKey;
+}
 
 function mediaSources(media) {
   if (media.cachedMediaId) {
@@ -172,6 +184,7 @@ function revealMedia({ timed = false } = {}) {
 
 function finishCurrentMedia(expectedGeneration = playbackGeneration) {
   if (!currentMedia || expectedGeneration !== playbackGeneration) return;
+  reportAudioPlayback("idle");
   resetElements();
   currentMedia = undefined;
   showNextMedia();
@@ -275,7 +288,10 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
   };
   const playbackStateChanged = (event) => {
     if (generation !== playbackGeneration) return;
-    if (event.type === "playing" || event.type === "timeupdate") armWatchdog(20000);
+    if (event.type === "playing" || event.type === "timeupdate") {
+      armWatchdog(20000);
+      reportAudioPlayback("playing");
+    }
     else armWatchdog(15000);
   };
   const onEnded = () => {
@@ -368,9 +384,29 @@ function interruptPlayback() {
   if (!currentMedia) {
     return;
   }
+  reportAudioPlayback("idle");
   playbackGeneration += 1;
   resetElements();
   currentMedia = undefined;
+}
+
+function controlAudio(control = {}) {
+  if (control.action === "previous" && control.media?.kind === "audio") {
+    if (currentMedia?.kind === "audio") interruptPlayback();
+    queue.unshift(control.media);
+    showNextMedia();
+    return;
+  }
+  if (currentMedia?.kind !== "audio") return;
+  if (control.action === "pause") {
+    window.clearTimeout(mediaWatchdog);
+    activePlayback?.pause();
+    reportAudioPlayback("paused");
+  } else if (control.action === "resume") {
+    activePlayback?.play().then(() => reportAudioPlayback("playing")).catch(() => hideCurrentMedia());
+  } else if (control.action === "skip") {
+    finishCurrentMedia();
+  }
 }
 
 function handleMessage(event) {
@@ -414,6 +450,9 @@ function handleMessage(event) {
   } else if (message.type === "skip") {
     if (isPreview) return;
     skipCurrentMedia();
+  } else if (message.type === "audioControl") {
+    if (isPreview) return;
+    controlAudio(message.payload);
   } else if (message.type === "clear") {
     if (isPreview) return;
     clearOverlay();
