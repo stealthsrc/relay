@@ -141,9 +141,29 @@ pub struct ChannelSummary {
 
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OutputConnectionStatus {
+    pub obs_clients: usize,
+    pub widget_clients: usize,
+    pub preview_clients: usize,
+    pub last_connected_at: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputStatuses {
+    pub visual: OutputConnectionStatus,
+    pub audio: OutputConnectionStatus,
+    pub tts: OutputConnectionStatus,
+    pub notification: OutputConnectionStatus,
+    pub sticker: OutputConnectionStatus,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerStatus {
     pub connected: bool,
     pub overlay_clients: usize,
+    pub outputs: OutputStatuses,
     pub error: Option<String>,
 }
 

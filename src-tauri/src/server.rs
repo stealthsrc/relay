@@ -1,9 +1,6 @@
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-    time::Duration,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context, Result};
@@ -28,7 +25,10 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use crate::{
     config::{AppConfig, OutputGeometry},
     credentials::load_or_create_relay_secret,
-    model::{AudioPlaybackState, MediaKind, RelayEvent, ServerStatus},
+    model::{
+        AudioPlaybackState, MediaKind, OutputConnectionStatus, OutputStatuses, RelayEvent,
+        ServerStatus,
+    },
     state::{AppCore, ServerRuntime},
 };
 
@@ -100,7 +100,6 @@ const STICKERS_JS: &str = include_str!("../../stickers/stickers.js");
 struct RelayServerState {
     core: Arc<AppCore>,
     relay_secret: Arc<String>,
-    overlay_clients: Arc<AtomicUsize>,
     client_shutdown: tokio::sync::broadcast::Sender<()>,
 }
 
@@ -109,6 +108,38 @@ struct AccessQuery {
     role: Option<String>,
     secret: Option<String>,
     token: Option<String>,
+    source: Option<String>,
+    client: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutputSource {
+    Visual,
+    Audio,
+    Tts,
+    Notification,
+    Sticker,
+    All,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutputClient {
+    Obs,
+    Widget,
+    Preview,
+    Probe,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OutputConnection {
+    source: OutputSource,
+    client: OutputClient,
+}
+
+impl OutputConnection {
+    fn is_tracked(self) -> bool {
+        !matches!(self.client, OutputClient::Probe)
+    }
 }
 
 #[derive(Deserialize)]
@@ -143,7 +174,6 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
     let state = RelayServerState {
         core: core.clone(),
         relay_secret: Arc::new(load_or_create_relay_secret()?),
-        overlay_clients: Arc::new(AtomicUsize::new(0)),
         client_shutdown: client_shutdown.clone(),
     };
     let router = Router::new()
@@ -197,6 +227,7 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         *status_core.server_status.write().await = ServerStatus {
             connected: true,
             overlay_clients: 0,
+            outputs: OutputStatuses::default(),
             error: None,
         };
         let result = axum::serve(listener, router)
@@ -614,13 +645,27 @@ async fn websocket(
         return StatusCode::UNAUTHORIZED.into_response();
     }
 
-    let is_output = matches!(role, "overlay" | "tts" | "notification" | "sticker");
-    upgrade.on_upgrade(move |socket| handle_socket(socket, state, is_output))
+    let output = match role {
+        "overlay" | "tts" | "notification" | "sticker" => {
+            let Some(output) = output_connection(role, &query) else {
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            Some(output)
+        }
+        "panel" => None,
+        _ => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    upgrade.on_upgrade(move |socket| handle_socket(socket, state, output))
 }
 
-async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bool) {
-    if is_output {
-        update_overlay_count(&state, 1).await;
+async fn handle_socket(
+    socket: WebSocket,
+    state: RelayServerState,
+    output: Option<OutputConnection>,
+) {
+    let is_output = output.is_some();
+    if let Some(output) = output {
+        update_output_connection(&state, output, 1).await;
     }
     let (mut sender, mut receiver) = socket.split();
     let config = state.core.config.read().await.clone();
@@ -636,8 +681,8 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
     .await
     .is_err()
     {
-        if is_output {
-            update_overlay_count(&state, -1).await;
+        if let Some(output) = output {
+            update_output_connection(&state, output, -1).await;
         }
         return;
     }
@@ -649,8 +694,8 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
     .await
     .is_err()
     {
-        if is_output {
-            update_overlay_count(&state, -1).await;
+        if let Some(output) = output {
+            update_output_connection(&state, output, -1).await;
         }
         return;
     }
@@ -713,8 +758,8 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
             }
         }
     }
-    if is_output {
-        update_overlay_count(&state, -1).await;
+    if let Some(output) = output {
+        update_output_connection(&state, output, -1).await;
     }
 }
 
@@ -726,19 +771,99 @@ async fn send_json<T: serde::Serialize>(
     sender.send(Message::Text(serialized.into())).await
 }
 
-async fn update_overlay_count(state: &RelayServerState, delta: isize) {
-    let count = if delta > 0 {
-        state
-            .overlay_clients
-            .fetch_add(delta as usize, Ordering::Relaxed)
-            + delta as usize
-    } else {
-        state
-            .overlay_clients
-            .fetch_sub((-delta) as usize, Ordering::Relaxed)
-            - (-delta) as usize
+fn output_connection(role: &str, query: &AccessQuery) -> Option<OutputConnection> {
+    let source = match (role, query.source.as_deref()) {
+        ("overlay", None | Some("all")) => OutputSource::All,
+        ("overlay", Some("visual")) => OutputSource::Visual,
+        ("overlay", Some("audio")) => OutputSource::Audio,
+        ("tts", None | Some("tts")) => OutputSource::Tts,
+        ("notification", None | Some("notification")) => OutputSource::Notification,
+        ("sticker", None | Some("sticker")) => OutputSource::Sticker,
+        _ => return None,
     };
-    state.core.server_status.write().await.overlay_clients = count;
+    let client = match query.client.as_deref().unwrap_or("obs") {
+        "obs" => OutputClient::Obs,
+        "widget" => OutputClient::Widget,
+        "preview" => OutputClient::Preview,
+        "probe" => OutputClient::Probe,
+        _ => return None,
+    };
+    if matches!(client, OutputClient::Widget | OutputClient::Preview)
+        && !matches!(
+            source,
+            OutputSource::Visual | OutputSource::Notification | OutputSource::All
+        )
+    {
+        return None;
+    }
+    Some(OutputConnection { source, client })
+}
+
+async fn update_output_connection(
+    state: &RelayServerState,
+    connection: OutputConnection,
+    delta: isize,
+) {
+    if !connection.is_tracked() {
+        return;
+    }
+    let mut status = state.core.server_status.write().await;
+    if matches!(connection.client, OutputClient::Obs) {
+        adjust_count(&mut status.overlay_clients, delta);
+    }
+    for source in output_sources(connection.source) {
+        let output = output_status_mut(&mut status.outputs, *source);
+        let count = match connection.client {
+            OutputClient::Obs => &mut output.obs_clients,
+            OutputClient::Widget => &mut output.widget_clients,
+            OutputClient::Preview => &mut output.preview_clients,
+            OutputClient::Probe => continue,
+        };
+        adjust_count(count, delta);
+        if delta > 0 {
+            output.last_connected_at = Some(current_timestamp_ms());
+        }
+    }
+}
+
+fn output_sources(source: OutputSource) -> &'static [OutputSource] {
+    match source {
+        OutputSource::All => &[OutputSource::Visual, OutputSource::Audio],
+        OutputSource::Visual => &[OutputSource::Visual],
+        OutputSource::Audio => &[OutputSource::Audio],
+        OutputSource::Tts => &[OutputSource::Tts],
+        OutputSource::Notification => &[OutputSource::Notification],
+        OutputSource::Sticker => &[OutputSource::Sticker],
+    }
+}
+
+fn output_status_mut(
+    statuses: &mut OutputStatuses,
+    source: OutputSource,
+) -> &mut OutputConnectionStatus {
+    match source {
+        OutputSource::Visual => &mut statuses.visual,
+        OutputSource::Audio => &mut statuses.audio,
+        OutputSource::Tts => &mut statuses.tts,
+        OutputSource::Notification => &mut statuses.notification,
+        OutputSource::Sticker => &mut statuses.sticker,
+        OutputSource::All => unreachable!("combined output sources are expanded before tracking"),
+    }
+}
+
+fn adjust_count(count: &mut usize, delta: isize) {
+    if delta > 0 {
+        *count = count.saturating_add(delta as usize);
+    } else {
+        *count = count.saturating_sub((-delta) as usize);
+    }
+}
+
+fn current_timestamp_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 fn secret_matches(candidate: Option<&str>, expected: &str) -> bool {
@@ -811,6 +936,23 @@ mod tests {
         assert!(!origin_allowed(Some(&HeaderValue::from_static(
             "https://example.com"
         ))));
+    }
+
+    #[test]
+    fn classifies_valid_output_sources_and_client_contexts() {
+        let visual_preview =
+            output_connection("overlay", &access_query(Some("visual"), Some("preview")))
+                .expect("visual preview should be accepted");
+        assert_eq!(visual_preview.source, OutputSource::Visual);
+        assert_eq!(visual_preview.client, OutputClient::Preview);
+
+        let combined = output_connection("overlay", &access_query(None, None))
+            .expect("legacy overlay should remain supported");
+        assert_eq!(combined.source, OutputSource::All);
+        assert_eq!(combined.client, OutputClient::Obs);
+
+        assert!(output_connection("tts", &access_query(Some("audio"), None)).is_none());
+        assert!(output_connection("tts", &access_query(None, Some("widget"))).is_none());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -906,9 +1048,9 @@ mod tests {
         );
 
         let mut clients = Vec::new();
-        for _ in 0..10 {
+        for _ in 0..8 {
             let (mut client, _) = tokio_tungstenite::connect_async(format!(
-                "ws://127.0.0.1:{port}/ws?role=overlay&secret={secret}"
+                "ws://127.0.0.1:{port}/ws?role=overlay&source=visual&client=obs&secret={secret}"
             ))
             .await
             .unwrap();
@@ -923,8 +1065,38 @@ mod tests {
             );
             clients.push(client);
         }
+        let (mut preview_client, _) = tokio_tungstenite::connect_async(format!(
+            "ws://127.0.0.1:{port}/ws?role=overlay&source=visual&client=preview&secret={secret}"
+        ))
+        .await
+        .unwrap();
+        let initial = preview_client.next().await.unwrap().unwrap();
+        assert!(initial.to_text().unwrap().contains("\"type\":\"config\""));
+        let appearance = preview_client.next().await.unwrap().unwrap();
+        assert!(
+            appearance
+                .to_text()
+                .unwrap()
+                .contains("\"type\":\"appearance\"")
+        );
+        clients.push(preview_client);
+        let (mut widget_client, _) = tokio_tungstenite::connect_async(format!(
+            "ws://127.0.0.1:{port}/ws?role=overlay&source=visual&client=widget&secret={secret}"
+        ))
+        .await
+        .unwrap();
+        let initial = widget_client.next().await.unwrap().unwrap();
+        assert!(initial.to_text().unwrap().contains("\"type\":\"config\""));
+        let appearance = widget_client.next().await.unwrap().unwrap();
+        assert!(
+            appearance
+                .to_text()
+                .unwrap()
+                .contains("\"type\":\"appearance\"")
+        );
+        clients.push(widget_client);
         let (mut tts_client, _) = tokio_tungstenite::connect_async(format!(
-            "ws://127.0.0.1:{port}/ws?role=tts&secret={secret}"
+            "ws://127.0.0.1:{port}/ws?role=tts&source=tts&client=obs&secret={secret}"
         ))
         .await
         .unwrap();
@@ -939,7 +1111,7 @@ mod tests {
         );
         clients.push(tts_client);
         let (mut notification_client, _) = tokio_tungstenite::connect_async(format!(
-            "ws://127.0.0.1:{port}/ws?role=notification&secret={secret}"
+            "ws://127.0.0.1:{port}/ws?role=notification&source=notification&client=obs&secret={secret}"
         ))
         .await
         .unwrap();
@@ -987,7 +1159,14 @@ mod tests {
             }
         }
         assert_eq!(core.history.read().await.len(), 50);
-        assert_eq!(core.server_status.read().await.overlay_clients, 12);
+        let status = core.server_status.read().await.clone();
+        assert_eq!(status.overlay_clients, 10);
+        assert_eq!(status.outputs.visual.obs_clients, 8);
+        assert_eq!(status.outputs.visual.preview_clients, 1);
+        assert_eq!(status.outputs.visual.widget_clients, 1);
+        assert!(status.outputs.visual.last_connected_at.is_some());
+        assert_eq!(status.outputs.tts.obs_clients, 1);
+        assert_eq!(status.outputs.notification.obs_clients, 1);
 
         start_server(core.clone()).await.unwrap();
         for client in &mut clients {
@@ -1009,6 +1188,16 @@ mod tests {
             .local_addr()
             .unwrap()
             .port()
+    }
+
+    fn access_query(source: Option<&str>, client: Option<&str>) -> AccessQuery {
+        AccessQuery {
+            role: None,
+            secret: None,
+            token: None,
+            source: source.map(str::to_owned),
+            client: client.map(str::to_owned),
+        }
     }
 
     #[test]
