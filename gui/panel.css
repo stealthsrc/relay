@@ -748,6 +748,11 @@ kbd {
   font-weight: 550;
 }
 
+.command-code {
+  font-family: Consolas, "SFMono-Regular", monospace;
+  letter-spacing: -0.02em;
+}
+
 .setting-row small,
 .settings-actions p {
   color: var(--muted);

@@ -308,11 +308,53 @@ translations.de = {
   themeLabel: "Design", accentColor: "Akzentfarbe", fontSize: "Textgröße", previewTitle: "Relay-Vorschau", previewCopy: "Lesbarer Text mit deiner Akzentfarbe.", previewButton: "Beispielschaltfläche", resetDefaults: "Standard wiederherstellen", personalizationSaved: "Einstellungen angewendet",
 };
 
+Object.assign(translations.en, {
+  navCommands: "Commands", commandsKicker: "Discord controls", commandsTitle: "Commands, under your control.",
+  commandsCopy: "Enable only the Relay commands you want available in Discord.", commandsSettings: "Command availability",
+  commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
+  commandShowHelp: "Show the active Relay configuration.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
+  commandClearHelp: "Clear outputs, waiting media, and local history.", commandLockHelp: "Toggle the configured media channel lock.",
+  commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
+  saveCommands: "Save commands", commandsSaved: "Command availability saved",
+  commandsPermission: "Channel locking requires Manage Channels. Commands are restricted to Discord administrators.",
+});
+Object.assign(translations.fr, {
+  navCommands: "Commandes", commandsKicker: "Contrôles Discord", commandsTitle: "Vos commandes, vos règles.",
+  commandsCopy: "Activez uniquement les commandes Relay que vous souhaitez rendre disponibles dans Discord.", commandsSettings: "Disponibilité des commandes",
+  commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
+  commandShowHelp: "Affiche la configuration Relay active.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
+  commandClearHelp: "Efface les sorties, les médias en attente et l’historique local.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
+  commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
+  saveCommands: "Enregistrer les commandes", commandsSaved: "Disponibilité des commandes enregistrée",
+  commandsPermission: "Le verrouillage nécessite Gérer les salons. Les commandes sont réservées aux administrateurs Discord.",
+});
+Object.assign(translations.es, {
+  navCommands: "Comandos", commandsKicker: "Controles de Discord", commandsTitle: "Tus comandos, tus reglas.",
+  commandsCopy: "Activa solo los comandos de Relay que quieras usar en Discord.", commandsSettings: "Disponibilidad de comandos",
+  commandChannelHelp: "Elige el canal de medios de Discord.", commandUrlHelp: "Muestra de forma efímera las URL locales de Relay y OBS.",
+  commandShowHelp: "Muestra la configuración activa de Relay.", commandRegenerateHelp: "Reconecta las salidas locales sin cambiar sus URL.",
+  commandClearHelp: "Limpia las salidas, los medios pendientes y el historial local.", commandLockHelp: "Bloquea o desbloquea el canal de medios configurado.",
+  commandLockInactive: "El canal de medios está desbloqueado.", commandLockActive: "El canal de medios está bloqueado. /relay lock sigue disponible para desbloquearlo.",
+  saveCommands: "Guardar comandos", commandsSaved: "Disponibilidad de comandos guardada",
+  commandsPermission: "El bloqueo requiere Gestionar canales. Los comandos están restringidos a administradores de Discord.",
+});
+Object.assign(translations.de, {
+  navCommands: "Befehle", commandsKicker: "Discord-Steuerung", commandsTitle: "Deine Befehle, deine Regeln.",
+  commandsCopy: "Aktiviere nur die Relay-Befehle, die in Discord verfügbar sein sollen.", commandsSettings: "Befehlsverfügbarkeit",
+  commandChannelHelp: "Wählt den Discord-Medienkanal.", commandUrlHelp: "Zeigt lokale Relay- und OBS-URLs ephemer an.",
+  commandShowHelp: "Zeigt die aktive Relay-Konfiguration.", commandRegenerateHelp: "Verbindet lokale Ausgaben neu, ohne ihre URLs zu ändern.",
+  commandClearHelp: "Leert Ausgaben, wartende Medien und den lokalen Verlauf.", commandLockHelp: "Sperrt oder entsperrt den konfigurierten Medienkanal.",
+  commandLockInactive: "Der Medienkanal ist derzeit entsperrt.", commandLockActive: "Der Medienkanal ist gesperrt. /relay lock bleibt zum Entsperren verfügbar.",
+  saveCommands: "Befehle speichern", commandsSaved: "Befehlsverfügbarkeit gespeichert",
+  commandsPermission: "Die Sperre erfordert Kanäle verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
   overlay: { title: "navOverlay", kicker: "output" },
   moderation: { title: "navModeration", kicker: "safety" },
+  commands: { title: "navCommands", kicker: "commandsKicker" },
   history: { title: "navHistory", kicker: "archive" },
   help: { title: "navHelp", kicker: "guide" },
   personalization: { title: "navPersonalization", kicker: "personalizationKicker" },
@@ -332,6 +374,13 @@ const credentialForm = $("#credential-form");
 const routingForm = $("#routing-form");
 const mediaForm = $("#media-form");
 const moderationForm = $("#moderation-form");
+const commandsForm = $("#commands-form");
+const commandsSaveStateElement = $("#commands-save-state");
+const channelLockStateElement = $("#channel-lock-state");
+const commandInputs = {
+  channel: $("#command-channel"), url: $("#command-url"), show: $("#command-show"),
+  regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
+};
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
 const credentialStateElement = $("#credential-state");
@@ -580,6 +629,15 @@ function applyConfig(config) {
   moderationAllowAudioElement.checked = config.moderationAllowAudio !== false;
   channelElement.value = config.watchedChannelId;
   ttsChannelElement.value = config.ttsChannelId || "";
+  commandInputs.channel.checked = config.commandChannelEnabled !== false;
+  commandInputs.url.checked = config.commandUrlEnabled !== false;
+  commandInputs.show.checked = config.commandShowEnabled !== false;
+  commandInputs.regenerate.checked = config.commandRegenerateEnabled !== false;
+  commandInputs.clear.checked = config.commandClearEnabled !== false;
+  commandInputs.lock.checked = config.commandLockEnabled !== false;
+  commandInputs.lock.disabled = Boolean(config.channelLock);
+  channelLockStateElement.dataset.i18n = config.channelLock ? "commandLockActive" : "commandLockInactive";
+  channelLockStateElement.textContent = t(channelLockStateElement.dataset.i18n);
 }
 
 function setCredentials(status) {
@@ -770,6 +828,9 @@ function handleServerMessage(event) {
     replaceHistory(message.payload);
   } else if (message.type === "media") {
     rememberMedia(message.payload);
+  } else if (message.type === "clear") {
+    history.length = 0;
+    renderHistory();
   }
 }
 
@@ -997,6 +1058,21 @@ mediaForm.addEventListener("submit", async (event) => {
 moderationForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveConfig(moderationSaveStateElement);
+});
+
+commandsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  commandsSaveStateElement.textContent = t("saving");
+  try {
+    const config = await invoke("save_command_settings", {
+      settings: Object.fromEntries(Object.entries(commandInputs).map(([name, input]) => [name, input.checked])),
+    });
+    bootstrap.config = config;
+    applyConfig(config);
+    commandsSaveStateElement.textContent = t("commandsSaved");
+  } catch (error) {
+    commandsSaveStateElement.textContent = String(error);
+  }
 });
 
 clearPendingMediaButton.addEventListener("click", async () => {

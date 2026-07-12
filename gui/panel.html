@@ -37,20 +37,24 @@
             <span class="navigation__index">04</span>
             <span data-i18n="navModeration">Moderation</span>
           </button>
-          <button class="navigation__item" type="button" data-page-target="history">
+          <button class="navigation__item" type="button" data-page-target="commands">
             <span class="navigation__index">05</span>
+            <span data-i18n="navCommands">Commands</span>
+          </button>
+          <button class="navigation__item" type="button" data-page-target="history">
+            <span class="navigation__index">06</span>
             <span data-i18n="navHistory">History</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="help">
-            <span class="navigation__index">06</span>
+            <span class="navigation__index">07</span>
             <span data-i18n="navHelp">Help</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="personalization">
-            <span class="navigation__index">07</span>
+            <span class="navigation__index">08</span>
             <span data-i18n="navPersonalization">Personalization</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="about">
-            <span class="navigation__index">08</span>
+            <span class="navigation__index">09</span>
             <span data-i18n="navAbout">About</span>
           </button>
         </nav>
@@ -454,6 +458,55 @@
             </div>
             <p id="moderation-empty" class="empty-state" data-i18n="moderationEmpty">No media is waiting for approval.</p>
             <ol id="moderation-list" class="history-list moderation-list"></ol>
+          </section>
+
+          <section class="page" data-page="commands" hidden>
+            <div class="page-intro page-intro--compact">
+              <p class="kicker" data-i18n="commandsKicker">Discord controls</p>
+              <h2 data-i18n="commandsTitle">Commands, under your control.</h2>
+              <p data-i18n="commandsCopy">Enable only the Relay commands you want available in Discord.</p>
+            </div>
+
+            <section class="panel-section panel-section--wide">
+              <div class="section-heading">
+                <div>
+                  <span class="section-number">05</span>
+                  <h3 data-i18n="commandsSettings">Command availability</h3>
+                </div>
+                <span id="commands-save-state" class="save-state" role="status"></span>
+              </div>
+              <form id="commands-form" class="settings-list">
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay channel</strong><small data-i18n="commandChannelHelp">Choose the Discord media channel.</small></span>
+                  <span class="switch"><input id="command-channel" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay url</strong><small data-i18n="commandUrlHelp">Show local Relay and OBS URLs ephemerally.</small></span>
+                  <span class="switch"><input id="command-url" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay show</strong><small data-i18n="commandShowHelp">Show the active Relay configuration.</small></span>
+                  <span class="switch"><input id="command-show" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay regenerate</strong><small data-i18n="commandRegenerateHelp">Reconnect local outputs without changing their URLs.</small></span>
+                  <span class="switch"><input id="command-regenerate" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay clear</strong><small data-i18n="commandClearHelp">Clear outputs, waiting media, and local history.</small></span>
+                  <span class="switch"><input id="command-clear" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay lock</strong><small data-i18n="commandLockHelp">Toggle the configured media channel lock.</small></span>
+                  <span class="switch"><input id="command-lock" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <div class="settings-actions">
+                  <p id="channel-lock-state" data-i18n="commandLockInactive">The media channel is currently unlocked.</p>
+                  <button class="button button--primary" type="submit" data-i18n="saveCommands">Save commands</button>
+                </div>
+              </form>
+            </section>
+            <p class="fine-print" data-i18n="commandsPermission">Channel locking requires Manage Channels. Commands are restricted to Discord administrators.</p>
           </section>
 
           <section class="page" data-page="history" hidden>
