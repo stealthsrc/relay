@@ -67,7 +67,7 @@ test("TTS Browser Source plays FIFO and handles skip without double advancing", 
   vm.runInContext(source, context);
 
   const socket = sockets[0];
-  assert.match(socket.url, /role=tts&secret=private$/);
+  assert.match(socket.url, /role=tts&source=tts&client=obs&secret=private$/);
   socket.emit("message", JSON.stringify({ type: "config", payload: { mediaVolume: 25 } }));
   assert.equal(audio.volume, 0.25);
 
@@ -98,6 +98,13 @@ test("TTS Browser Source plays FIFO and handles skip without double advancing", 
   const watchdog = timers.values().next().value;
   watchdog();
   assert.match(audio.src, /\/tts-audio\/5\?secret=private$/);
+
+  socket.emit("message", JSON.stringify({ type: "clear" }));
+  socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: { target: "tts", tts: { id: "999999999999999999" } },
+  }));
+  assert.match(audio.src, /\/tts-audio\/999999999999999999\?secret=private$/);
   socket.emit("close");
   assert.equal(audio.src, "");
 });

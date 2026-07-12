@@ -408,8 +408,8 @@ pub async fn test_output(
 async fn emit_output_test(core: &AppCore, target: OutputTestTarget) -> anyhow::Result<()> {
     const TEST_AUTHOR: &str = "Relay test";
     const TEST_AVATAR: &str = "/overlay-assets/relay-radar.png";
-    const TEST_AUDIO_ID: &str = "relay-test-audio";
-    const TEST_TTS_ID: &str = "relay-test-tts";
+    const TEST_AUDIO_ID: &str = "999999999999999998";
+    const TEST_TTS_ID: &str = "999999999999999999";
 
     let author = AuthorIdentity {
         username: TEST_AUTHOR.into(),
@@ -831,7 +831,7 @@ mod tests {
         assert_eq!(audio.target, OutputTestTarget::Audio);
         assert_eq!(
             audio.media.and_then(|media| media.audio_id).as_deref(),
-            Some("relay-test-audio")
+            Some("999999999999999998")
         );
         assert_eq!(core.media_audio.read().await.len(), 1);
 
@@ -844,7 +844,7 @@ mod tests {
         assert_eq!(tts.target, OutputTestTarget::Tts);
         assert_eq!(
             tts.tts.as_ref().map(|event| event.id.as_str()),
-            Some("relay-test-tts")
+            Some("999999999999999999")
         );
         assert_eq!(core.tts_audio.read().await.len(), 1);
         assert!(core.history.read().await.is_empty());

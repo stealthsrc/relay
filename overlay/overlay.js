@@ -14,6 +14,7 @@ const isWidgetWindow = widgetParameters.get("widget") === "1";
 const isPreview = widgetParameters.get("preview") === "1";
 let interfaceLanguage = widgetParameters.get("lang") || "en";
 const relayMode = document.querySelector('meta[name="relay-mode"]')?.content || "all";
+const outputClient = isPreview ? "preview" : isWidgetWindow ? "widget" : "obs";
 const moveLabelElement = document.querySelector("#widget-move-label");
 const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
 const previewLabels = { en: "Live preview", fr: "Aperçu en direct", es: "Vista previa", de: "Live-Vorschau" };
@@ -52,6 +53,14 @@ let socket;
 let pendingPort;
 let isUnloading = false;
 let lastAudioPlaybackReport = "";
+
+function outputSocketUrl(
+  host,
+  client = outputClient,
+  protocol = window.location.protocol === "https:" ? "wss:" : "ws:",
+) {
+  return `${protocol}//${host}/ws?role=overlay&source=${encodeURIComponent(relayMode)}&client=${encodeURIComponent(client)}&secret=${encodeURIComponent(relaySecret)}`;
+}
 
 function reportAudioPlayback(status, media = currentMedia) {
   if (isPreview || media?.kind !== "audio" || socket?.readyState !== 1) return;
@@ -444,6 +453,15 @@ function handleMessage(event) {
   } else if (message.type === "media") {
     if (isPreview) return;
     if (message.payload) enqueueMedia(message.payload);
+  } else if (message.type === "testOutput") {
+    if (isPreview) return;
+    const outputTest = message.payload;
+    if (
+      (outputTest?.target === "visual" || outputTest?.target === "audio")
+      && outputTest.media
+    ) {
+      enqueueMedia(outputTest.media);
+    }
   } else if (message.type === "image") {
     if (isPreview) return;
     if (message.payload) enqueueMedia({ kind: "image", ...message.payload });
@@ -498,7 +516,7 @@ function moveToPendingPort() {
   // Probe the moved server before navigating: OBS browser sources never
   // retry a failed page load, so a blind navigation can leave them dead.
   const probe = new WebSocket(
-    `ws://${window.location.hostname}:${pendingPort}/ws?role=overlay&secret=${encodeURIComponent(relaySecret)}`,
+    outputSocketUrl(`${window.location.hostname}:${pendingPort}`, "probe", "ws:"),
   );
   let ready = false;
   probe.addEventListener("open", () => {
@@ -514,10 +532,7 @@ function moveToPendingPort() {
 }
 
 function connect() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(
-    `${protocol}//${window.location.host}/ws?role=overlay&secret=${encodeURIComponent(relaySecret)}`,
-  );
+  socket = new WebSocket(outputSocketUrl(window.location.host));
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
     showNextMedia();

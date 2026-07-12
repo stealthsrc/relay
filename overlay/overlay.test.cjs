@@ -49,6 +49,49 @@ test("media previews stay visible and isolated from the live media queue", () =>
   assert.match(panelSource, /url\.searchParams\.set\("preview", "1"\)/);
 });
 
+test("media outputs identify their source and local client context", () => {
+  const obs = createHarness("?secret=private", "visual");
+  assert.match(obs.socket.url, /role=overlay&source=visual&client=obs&secret=private$/);
+
+  const widget = createHarness("?secret=private&widget=1", "audio");
+  assert.match(widget.socket.url, /role=overlay&source=audio&client=widget&secret=private$/);
+
+  const preview = createHarness("?secret=private&preview=1", "visual");
+  assert.match(preview.socket.url, /role=overlay&source=visual&client=preview&secret=private$/);
+});
+
+test("local visual tests reach matching outputs without affecting previews", () => {
+  const visual = createHarness("?secret=private", "visual");
+  visual.socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: {
+      target: "visual",
+      media: { kind: "image", url: "/overlay-assets/relay-radar.png" },
+    },
+  }));
+  assert.equal(visual.elements["#image"].src, "/overlay-assets/relay-radar.png");
+
+  const audio = createHarness("?secret=private", "audio");
+  audio.socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: {
+      target: "visual",
+      media: { kind: "image", url: "/overlay-assets/relay-radar.png" },
+    },
+  }));
+  assert.equal(audio.elements["#image"].src, "");
+
+  const preview = createHarness("?secret=private&preview=1", "visual");
+  preview.socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: {
+      target: "visual",
+      media: { kind: "image", url: "https://cdn.discordapp.com/ignored.png" },
+    },
+  }));
+  assert.equal(preview.elements["#image"].src, "/overlay-assets/relay-radar.png");
+});
+
 function element() {
   const listeners = new Map();
   return {

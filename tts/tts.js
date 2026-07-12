@@ -3,6 +3,14 @@ const parameters = new URLSearchParams(window.location.search);
 const relaySecret = parameters.get("secret") || "";
 const queue = [];
 
+function ttsSocketUrl(
+  host,
+  client = "obs",
+  protocol = window.location.protocol === "https:" ? "wss:" : "ws:",
+) {
+  return `${protocol}//${host}/ws?role=tts&source=tts&client=${encodeURIComponent(client)}&secret=${encodeURIComponent(relaySecret)}`;
+}
+
 let config = { mediaVolume: 50, ttsQueueLimit: 50 };
 let currentTts;
 let socket;
@@ -114,6 +122,11 @@ function handleMessage(event) {
     audioElement.volume = Math.min(1, Math.max(0, config.mediaVolume / 100));
   } else if (message.type === "tts") {
     if (message.payload) enqueueTts(message.payload);
+  } else if (message.type === "testOutput") {
+    const outputTest = message.payload;
+    if (outputTest?.target === "tts" && outputTest.tts) {
+      enqueueTts(outputTest.tts);
+    }
   } else if (message.type === "skip") {
     finishCurrentTts();
   } else if (message.type === "clear") {
@@ -143,7 +156,7 @@ function moveToPendingPort() {
   // Probe the moved server before navigating: OBS browser sources never
   // retry a failed page load, so a blind navigation can leave them dead.
   const probe = new WebSocket(
-    `ws://${window.location.hostname}:${pendingPort}/ws?role=tts&secret=${encodeURIComponent(relaySecret)}`,
+    ttsSocketUrl(`${window.location.hostname}:${pendingPort}`, "probe", "ws:"),
   );
   let ready = false;
   probe.addEventListener("open", () => {
@@ -159,10 +172,7 @@ function moveToPendingPort() {
 }
 
 function connect() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(
-    `${protocol}//${window.location.host}/ws?role=tts&secret=${encodeURIComponent(relaySecret)}`,
-  );
+  socket = new WebSocket(ttsSocketUrl(window.location.host));
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
     playNextTts();

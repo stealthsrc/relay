@@ -143,6 +143,8 @@ test("notification geometry previews stay visible without consuming live TTS or 
   const preview = createHarness("widget", "fr", true);
   const card = preview.elements["#notification"];
 
+  assert.match(preview.socket.url, /role=notification&source=notification&client=preview&secret=private$/);
+
   assert.equal(card.classList.contains("is-visible"), true);
   assert.equal(preview.elements["#notification-author"].textContent, "Aperçu en direct");
   assert.equal(preview.elements["#notification-message"].textContent, "Votre notification apparaîtra ici.");
@@ -170,6 +172,7 @@ test("notification geometry previews stay visible without consuming live TTS or 
 
 test("notification output applies live crop and scale for OBS and widgets", () => {
   const obs = createHarness("obs");
+  assert.match(obs.socket.url, /role=notification&source=notification&client=obs&secret=private$/);
   obs.socket.emit("message", JSON.stringify({
     type: "config",
     payload: {
@@ -182,6 +185,7 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   assert.equal(obs.cssProperties["--content-scale"], "1.5");
 
   const widget = createHarness("widget");
+  assert.match(widget.socket.url, /role=notification&source=notification&client=widget&secret=private$/);
   widget.socket.emit("message", JSON.stringify({
     type: "config",
     payload: {
@@ -264,7 +268,7 @@ test("OBS notifications follow TTS FIFO, skip, clear, and configured queue limit
   const card = elements["#notification"];
   const audio = elements["#notification-clock"];
 
-  assert.match(socket.url, /role=notification&secret=private$/);
+  assert.match(socket.url, /role=notification&source=notification&client=obs&secret=private$/);
   assert.equal(audio.muted, true);
 
   socket.emit("message", JSON.stringify({
@@ -305,6 +309,27 @@ test("OBS notifications follow TTS FIFO, skip, clear, and configured queue limit
   assert.equal(audio.src, "");
   assert.equal(audio.onended, null);
   assert.equal(card.classList.contains("is-visible"), false);
+});
+
+test("local notification tests bypass the OBS delivery toggle", () => {
+  const { elements, socket } = createHarness("obs");
+  socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: {
+      target: "notification",
+      tts: {
+        text: "Relay notification test",
+        visualOnly: true,
+        author: { username: "Relay test" },
+        segments: [{ kind: "text", value: "Relay notification test" }],
+      },
+    },
+  }));
+
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+  assert.equal(elements["#notification-author"].textContent, "Relay test");
+  assert.equal(elements["#notification-message"].children[0].textContent, "Relay notification test");
+  assert.equal(elements["#notification-clock"].src, "");
 });
 
 test("Windows notification widget remains independent from the OBS toggle", async () => {

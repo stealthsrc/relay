@@ -4,6 +4,14 @@ const parameters = new URLSearchParams(window.location.search);
 const relaySecret = parameters.get("secret") || "";
 const queue = [];
 
+function stickerSocketUrl(
+  host,
+  client = "obs",
+  protocol = window.location.protocol === "https:" ? "wss:" : "ws:",
+) {
+  return `${protocol}//${host}/ws?role=sticker&source=sticker&client=${encodeURIComponent(client)}&secret=${encodeURIComponent(relaySecret)}`;
+}
+
 let config = { stickerDurationMs: 8000 };
 let currentSticker;
 let displayTimer;
@@ -104,6 +112,11 @@ function handleMessage(event) {
     }
   } else if (message.type === "sticker") {
     enqueue(message.payload);
+  } else if (message.type === "testOutput") {
+    const outputTest = message.payload;
+    if (outputTest?.target === "sticker" && outputTest.sticker) {
+      enqueue(outputTest.sticker);
+    }
   } else if (message.type === "clear") {
     clearStickers();
   } else if (message.type === "serverMove") {
@@ -121,10 +134,7 @@ function scheduleReconnect() {
 }
 
 function connect() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(
-    `${protocol}//${window.location.host}/ws?role=sticker&secret=${encodeURIComponent(relaySecret)}`,
-  );
+  socket = new WebSocket(stickerSocketUrl(window.location.host));
   socket.addEventListener("open", () => { reconnectDelayMs = 1000; });
   socket.addEventListener("message", handleMessage);
   socket.addEventListener("close", () => {

@@ -7,6 +7,7 @@ const parameters = new URLSearchParams(window.location.search);
 const relaySecret = parameters.get("secret") || "";
 const target = parameters.get("target") === "widget" ? "widget" : "obs";
 const isPreview = parameters.get("preview") === "1";
+const outputClient = isPreview ? "preview" : target === "widget" ? "widget" : "obs";
 let interfaceLanguage = parameters.get("lang") || "en";
 const moveLabelElement = document.querySelector("#notification-move-label");
 const moveLabels = { en: "Move notification", fr: "Déplacer la notification", es: "Mover notificación", de: "Benachrichtigung verschieben" };
@@ -40,11 +41,21 @@ let playbackGeneration = 0;
 let playbackWatchdog;
 let visualTimer;
 
+function notificationSocketUrl(
+  host,
+  client = outputClient,
+  protocol = window.location.protocol === "https:" ? "wss:" : "ws:",
+) {
+  return `${protocol}//${host}/ws?role=notification&source=notification&client=${encodeURIComponent(client)}&secret=${encodeURIComponent(relaySecret)}`;
+}
+
 audioElement.muted = true;
 document.documentElement.classList.toggle("notification-widget", target === "widget");
 
-function isEnabled() {
-  return target === "widget" || Boolean(config.ttsNotificationsObsEnabled);
+function isEnabled(notification) {
+  return target === "widget"
+    || Boolean(config.ttsNotificationsObsEnabled)
+    || Boolean(notification?.relayTest);
 }
 
 function queueLimit() {
@@ -168,7 +179,7 @@ function finishCurrent(expectedGeneration = playbackGeneration) {
 }
 
 function playNext() {
-  if (!isEnabled() || currentNotification || queue.length === 0) {
+  if (currentNotification || queue.length === 0 || !isEnabled(queue[0])) {
     return;
   }
   currentNotification = queue.shift();
@@ -207,7 +218,7 @@ function playNext() {
 }
 
 function enqueue(notification) {
-  if (!isEnabled()) {
+  if (!isEnabled(notification)) {
     return;
   }
   if (currentNotification?.visualOnly && !notification?.visualOnly) {
@@ -264,6 +275,12 @@ function handleMessage(event) {
   } else if (message.type === "tts") {
     if (isPreview) return;
     if (message.payload) enqueue(message.payload);
+  } else if (message.type === "testOutput") {
+    if (isPreview) return;
+    const outputTest = message.payload;
+    if (outputTest?.target === "notification" && outputTest.tts) {
+      enqueue({ ...outputTest.tts, relayTest: true });
+    }
   } else if (message.type === "skip") {
     if (isPreview) return;
     finishCurrent();
@@ -312,7 +329,7 @@ function moveToPendingPort() {
   // Probe the moved server before navigating: OBS browser sources never
   // retry a failed page load, so a blind navigation can leave them dead.
   const probe = new WebSocket(
-    `ws://${window.location.hostname}:${pendingPort}/ws?role=notification&secret=${encodeURIComponent(relaySecret)}`,
+    notificationSocketUrl(`${window.location.hostname}:${pendingPort}`, "probe", "ws:"),
   );
   let ready = false;
   probe.addEventListener("open", () => {
@@ -328,10 +345,7 @@ function moveToPendingPort() {
 }
 
 function connect() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(
-    `${protocol}//${window.location.host}/ws?role=notification&secret=${encodeURIComponent(relaySecret)}`,
-  );
+  socket = new WebSocket(notificationSocketUrl(window.location.host));
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
     playNext();
