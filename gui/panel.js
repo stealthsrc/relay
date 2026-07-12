@@ -216,6 +216,8 @@ const translations = {
 };
 
 Object.assign(translations.en, {
+  stickerDuration: "Sticker duration", stickerDurationHelp: "Discord stickers stay visible for this duration.",
+  stickerSource: "Discord stickers",
   navPersonalization: "Personalization",
   personalizationKicker: "Interface",
   personalizationTitle: "Make Relay yours.",
@@ -226,6 +228,8 @@ Object.assign(translations.en, {
 });
 
 Object.assign(translations.fr, {
+  stickerDuration: "Durée des stickers", stickerDurationHelp: "Les stickers Discord restent visibles pendant cette durée.",
+  stickerSource: "Stickers Discord",
   mediaCopy: "Les images et les GIF utilisent des durées distinctes. Les vidéos et les audios continuent naturellement jusqu’à leur fin.",
   gifDuration: "Durée des GIF",
   imageDurationHelp: "Utilisée uniquement pour les images fixes.",
@@ -329,6 +333,8 @@ Object.assign(translations.fr, {
   commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages. Les commandes sont réservées aux administrateurs Discord.",
 });
 Object.assign(translations.es, {
+  stickerDuration: "Duración de stickers", stickerDurationHelp: "Los stickers de Discord permanecen visibles durante este tiempo.",
+  stickerSource: "Stickers de Discord",
   navCommands: "Comandos", commandsKicker: "Controles de Discord", commandsTitle: "Tus comandos, tus reglas.",
   commandsCopy: "Activa solo los comandos de Relay que quieras usar en Discord.", commandsSettings: "Disponibilidad de comandos",
   commandChannelHelp: "Elige el canal de medios de Discord.", commandUrlHelp: "Muestra de forma efímera las URL locales de Relay y OBS.",
@@ -339,6 +345,8 @@ Object.assign(translations.es, {
   commandsPermission: "El bloqueo requiere Gestionar roles; la limpieza requiere Gestionar mensajes. Los comandos están restringidos a administradores de Discord.",
 });
 Object.assign(translations.de, {
+  stickerDuration: "Sticker-Dauer", stickerDurationHelp: "Discord-Sticker bleiben für diese Dauer sichtbar.",
+  stickerSource: "Discord-Sticker",
   navCommands: "Befehle", commandsKicker: "Discord-Steuerung", commandsTitle: "Deine Befehle, deine Regeln.",
   commandsCopy: "Aktiviere nur die Relay-Befehle, die in Discord verfügbar sein sollen.", commandsSettings: "Befehlsverfügbarkeit",
   commandChannelHelp: "Wählt den Discord-Medienkanal.", commandUrlHelp: "Zeigt lokale Relay- und OBS-URLs ephemer an.",
@@ -392,6 +400,7 @@ const refreshChannelsButton = $("#refresh-channels");
 const ttsChannelElement = $("#tts-channel");
 const durationElement = $("#duration");
 const gifDurationElement = $("#gif-duration");
+const stickerDurationElement = $("#sticker-duration");
 const portElement = $("#port");
 const mediaVolumeElement = $("#media-volume");
 const mediaVolumeValueElement = $("#media-volume-value");
@@ -420,6 +429,8 @@ const ttsUrlElement = $("#tts-url");
 const copyTtsUrlButton = $("#copy-tts-url");
 const notificationUrlElement = $("#notification-url");
 const copyNotificationUrlButton = $("#copy-notification-url");
+const stickerUrlElement = $("#sticker-url");
+const copyStickerUrlButton = $("#copy-sticker-url");
 const regenerateSecretButton = $("#regenerate-secret");
 const widgetStateElement = $("#widget-state");
 const toggleWidgetButton = $("#toggle-widget");
@@ -615,6 +626,7 @@ function setServerStatus(status) {
 function applyConfig(config) {
   durationElement.value = String(config.displayDurationMs / 1000);
   gifDurationElement.value = String((config.gifDurationMs ?? config.displayDurationMs) / 1000);
+  stickerDurationElement.value = String((config.stickerDurationMs ?? 8000) / 1000);
   portElement.value = String(config.port);
   mediaVolumeElement.value = String(config.mediaVolume ?? 50);
   mediaVolumeValueElement.value = `${mediaVolumeElement.value}%`;
@@ -880,6 +892,7 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   audioUrlElement.value = bootstrap.audioUrl;
   ttsUrlElement.value = bootstrap.ttsUrl;
   notificationUrlElement.value = bootstrap.notificationUrl;
+  stickerUrlElement.value = bootstrap.stickerUrl;
   inviteRowElement.hidden = !bootstrap.inviteUrl;
   inviteUrlElement.value = bootstrap.inviteUrl || "";
   previewElement.src = bootstrap.overlayUrl;
@@ -898,6 +911,7 @@ async function saveConfig(stateElement) {
         ttsChannelId: ttsChannelElement.value,
         displayDurationMs: Number(durationElement.value) * 1000,
         gifDurationMs: Number(gifDurationElement.value) * 1000,
+        stickerDurationMs: Number(stickerDurationElement.value) * 1000,
         mediaVolume: Number(mediaVolumeElement.value),
         ttsCharacterLimit: Number(ttsCharacterLimitElement.value),
         ttsQueueLimit: Number(ttsQueueLimitElement.value),
@@ -1104,6 +1118,7 @@ copyUrlButton.addEventListener("click", () => copyValue(copyUrlButton, overlayUr
 copyAudioUrlButton.addEventListener("click", () => copyValue(copyAudioUrlButton, audioUrlElement.value));
 copyTtsUrlButton.addEventListener("click", () => copyValue(copyTtsUrlButton, ttsUrlElement.value));
 copyNotificationUrlButton.addEventListener("click", () => copyValue(copyNotificationUrlButton, notificationUrlElement.value));
+copyStickerUrlButton.addEventListener("click", () => copyValue(copyStickerUrlButton, stickerUrlElement.value));
 copyInviteButton.addEventListener("click", () => copyValue(copyInviteButton, inviteUrlElement.value));
 
 regenerateSecretButton.addEventListener("click", async () => {

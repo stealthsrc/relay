@@ -212,6 +212,16 @@
                 </label>
                 <label class="setting-row">
                   <span>
+                    <strong data-i18n="stickerDuration">Sticker duration</strong>
+                    <small data-i18n="stickerDurationHelp">Discord stickers stay visible for this duration.</small>
+                  </span>
+                  <span class="field__unit field__unit--short">
+                    <input id="sticker-duration" name="stickerDurationSeconds" type="number" min="1" max="60" step="1" required>
+                    <small data-i18n="seconds">sec</small>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
                     <strong data-i18n="gifDuration">GIF duration</strong>
                     <small data-i18n="gifDurationHelp">Animated GIFs loop for this duration.</small>
                   </span>
@@ -306,6 +316,13 @@
                   <div class="url-field">
                     <input id="audio-url" type="text" readonly aria-label="OBS audio Browser Source URL">
                     <button id="copy-audio-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
+                  </div>
+                </div>
+                <div class="source-field">
+                  <span data-i18n="stickerSource">Discord stickers</span>
+                  <div class="url-field">
+                    <input id="sticker-url" type="text" readonly aria-label="OBS sticker Browser Source URL">
+                    <button id="copy-sticker-url" class="button button--quiet" type="button" data-i18n="copy">Copy</button>
                   </div>
                 </div>
                 <div class="source-field">

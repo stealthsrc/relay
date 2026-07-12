@@ -35,6 +35,7 @@ pub struct Bootstrap {
     audio_url: String,
     tts_url: String,
     notification_url: String,
+    sticker_url: String,
     ws_url: String,
     invite_url: Option<String>,
     widget: WidgetState,
@@ -67,6 +68,7 @@ pub struct PanelConfig {
     port: u16,
     display_duration_ms: u64,
     gif_duration_ms: u64,
+    sticker_duration_ms: u64,
     media_volume: u8,
     tts_character_limit: u32,
     tts_queue_limit: u8,
@@ -187,6 +189,7 @@ pub async fn apply_config(
         port: config.port,
         display_duration_ms: config.display_duration_ms,
         gif_duration_ms: config.gif_duration_ms,
+        sticker_duration_ms: config.sticker_duration_ms,
         media_volume: config.media_volume,
         tts_character_limit: config.tts_character_limit,
         tts_queue_limit: config.tts_queue_limit,
@@ -375,6 +378,7 @@ async fn build_bootstrap(app: &AppHandle, core: &Arc<AppCore>) -> anyhow::Result
         audio_url: short_overlay_url(config.port, "audios"),
         tts_url: short_overlay_url(config.port, "tts"),
         notification_url: short_overlay_url(config.port, "notifications"),
+        sticker_url: short_overlay_url(config.port, "stickers"),
         ws_url: format!(
             "ws://127.0.0.1:{}/ws?role=panel&token={}",
             config.port, core.panel_token
