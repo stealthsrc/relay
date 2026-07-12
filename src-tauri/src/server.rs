@@ -26,7 +26,7 @@ use tokio::{net::TcpListener, sync::oneshot};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::{
-    config::AppConfig,
+    config::{AppConfig, OutputGeometry},
     credentials::load_or_create_relay_secret,
     model::{RelayEvent, ServerStatus},
     state::{AppCore, ServerRuntime},
@@ -51,6 +51,10 @@ struct OverlayConfig {
     widget_sound_enabled: bool,
     notification_sound_enabled: bool,
     notification_sound_obs_enabled: bool,
+    media_obs_geometry: OutputGeometry,
+    media_widget_geometry: OutputGeometry,
+    notification_obs_geometry: OutputGeometry,
+    notification_widget_geometry: OutputGeometry,
 }
 
 impl From<&AppConfig> for OverlayConfig {
@@ -69,6 +73,10 @@ impl From<&AppConfig> for OverlayConfig {
             widget_sound_enabled: config.widget_sound_enabled,
             notification_sound_enabled: config.notification_sound_enabled,
             notification_sound_obs_enabled: config.notification_sound_obs_enabled,
+            media_obs_geometry: config.media_obs_geometry,
+            media_widget_geometry: config.media_widget_geometry,
+            notification_obs_geometry: config.notification_obs_geometry,
+            notification_widget_geometry: config.notification_widget_geometry,
         }
     }
 }

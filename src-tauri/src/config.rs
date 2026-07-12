@@ -12,6 +12,13 @@ pub const DEFAULT_DISPLAY_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_GIF_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_STICKER_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_NOTIFICATION_DURATION_MS: u64 = 8_000;
+pub const DEFAULT_WIDGET_WIDTH: f64 = 640.0;
+pub const DEFAULT_WIDGET_HEIGHT: f64 = 360.0;
+pub const DEFAULT_NOTIFICATION_WIDGET_WIDTH: f64 = 510.0;
+pub const DEFAULT_NOTIFICATION_WIDGET_HEIGHT: f64 = 130.0;
+pub const MIN_WIDGET_WIDTH: f64 = 160.0;
+pub const MIN_WIDGET_HEIGHT: f64 = 90.0;
+const MAX_WIDGET_DIMENSION: f64 = 16_384.0;
 const LEGACY_CONFIG_DIRECTORIES: [&str; 2] =
     ["eu.stealthylabs.discord-obs-relay", "discord-obs-relay"];
 
@@ -30,6 +37,48 @@ pub struct PermissionOverwriteSnapshot {
 pub struct ChannelLockSnapshot {
     pub channel_id: String,
     pub overwrites: Vec<PermissionOverwriteSnapshot>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct OutputGeometry {
+    pub crop_top: u8,
+    pub crop_right: u8,
+    pub crop_bottom: u8,
+    pub crop_left: u8,
+    pub content_scale: u16,
+}
+
+impl Default for OutputGeometry {
+    fn default() -> Self {
+        Self {
+            crop_top: 0,
+            crop_right: 0,
+            crop_bottom: 0,
+            crop_left: 0,
+            content_scale: 100,
+        }
+    }
+}
+
+impl OutputGeometry {
+    pub fn validate(&self) -> Result<()> {
+        if [
+            self.crop_top,
+            self.crop_right,
+            self.crop_bottom,
+            self.crop_left,
+        ]
+        .into_iter()
+        .any(|crop| crop > 40)
+        {
+            bail!("Output crop values must be between 0 and 40 percent.");
+        }
+        if !(50..=200).contains(&self.content_scale) {
+            bail!("Output content scale must be between 50 and 200 percent.");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -62,13 +111,22 @@ pub struct AppConfig {
     pub channel_lock: Option<ChannelLockSnapshot>,
     pub widget_x: Option<i32>,
     pub widget_y: Option<i32>,
+    pub widget_width: f64,
+    pub widget_height: f64,
+    pub widget_keep_aspect_ratio: bool,
     pub widget_visible: bool,
     pub widget_locked: bool,
     pub widget_sound_enabled: bool,
     pub notification_widget_x: Option<i32>,
     pub notification_widget_y: Option<i32>,
+    pub notification_widget_width: f64,
+    pub notification_widget_height: f64,
     pub notification_widget_visible: bool,
     pub notification_widget_locked: bool,
+    pub media_obs_geometry: OutputGeometry,
+    pub media_widget_geometry: OutputGeometry,
+    pub notification_obs_geometry: OutputGeometry,
+    pub notification_widget_geometry: OutputGeometry,
     pub notification_sound_enabled: bool,
     pub notification_sound_obs_enabled: bool,
     pub notification_sound_path: Option<String>,
@@ -104,13 +162,22 @@ impl Default for AppConfig {
             channel_lock: None,
             widget_x: None,
             widget_y: None,
+            widget_width: DEFAULT_WIDGET_WIDTH,
+            widget_height: DEFAULT_WIDGET_HEIGHT,
+            widget_keep_aspect_ratio: true,
             widget_visible: false,
             widget_locked: false,
             widget_sound_enabled: false,
             notification_widget_x: None,
             notification_widget_y: None,
+            notification_widget_width: DEFAULT_NOTIFICATION_WIDGET_WIDTH,
+            notification_widget_height: DEFAULT_NOTIFICATION_WIDGET_HEIGHT,
             notification_widget_visible: false,
             notification_widget_locked: false,
+            media_obs_geometry: OutputGeometry::default(),
+            media_widget_geometry: OutputGeometry::default(),
+            notification_obs_geometry: OutputGeometry::default(),
+            notification_widget_geometry: OutputGeometry::default(),
             notification_sound_enabled: false,
             notification_sound_obs_enabled: false,
             notification_sound_path: None,
@@ -146,8 +213,28 @@ impl AppConfig {
         if !(1..=50).contains(&self.tts_queue_limit) {
             bail!("The TTS queue limit must be between 1 and 50.");
         }
+        validate_widget_size(self.widget_width, self.widget_height)?;
+        validate_widget_size(
+            self.notification_widget_width,
+            self.notification_widget_height,
+        )?;
+        self.media_obs_geometry.validate()?;
+        self.media_widget_geometry.validate()?;
+        self.notification_obs_geometry.validate()?;
+        self.notification_widget_geometry.validate()?;
         Ok(())
     }
+}
+
+fn validate_widget_size(width: f64, height: f64) -> Result<()> {
+    if !width.is_finite()
+        || !height.is_finite()
+        || !(MIN_WIDGET_WIDTH..=MAX_WIDGET_DIMENSION).contains(&width)
+        || !(MIN_WIDGET_HEIGHT..=MAX_WIDGET_DIMENSION).contains(&height)
+    {
+        bail!("Widget size is outside the supported bounds.");
+    }
+    Ok(())
 }
 
 fn validate_channel_id(channel_id: &str, label: &str) -> Result<()> {
@@ -316,13 +403,39 @@ mod tests {
             channel_lock: None,
             widget_x: Some(-640),
             widget_y: Some(120),
+            widget_width: 960.0,
+            widget_height: 540.0,
+            widget_keep_aspect_ratio: false,
             widget_visible: true,
             widget_locked: true,
             widget_sound_enabled: true,
             notification_widget_x: Some(900),
             notification_widget_y: Some(40),
+            notification_widget_width: 620.0,
+            notification_widget_height: 180.0,
             notification_widget_visible: true,
             notification_widget_locked: true,
+            media_obs_geometry: OutputGeometry {
+                crop_top: 4,
+                crop_right: 8,
+                crop_bottom: 12,
+                crop_left: 16,
+                content_scale: 125,
+            },
+            media_widget_geometry: OutputGeometry {
+                content_scale: 80,
+                ..OutputGeometry::default()
+            },
+            notification_obs_geometry: OutputGeometry {
+                crop_left: 10,
+                content_scale: 150,
+                ..OutputGeometry::default()
+            },
+            notification_widget_geometry: OutputGeometry {
+                crop_bottom: 20,
+                content_scale: 90,
+                ..OutputGeometry::default()
+            },
             notification_sound_enabled: true,
             notification_sound_obs_enabled: true,
             notification_sound_path: Some("C:/sounds/ping.mp3".into()),
@@ -345,6 +458,30 @@ mod tests {
             ..AppConfig::default()
         };
         assert!(duplicate_channels.validate().is_err());
+
+        let invalid_geometry = AppConfig {
+            media_obs_geometry: OutputGeometry {
+                crop_top: 41,
+                ..OutputGeometry::default()
+            },
+            ..AppConfig::default()
+        };
+        assert!(invalid_geometry.validate().is_err());
+
+        let invalid_scale = AppConfig {
+            notification_widget_geometry: OutputGeometry {
+                content_scale: 201,
+                ..OutputGeometry::default()
+            },
+            ..AppConfig::default()
+        };
+        assert!(invalid_scale.validate().is_err());
+
+        let invalid_size = AppConfig {
+            widget_width: 159.0,
+            ..AppConfig::default()
+        };
+        assert!(invalid_size.validate().is_err());
     }
 
     #[test]
