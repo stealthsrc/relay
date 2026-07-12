@@ -10,7 +10,7 @@ use serenity::{
         CommandOptionType, Context, CreateCommand, CreateCommandOption,
         CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
         GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent,
-        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, UserId,
+        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, StickerFormatType, UserId,
     },
     async_trait,
     cache::Cache,
@@ -22,7 +22,10 @@ use crate::{
     artwork,
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_or_create_relay_secret},
-    model::{AuthorIdentity, BotStatus, ChannelSummary, MediaEvent, MediaKind, TtsRequest},
+    model::{
+        AuthorIdentity, BotStatus, ChannelSummary, MediaEvent, MediaKind, StickerEvent, TtsRequest,
+        VisualSegment,
+    },
     state::{AppCore, BotRuntime},
 };
 
@@ -68,20 +71,24 @@ impl EventHandler for Handler {
         let channel_id = message.channel_id.to_string();
 
         if !config.tts_channel_id.is_empty() && channel_id == config.tts_channel_id {
+            if let Some(segments) = parse_visual_segments(&message.content) {
+                self.core.publish_visual_tts(
+                    message.id.to_string(),
+                    message.content.clone(),
+                    message_author(&message),
+                    message_timestamp(&message),
+                    segments,
+                );
+                return;
+            }
             if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit)
                 && let Err(error) = self
                     .core
                     .publish_tts(TtsRequest {
                         id: message.id.to_string(),
                         text,
-                        author: AuthorIdentity {
-                            username: message.author.name.clone(),
-                            display_avatar_url: message
-                                .author
-                                .avatar_url()
-                                .unwrap_or_else(|| message.author.default_avatar_url()),
-                        },
-                        timestamp: message.timestamp.unix_timestamp().max(0) as u64 * 1_000,
+                        author: message_author(&message),
+                        timestamp: message_timestamp(&message),
                     })
                     .await
             {
@@ -93,6 +100,37 @@ impl EventHandler for Handler {
 
         if config.watched_channel_id.is_empty() || channel_id != config.watched_channel_id {
             return;
+        }
+
+        for sticker in message.sticker_items.iter().take(3) {
+            let Some(url) = sticker.image_url() else {
+                continue;
+            };
+            let (format, content_type) = sticker_format(sticker.format_type);
+            let cache_id = format!("sticker-{}", sticker.id);
+            let cached_media_id = match artwork::download_bounded(
+                &url,
+                artwork::MAX_ARTWORK_BYTES,
+            )
+            .await
+            {
+                Ok(bytes) => {
+                    self.core
+                        .cache_media(cache_id.clone(), content_type.into(), bytes)
+                        .await;
+                    Some(cache_id)
+                }
+                Err(_) => None,
+            };
+            self.core.publish_sticker(StickerEvent {
+                id: sticker.id.to_string(),
+                name: sticker.name.clone(),
+                format: format.into(),
+                cached_media_id,
+                author: message_author(&message),
+                timestamp: message_timestamp(&message),
+                message_id: message.id.to_string(),
+            });
         }
 
         for attachment in message
@@ -221,6 +259,111 @@ impl EventHandler for Handler {
             set_bot_error(&self.core, format!("Discord response failed: {error}")).await;
         }
     }
+}
+
+fn message_author(message: &Message) -> AuthorIdentity {
+    AuthorIdentity {
+        username: message.author.name.clone(),
+        display_avatar_url: message
+            .author
+            .avatar_url()
+            .unwrap_or_else(|| message.author.default_avatar_url()),
+    }
+}
+
+fn message_timestamp(message: &Message) -> u64 {
+    message.timestamp.unix_timestamp().max(0) as u64 * 1_000
+}
+
+fn sticker_format(format: StickerFormatType) -> (&'static str, &'static str) {
+    match format {
+        StickerFormatType::Png => ("png", "image/png"),
+        StickerFormatType::Apng => ("apng", "image/png"),
+        StickerFormatType::Lottie => ("lottie", "application/json"),
+        StickerFormatType::Gif => ("gif", "image/gif"),
+        StickerFormatType::Unknown(_) => ("unknown", "application/octet-stream"),
+        _ => ("unknown", "application/octet-stream"),
+    }
+}
+
+fn parse_visual_segments(content: &str) -> Option<Vec<VisualSegment>> {
+    let mut segments = Vec::new();
+    let mut text = String::new();
+    let mut cursor = 0;
+    let mut found_emoji = false;
+
+    while cursor < content.len() {
+        let remainder = &content[cursor..];
+        if let Some((consumed, value, url, animated)) = parse_custom_emoji(remainder) {
+            push_text_segment(&mut segments, &mut text);
+            segments.push(VisualSegment {
+                kind: "emoji".into(),
+                value,
+                url: Some(url),
+                animated,
+            });
+            cursor += consumed;
+            found_emoji = true;
+            continue;
+        }
+
+        let character = remainder.chars().next().expect("cursor is on a character boundary");
+        if is_unicode_emoji(character) {
+            push_text_segment(&mut segments, &mut text);
+            segments.push(VisualSegment {
+                kind: "emoji".into(),
+                value: character.to_string(),
+                url: None,
+                animated: false,
+            });
+            found_emoji = true;
+        } else {
+            text.push(character);
+        }
+        cursor += character.len_utf8();
+    }
+    push_text_segment(&mut segments, &mut text);
+    found_emoji.then_some(segments)
+}
+
+fn parse_custom_emoji(content: &str) -> Option<(usize, String, String, bool)> {
+    if !content.starts_with("<:") && !content.starts_with("<a:") {
+        return None;
+    }
+    let end = content.find('>')?;
+    let token = &content[..=end];
+    let animated = token.starts_with("<a:");
+    let body = token.strip_prefix(if animated { "<a:" } else { "<:" })?.strip_suffix('>')?;
+    let (name, id) = body.rsplit_once(':')?;
+    if name.is_empty() || id.len() > 20 || !id.chars().all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+    let url = format!(
+        "https://cdn.discordapp.com/emojis/{id}.webp?size=128&animated={animated}"
+    );
+    Some((token.len(), format!(":{name}:"), url, animated))
+}
+
+fn push_text_segment(segments: &mut Vec<VisualSegment>, text: &mut String) {
+    if !text.is_empty() {
+        segments.push(VisualSegment {
+            kind: "text".into(),
+            value: std::mem::take(text),
+            url: None,
+            animated: false,
+        });
+    }
+}
+
+fn is_unicode_emoji(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x1F000..=0x1FAFF
+            | 0x2600..=0x27BF
+            | 0x2300..=0x23FF
+            | 0x2B00..=0x2BFF
+            | 0xFE0F
+    )
 }
 
 pub async fn start_bot(core: Arc<AppCore>) -> Result<bool> {
@@ -1163,5 +1306,34 @@ mod tests {
             Some("\u{e9}l\u{e9}")
         );
         assert!(prepare_tts_text("   ", 0).is_none());
+    }
+
+    #[test]
+    fn converts_unicode_and_custom_emojis_to_visual_segments() {
+        let segments = parse_visual_segments(
+            "Hello 👋 <:relay:123456789012345678> <a:dance:223456789012345678>",
+        )
+        .expect("message contains emojis");
+        assert_eq!(segments.iter().filter(|segment| segment.kind == "emoji").count(), 3);
+        assert!(segments.iter().any(|segment| segment.value == "👋"));
+        assert!(segments.iter().any(|segment| {
+            segment.value == ":dance:"
+                && segment.animated
+                && segment.url.as_deref().is_some_and(|url| url.contains("223456789012345678"))
+        }));
+    }
+
+    #[test]
+    fn leaves_plain_tts_messages_on_the_audio_path() {
+        assert!(parse_visual_segments("Relay reads this message").is_none());
+        assert!(parse_visual_segments("invalid <:emoji:not-an-id>").is_none());
+    }
+
+    #[test]
+    fn maps_all_discord_sticker_formats() {
+        assert_eq!(sticker_format(StickerFormatType::Png), ("png", "image/png"));
+        assert_eq!(sticker_format(StickerFormatType::Apng), ("apng", "image/png"));
+        assert_eq!(sticker_format(StickerFormatType::Lottie), ("lottie", "application/json"));
+        assert_eq!(sticker_format(StickerFormatType::Gif), ("gif", "image/gif"));
     }
 }
