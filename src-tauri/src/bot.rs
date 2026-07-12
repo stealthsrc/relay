@@ -530,10 +530,25 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
 
 fn embedded_gif(embed: &serenity::all::Embed) -> Option<EmbeddedGif> {
     let is_gifv = embed.kind.as_deref() == Some("gifv");
-    let image_is_gif = embed
-        .image
-        .as_ref()
-        .is_some_and(|image| url_has_extension(&image.url, "gif"));
+    let image_is_gif = [
+        embed.url.as_deref(),
+        embed.image.as_ref().map(|image| image.url.as_str()),
+        embed
+            .image
+            .as_ref()
+            .and_then(|image| image.proxy_url.as_deref()),
+        embed
+            .thumbnail
+            .as_ref()
+            .map(|thumbnail| thumbnail.url.as_str()),
+        embed
+            .thumbnail
+            .as_ref()
+            .and_then(|thumbnail| thumbnail.proxy_url.as_deref()),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|url| url_has_extension(url, "gif"));
     let known_provider = [
         embed.url.as_deref(),
         embed
@@ -590,12 +605,27 @@ fn embedded_gif(embed: &serenity::all::Embed) -> Option<EmbeddedGif> {
             content_type,
         });
     }
-    let image = embed.image.as_ref()?;
+    let (url, proxy_url) = if let Some(image) = embed.image.as_ref() {
+        (
+            image.url.clone(),
+            image.proxy_url.clone().unwrap_or_else(|| image.url.clone()),
+        )
+    } else if let Some(thumbnail) = embed.thumbnail.as_ref() {
+        (
+            thumbnail.url.clone(),
+            thumbnail
+                .proxy_url
+                .clone()
+                .unwrap_or_else(|| thumbnail.url.clone()),
+        )
+    } else {
+        return None;
+    };
     Some(EmbeddedGif {
-        url: image.url.clone(),
-        proxy_url: image.proxy_url.clone().unwrap_or_else(|| image.url.clone()),
+        url: url.clone(),
+        proxy_url,
         title: embed.title.clone(),
-        content_type: if url_has_extension(&image.url, "webp") {
+        content_type: if url_has_extension(&url, "webp") {
             "image/webp"
         } else {
             "image/gif"
@@ -797,6 +827,45 @@ mod tests {
             "https://images-ext-1.discordapp.net/external/example/clip.mp4"
         );
         assert_eq!(gif.content_type, "video/mp4");
+    }
+
+    #[test]
+    fn accepts_discord_favorite_gifs_stored_as_thumbnail_only_images() {
+        let embed: serenity::all::Embed = serde_json::from_value(serde_json::json!({
+            "type": "image",
+            "url": "https://media.tenor.com/example/john-pork-is-calling.gif",
+            "thumbnail": {
+                "url": "https://media.tenor.com/example/john-pork-is-calling.gif",
+                "proxy_url": "https://images-ext-1.discordapp.net/external/example/john-pork-is-calling.gif",
+                "height": 387,
+                "width": 220
+            }
+        }))
+        .unwrap();
+
+        let gif = embedded_gif(&embed).expect("thumbnail-only Discord favorite should be relayed");
+        assert_eq!(
+            gif.url,
+            "https://media.tenor.com/example/john-pork-is-calling.gif"
+        );
+        assert_eq!(
+            gif.proxy_url,
+            "https://images-ext-1.discordapp.net/external/example/john-pork-is-calling.gif"
+        );
+        assert_eq!(gif.content_type, "image/gif");
+    }
+
+    #[test]
+    fn accepts_thumbnail_only_direct_gifs_without_a_known_provider() {
+        let embed: serenity::all::Embed = serde_json::from_value(serde_json::json!({
+            "type": "image",
+            "thumbnail": { "url": "https://example.com/animation.gif" }
+        }))
+        .unwrap();
+
+        let gif = embedded_gif(&embed).expect("direct GIF thumbnails should be relayed");
+        assert_eq!(gif.url, "https://example.com/animation.gif");
+        assert_eq!(gif.content_type, "image/gif");
     }
 
     #[test]
