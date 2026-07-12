@@ -335,7 +335,7 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
 
 pub fn invite_url(client_id: &str) -> String {
     let permissions =
-        (Permissions::VIEW_CHANNEL | Permissions::READ_MESSAGE_HISTORY | Permissions::MANAGE_CHANNELS)
+        (Permissions::VIEW_CHANNEL | Permissions::READ_MESSAGE_HISTORY | Permissions::MANAGE_ROLES)
             .bits();
     format!(
         "https://discord.com/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands"
@@ -921,7 +921,7 @@ mod tests {
     fn builds_invite_url_with_required_scopes_and_permissions() {
         assert_eq!(
             invite_url("123456789012345678"),
-            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=66576&scope=bot%20applications.commands"
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268502016&scope=bot%20applications.commands"
         );
     }
 

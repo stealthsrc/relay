@@ -67,7 +67,7 @@ const translations = {
     helpIntentTitle: "Enable permissions and intents", helpIntentSummary: "Required to read normal messages",
     helpIntentStep1: "In Bot → Privileged Gateway Intents, enable Message Content Intent.",
     helpIntentStep2: "Use Relay's invitation URL to add the bot to your Discord server.",
-    helpIntentStep3: "Give the bot View Channel and Read Message History in both watched channels.",
+    helpIntentStep3: "Give the bot View Channel and Read Message History in both watched channels, plus Manage Roles for channel locking.",
     helpIntentNote: "“Disallowed gateway intents” means Message Content Intent is still disabled; the token does not need regeneration.",
     helpChannelsTitle: "Configure Discord channels", helpChannelsSummary: "Separate media and spoken messages",
     helpChannelsStep1: "Create one text channel for images, GIFs, videos and audio.",
@@ -173,7 +173,7 @@ const translations = {
     helpIntentTitle: "Activer les permissions et intents", helpIntentSummary: "Requis pour lire les messages normaux",
     helpIntentStep1: "Dans Bot → Privileged Gateway Intents, activez Message Content Intent.",
     helpIntentStep2: "Utilisez l’URL d’invitation de Relay pour ajouter le bot à votre serveur Discord.",
-    helpIntentStep3: "Accordez au bot Voir le salon et Voir les anciens messages dans les deux salons surveillés.",
+    helpIntentStep3: "Accordez au bot Voir le salon et Voir les anciens messages dans les deux salons surveillés, ainsi que Gérer les rôles pour le verrouillage.",
     helpIntentNote: "« Disallowed gateway intents » signifie que Message Content Intent est encore désactivé ; inutile de régénérer le token.",
     helpChannelsTitle: "Configurer les salons Discord", helpChannelsSummary: "Séparer les médias et les messages lus",
     helpChannelsStep1: "Créez un salon texte pour les images, GIF, vidéos et fichiers audio.",
@@ -269,7 +269,7 @@ translations.es = {
   widgetHidden: "Widget oculto", widgetVisibleLocked: "Widget visible y bloqueado", widgetVisibleMovable: "Widget visible y movible", showWidget: "Mostrar widget", hideWidget: "Ocultar widget", unlockMove: "Desbloquear para mover", lockDisplay: "Bloquear visualización", unknownAuthor: "Autor desconocido",
   helpKicker: "Guía de configuración", helpTitle: "De Discord a OBS.", helpCopy: "Sigue estos pasos una vez y deja Relay funcionando discretamente en la bandeja.", helpStartTitle: "Orden de configuración recomendado", helpStartCopy: "Aplicación de Discord, permisos, canales, fuentes OBS, widgets y una prueba real.",
   helpDiscordTitle: "Crear el bot de Discord", helpDiscordSummary: "Aplicación, token del bot e ID de cliente", helpDiscordStep1: "Abre el Portal de desarrolladores de Discord y crea una nueva aplicación.", helpDiscordStep2: "Abre Bot, crea o restablece el token y cópialo una vez.", helpDiscordStep3: "Copia el ID de aplicación de Información general; es el ID de cliente.", helpDiscordStep4: "Pega ambos valores en Relay. Windows los cifra.", openDiscordPortal: "Abrir Portal de desarrolladores de Discord",
-  helpIntentTitle: "Activar permisos e intents", helpIntentSummary: "Necesarios para leer mensajes normales", helpIntentStep1: "En Bot → Privileged Gateway Intents, activa Message Content Intent.", helpIntentStep2: "Usa la URL de invitación de Relay para añadir el bot al servidor.", helpIntentStep3: "Concede Ver canal y Leer historial de mensajes en ambos canales vigilados.", helpIntentNote: "“Disallowed gateway intents” significa que Message Content Intent sigue desactivado; no regeneres el token.",
+  helpIntentTitle: "Activar permisos e intents", helpIntentSummary: "Necesarios para leer mensajes normales", helpIntentStep1: "En Bot → Privileged Gateway Intents, activa Message Content Intent.", helpIntentStep2: "Usa la URL de invitación de Relay para añadir el bot al servidor.", helpIntentStep3: "Concede Ver canal y Leer historial de mensajes en ambos canales vigilados, además de Gestionar roles para el bloqueo.", helpIntentNote: "“Disallowed gateway intents” significa que Message Content Intent sigue desactivado; no regeneres el token.",
   helpChannelsTitle: "Configurar canales de Discord", helpChannelsSummary: "Separar medios y mensajes hablados", helpChannelsStep1: "Crea un canal de texto para imágenes, GIF, vídeos y audio.", helpChannelsStep2: "Crea otro canal para mensajes TTS de texto.", helpChannelsStep3: "Selecciona ambos canales en Resumen y guarda el enrutamiento.", helpChannelsStep4: "Los mensajes en francés e inglés usan automáticamente la voz de Windows correspondiente.",
   helpObsTitle: "Instalar las fuentes de navegador de OBS", helpObsSummary: "Medios, audio TTS y notificaciones", helpObsStep1: "En OBS, añade una fuente de navegador distinta para cada URL de Overlay.", helpObsStep2: "Usa la URL visual para los medios y conserva el fondo transparente.", helpObsStep3: "Usa la URL TTS como fuente de audio dedicada y activa el control de audio de OBS.", helpObsStep4: "Usa la URL de notificaciones para la tarjeta de mensajes estilo PS5.", helpObsStep5: "No cambies las URL privadas; Relay las reconecta tras cada reinicio.", openObsGuide: "Abrir guía de fuentes de navegador OBS",
   helpWidgetsTitle: "Colocar los widgets de Windows", helpWidgetsSummary: "Mover, bloquear y mostrar en cualquier pantalla", helpWidgetsStep1: "Abre Overlay y muestra el widget de medios o notificaciones.", helpWidgetsStep2: "Déjalo desbloqueado y arrástralo a la pantalla y posición deseadas.", helpWidgetsStep3: "Bloquéalo para que los clics lleguen a las aplicaciones situadas debajo.", helpWidgetsStep4: "La visibilidad, el bloqueo y la posición se restauran al reiniciar.",
@@ -297,7 +297,7 @@ translations.de = {
   botOffline: "Bot offline", serverOnline: "Server online", serverOffline: "Server offline", notConfigured: "Nicht konfiguriert", savedVia: "Gespeichert über", encrypting: "Wird verschlüsselt…", encryptedStarting: "Verschlüsselt; Bot wird gestartet", saving: "Wird gespeichert…", saved: "Gespeichert", regenerating: "Wird neu verbunden…", secretRegenerated: "Dauerhafte Links beibehalten", skipped: "Aktuelles Element übersprungen", widgetHidden: "Widget ausgeblendet", widgetVisibleLocked: "Widget sichtbar und gesperrt", widgetVisibleMovable: "Widget sichtbar und verschiebbar", showWidget: "Widget anzeigen", hideWidget: "Widget ausblenden", unlockMove: "Zum Verschieben entsperren", lockDisplay: "Anzeige sperren", unknownAuthor: "Unbekannter Autor",
   helpKicker: "Einrichtungsanleitung", helpTitle: "Von Discord zu OBS.", helpCopy: "Führe diese Schritte einmal aus und lasse Relay anschließend im Infobereich laufen.", helpStartTitle: "Empfohlene Einrichtungsreihenfolge", helpStartCopy: "Discord-Anwendung, Berechtigungen, Kanäle, OBS-Quellen, Widgets und ein Live-Test.",
   helpDiscordTitle: "Discord-Bot erstellen", helpDiscordSummary: "Anwendung, Bot-Token und Client-ID", helpDiscordStep1: "Öffne das Discord Developer Portal und erstelle eine neue Anwendung.", helpDiscordStep2: "Öffne Bot, erstelle oder erneuere das Token und kopiere es einmal.", helpDiscordStep3: "Kopiere die Anwendungs-ID aus den allgemeinen Informationen; das ist die Client-ID.", helpDiscordStep4: "Füge beide Werte in Relay ein. Windows verschlüsselt sie.", openDiscordPortal: "Discord Developer Portal öffnen",
-  helpIntentTitle: "Berechtigungen und Intents aktivieren", helpIntentSummary: "Zum Lesen normaler Nachrichten erforderlich", helpIntentStep1: "Aktiviere unter Bot → Privileged Gateway Intents den Message Content Intent.", helpIntentStep2: "Füge den Bot mit der Einladungs-URL von Relay deinem Server hinzu.", helpIntentStep3: "Gewähre in beiden überwachten Kanälen Kanal anzeigen und Nachrichtenverlauf lesen.", helpIntentNote: "„Disallowed gateway intents“ bedeutet, dass Message Content Intent noch deaktiviert ist; das Token muss nicht erneuert werden.",
+  helpIntentTitle: "Berechtigungen und Intents aktivieren", helpIntentSummary: "Zum Lesen normaler Nachrichten erforderlich", helpIntentStep1: "Aktiviere unter Bot → Privileged Gateway Intents den Message Content Intent.", helpIntentStep2: "Füge den Bot mit der Einladungs-URL von Relay deinem Server hinzu.", helpIntentStep3: "Gewähre in beiden überwachten Kanälen Kanal anzeigen und Nachrichtenverlauf lesen sowie Rollen verwalten für die Sperre.", helpIntentNote: "„Disallowed gateway intents“ bedeutet, dass Message Content Intent noch deaktiviert ist; das Token muss nicht erneuert werden.",
   helpChannelsTitle: "Discord-Kanäle konfigurieren", helpChannelsSummary: "Medien und gesprochene Nachrichten trennen", helpChannelsStep1: "Erstelle einen Textkanal für Bilder, GIFs, Videos und Audio.", helpChannelsStep2: "Erstelle einen zweiten Kanal für einfache TTS-Nachrichten.", helpChannelsStep3: "Wähle beide Kanäle in der Übersicht und speichere die Zuordnung.", helpChannelsStep4: "Französische und englische Nachrichten verwenden automatisch die passende Windows-Stimme.",
   helpObsTitle: "OBS-Browserquellen installieren", helpObsSummary: "Medien, TTS-Audio und Benachrichtigungen", helpObsStep1: "Füge in OBS für jede unter Overlay angezeigte URL eine eigene Browserquelle hinzu.", helpObsStep2: "Verwende die visuelle URL für Medien und behalte den transparenten Hintergrund.", helpObsStep3: "Verwende die TTS-URL als eigene Audio-Browserquelle und aktiviere die OBS-Audiosteuerung.", helpObsStep4: "Verwende die Benachrichtigungs-URL für die Nachrichtenkarte im PS5-Stil.", helpObsStep5: "Lasse die privaten URLs unverändert; Relay verbindet sie nach jedem Neustart erneut.", openObsGuide: "Anleitung für OBS-Browserquellen öffnen",
   helpWidgetsTitle: "Windows-Widgets platzieren", helpWidgetsSummary: "Auf jedem Bildschirm verschieben, sperren und anzeigen", helpWidgetsStep1: "Öffne Overlay und zeige das Medien- oder Benachrichtigungswidget.", helpWidgetsStep2: "Lasse es entsperrt und ziehe es auf den gewünschten Bildschirm und an die gewünschte Position.", helpWidgetsStep3: "Sperre es, damit Mausklicks an darunterliegende Anwendungen weitergeleitet werden.", helpWidgetsStep4: "Sichtbarkeit, Sperrstatus und Position werden beim Neustart wiederhergestellt.",
@@ -316,7 +316,7 @@ Object.assign(translations.en, {
   commandClearHelp: "Clear outputs, waiting media, and local history.", commandLockHelp: "Toggle the configured media channel lock.",
   commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
   saveCommands: "Save commands", commandsSaved: "Command availability saved",
-  commandsPermission: "Channel locking requires Manage Channels. Commands are restricted to Discord administrators.",
+  commandsPermission: "Channel locking requires Manage Roles. Commands are restricted to Discord administrators.",
 });
 Object.assign(translations.fr, {
   navCommands: "Commandes", commandsKicker: "Contrôles Discord", commandsTitle: "Vos commandes, vos règles.",
@@ -326,7 +326,7 @@ Object.assign(translations.fr, {
   commandClearHelp: "Efface les sorties, les médias en attente et l’historique local.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
   commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
   saveCommands: "Enregistrer les commandes", commandsSaved: "Disponibilité des commandes enregistrée",
-  commandsPermission: "Le verrouillage nécessite Gérer les salons. Les commandes sont réservées aux administrateurs Discord.",
+  commandsPermission: "Le verrouillage nécessite Gérer les rôles. Les commandes sont réservées aux administrateurs Discord.",
 });
 Object.assign(translations.es, {
   navCommands: "Comandos", commandsKicker: "Controles de Discord", commandsTitle: "Tus comandos, tus reglas.",
@@ -336,7 +336,7 @@ Object.assign(translations.es, {
   commandClearHelp: "Limpia las salidas, los medios pendientes y el historial local.", commandLockHelp: "Bloquea o desbloquea el canal de medios configurado.",
   commandLockInactive: "El canal de medios está desbloqueado.", commandLockActive: "El canal de medios está bloqueado. /relay lock sigue disponible para desbloquearlo.",
   saveCommands: "Guardar comandos", commandsSaved: "Disponibilidad de comandos guardada",
-  commandsPermission: "El bloqueo requiere Gestionar canales. Los comandos están restringidos a administradores de Discord.",
+  commandsPermission: "El bloqueo requiere Gestionar roles. Los comandos están restringidos a administradores de Discord.",
 });
 Object.assign(translations.de, {
   navCommands: "Befehle", commandsKicker: "Discord-Steuerung", commandsTitle: "Deine Befehle, deine Regeln.",
@@ -346,7 +346,7 @@ Object.assign(translations.de, {
   commandClearHelp: "Leert Ausgaben, wartende Medien und den lokalen Verlauf.", commandLockHelp: "Sperrt oder entsperrt den konfigurierten Medienkanal.",
   commandLockInactive: "Der Medienkanal ist derzeit entsperrt.", commandLockActive: "Der Medienkanal ist gesperrt. /relay lock bleibt zum Entsperren verfügbar.",
   saveCommands: "Befehle speichern", commandsSaved: "Befehlsverfügbarkeit gespeichert",
-  commandsPermission: "Die Sperre erfordert Kanäle verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
+  commandsPermission: "Die Sperre erfordert Rollen verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
 });
 
 const pageMetadata = {

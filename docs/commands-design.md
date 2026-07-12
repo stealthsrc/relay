@@ -14,7 +14,7 @@
 
 - Relay manages one configured media channel at a time.
 - Moderation roles are roles with `Administrator`, `Manage Channels`, or `Manage Messages`.
-- The Relay bot has `Manage Channels` and is allowed to edit permission overwrites.
+- The Relay bot has `Manage Roles`, which Discord requires to edit channel permission overwrites.
 - Command responses are ephemeral and commands remain unavailable to regular members.
 - Relay does not collect telemetry or transmit command configuration outside Discord.
 
