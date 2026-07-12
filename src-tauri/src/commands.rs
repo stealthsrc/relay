@@ -78,6 +78,17 @@ pub struct PanelConfig {
     moderation_allow_audio: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandSettings {
+    channel: bool,
+    url: bool,
+    show: bool,
+    regenerate: bool,
+    clear: bool,
+    lock: bool,
+}
+
 #[tauri::command]
 pub async fn get_bootstrap(
     app: AppHandle,
@@ -206,6 +217,22 @@ pub async fn apply_config(
 pub async fn clear_overlay(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
     let _ = core.relay_tx.send(RelayEvent::Clear);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn save_command_settings(
+    core: State<'_, Arc<AppCore>>,
+    settings: CommandSettings,
+) -> Result<AppConfig, String> {
+    let mut config = core.config.read().await.clone();
+    config.command_channel_enabled = settings.channel;
+    config.command_url_enabled = settings.url;
+    config.command_show_enabled = settings.show;
+    config.command_regenerate_enabled = settings.regenerate;
+    config.command_clear_enabled = settings.clear;
+    config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
+    core.set_config(config.clone()).await.map_err(display_error)?;
+    Ok(config)
 }
 
 #[tauri::command]

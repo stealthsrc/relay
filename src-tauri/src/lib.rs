@@ -22,7 +22,8 @@ use crate::{
     commands::{
         apply_config, approve_pending_media, clear_overlay, clear_pending_media, get_bootstrap,
         get_runtime_status, get_widget_bootstrap, refresh_channels, regenerate_secret,
-        reject_pending_media, replay_media, save_credentials, set_interface_preferences,
+        reject_pending_media, replay_media, save_command_settings, save_credentials,
+        set_interface_preferences,
         set_notification_widget_locked,
         set_notification_widget_visible, set_widget_locked, skip_media, toggle_widget,
     },
@@ -108,6 +109,7 @@ pub fn run() {
             set_interface_preferences,
             save_credentials,
             apply_config,
+            save_command_settings,
             clear_overlay,
             replay_media,
             skip_media,

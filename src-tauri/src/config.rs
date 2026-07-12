@@ -14,6 +14,23 @@ const LEGACY_CONFIG_DIRECTORIES: [&str; 2] =
     ["eu.stealthylabs.discord-obs-relay", "discord-obs-relay"];
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PermissionOverwriteSnapshot {
+    pub target_id: String,
+    pub target_kind: String,
+    pub allow: u64,
+    pub deny: u64,
+    pub existed: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelLockSnapshot {
+    pub channel_id: String,
+    pub overwrites: Vec<PermissionOverwriteSnapshot>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppConfig {
     pub watched_channel_id: String,
@@ -30,6 +47,13 @@ pub struct AppConfig {
     pub moderation_allow_images: bool,
     pub moderation_allow_videos: bool,
     pub moderation_allow_audio: bool,
+    pub command_channel_enabled: bool,
+    pub command_url_enabled: bool,
+    pub command_show_enabled: bool,
+    pub command_regenerate_enabled: bool,
+    pub command_clear_enabled: bool,
+    pub command_lock_enabled: bool,
+    pub channel_lock: Option<ChannelLockSnapshot>,
     pub widget_x: Option<i32>,
     pub widget_y: Option<i32>,
     pub widget_visible: bool,
@@ -57,6 +81,13 @@ impl Default for AppConfig {
             moderation_allow_images: true,
             moderation_allow_videos: true,
             moderation_allow_audio: true,
+            command_channel_enabled: true,
+            command_url_enabled: true,
+            command_show_enabled: true,
+            command_regenerate_enabled: true,
+            command_clear_enabled: true,
+            command_lock_enabled: true,
+            channel_lock: None,
             widget_x: None,
             widget_y: None,
             widget_visible: false,
@@ -240,6 +271,13 @@ mod tests {
             moderation_allow_images: true,
             moderation_allow_videos: false,
             moderation_allow_audio: true,
+            command_channel_enabled: true,
+            command_url_enabled: false,
+            command_show_enabled: true,
+            command_regenerate_enabled: false,
+            command_clear_enabled: true,
+            command_lock_enabled: true,
+            channel_lock: None,
             widget_x: Some(-640),
             widget_y: Some(120),
             widget_visible: true,

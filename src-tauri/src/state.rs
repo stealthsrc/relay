@@ -193,6 +193,16 @@ impl AppCore {
         self.pending_media.write().await.clear();
     }
 
+    pub async fn clear_outputs_and_history(&self) {
+        self.history.write().await.clear();
+        self.pending_media.write().await.clear();
+        self.tts_audio.write().await.clear();
+        self.media_artwork.write().await.clear();
+        self.media_audio.write().await.clear();
+        self.cached_media.write().await.clear();
+        let _ = self.relay_tx.send(RelayEvent::Clear);
+    }
+
     pub async fn cache_artwork(&self, id: String, artwork: EmbeddedArtwork) {
         let mut cache = self.media_artwork.write().await;
         cache.retain(|item| item.id != id);
@@ -377,5 +387,24 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         assert!(core.claim_embed("message-embed-0".into()).await);
         assert!(!core.claim_embed("message-embed-0".into()).await);
+    }
+
+    #[tokio::test]
+    async fn clears_history_pending_media_and_cached_outputs() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.publish_media(media(MediaKind::Image, "clear-me")).await;
+        core.pending_media.write().await.push_back(PendingMedia {
+            id: 1,
+            media: media(MediaKind::Gif, "pending"),
+        });
+        core.cache_media("cached".into(), "image/gif".into(), b"GIF89a".to_vec())
+            .await;
+
+        core.clear_outputs_and_history().await;
+
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(core.cached_media.read().await.is_empty());
     }
 }
