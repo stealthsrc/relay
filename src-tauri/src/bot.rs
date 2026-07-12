@@ -6,10 +6,11 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use serenity::{
     all::{
-        ChannelType, Command, CommandDataOptionValue, CommandInteraction, CommandOptionType,
-        Context, CreateCommand, CreateCommandOption, CreateInteractionResponse,
-        CreateInteractionResponseMessage, EventHandler, GatewayIntents, GuildId, Interaction,
-        Message, MessageUpdateEvent, Permissions, Ready, UserId,
+        Channel, ChannelId, ChannelType, Command, CommandDataOptionValue, CommandInteraction,
+        CommandOptionType, Context, CreateCommand, CreateCommandOption,
+        CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
+        GuildId, Interaction, Message, MessageUpdateEvent, PermissionOverwrite,
+        PermissionOverwriteType, Permissions, Ready, UserId,
     },
     async_trait,
     cache::Cache,
@@ -19,7 +20,7 @@ use serenity::{
 
 use crate::{
     artwork,
-    config::AppConfig,
+    config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_or_create_relay_secret},
     model::{AuthorIdentity, BotStatus, ChannelSummary, MediaEvent, MediaKind, TtsRequest},
     state::{AppCore, BotRuntime},
@@ -208,7 +209,7 @@ impl EventHandler for Handler {
             return;
         }
 
-        let content = handle_relay(&self.core, &command)
+        let content = handle_relay(&self.core, &context.http, &command)
             .await
             .unwrap_or_else(|error| format!("Unable to update Relay: {error}"));
         let response = CreateInteractionResponse::Message(
@@ -333,8 +334,11 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
 }
 
 pub fn invite_url(client_id: &str) -> String {
+    let permissions =
+        (Permissions::VIEW_CHANNEL | Permissions::READ_MESSAGE_HISTORY | Permissions::MANAGE_CHANNELS)
+            .bits();
     format!(
-        "https://discord.com/oauth2/authorize?client_id={client_id}&permissions=66560&scope=bot%20applications.commands"
+        "https://discord.com/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands"
     )
 }
 
@@ -369,15 +373,37 @@ fn relay_command() -> CreateCommand {
             "regenerate",
             "Reconnect local relay outputs without changing their URLs",
         ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "clear",
+            "Clear Relay outputs, waiting media, and local history",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "lock",
+            "Toggle the configured media channel lock",
+        ))
 }
 
-async fn handle_relay(core: &Arc<AppCore>, command: &CommandInteraction) -> Result<String> {
+async fn handle_relay(
+    core: &Arc<AppCore>,
+    http: &Http,
+    command: &CommandInteraction,
+) -> Result<String> {
     let Some(option) = command.data.options.first() else {
         return Ok("Choose a Relay subcommand.".into());
     };
     let CommandDataOptionValue::SubCommand(arguments) = &option.value else {
         return Ok("Invalid Relay command.".into());
     };
+    let config = core.config.read().await.clone();
+    let lock_can_restore = option.name == "lock" && config.channel_lock.is_some();
+    if !command_enabled(&config, &option.name) && !lock_can_restore {
+        return Ok(format!(
+            "`/relay {}` is disabled in the Relay application.",
+            option.name
+        ));
+    }
 
     match option.name.as_str() {
         "channel" => {
@@ -421,8 +447,151 @@ async fn handle_relay(core: &Arc<AppCore>, command: &CommandInteraction) -> Resu
                 overlay_url(&config, &secret)
             ))
         }
+        "clear" => {
+            core.clear_outputs_and_history().await;
+            Ok("Relay outputs, waiting media, and local history were cleared.".into())
+        }
+        "lock" => toggle_channel_lock(core, http).await,
         _ => Ok("Unknown Relay subcommand.".into()),
     }
+}
+
+fn command_enabled(config: &AppConfig, command: &str) -> bool {
+    match command {
+        "channel" => config.command_channel_enabled,
+        "url" => config.command_url_enabled,
+        "show" => config.command_show_enabled,
+        "regenerate" => config.command_regenerate_enabled,
+        "clear" => config.command_clear_enabled,
+        "lock" => config.command_lock_enabled,
+        _ => false,
+    }
+}
+
+async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String> {
+    let config = core.config.read().await.clone();
+    if let Some(snapshot) = config.channel_lock.clone() {
+        restore_channel_permissions(http, &snapshot).await?;
+        let mut next = core.config.read().await.clone();
+        next.channel_lock = None;
+        core.set_config(next).await?;
+        return Ok(format!("<#{0}> is unlocked.", snapshot.channel_id));
+    }
+    if config.watched_channel_id.is_empty() {
+        bail!("configure a media channel before locking it");
+    }
+
+    let channel_id = ChannelId::new(config.watched_channel_id.parse()?);
+    let Channel::Guild(channel) = channel_id.to_channel(http).await? else {
+        bail!("the configured media channel is not a server text channel");
+    };
+    let roles = channel.guild_id.roles(http).await?;
+    let everyone = channel.guild_id.everyone_role();
+    let mut targets = vec![PermissionOverwriteType::Role(everyone)];
+    targets.extend(roles.values().filter_map(|role| {
+        (role.id != everyone
+            && role.permissions.intersects(
+                Permissions::ADMINISTRATOR
+                    | Permissions::MANAGE_CHANNELS
+                    | Permissions::MANAGE_MESSAGES,
+            ))
+        .then_some(PermissionOverwriteType::Role(role.id))
+    }));
+
+    let snapshot = ChannelLockSnapshot {
+        channel_id: channel.id.to_string(),
+        overwrites: targets
+            .iter()
+            .filter_map(|kind| snapshot_permission(&channel.permission_overwrites, *kind))
+            .collect(),
+    };
+    let mut next = config;
+    next.channel_lock = Some(snapshot.clone());
+    core.set_config(next).await?;
+
+    for kind in targets {
+        let existing = channel
+            .permission_overwrites
+            .iter()
+            .find(|overwrite| overwrite.kind == kind);
+        let mut allow = existing.map_or(Permissions::empty(), |overwrite| overwrite.allow);
+        let mut deny = existing.map_or(Permissions::empty(), |overwrite| overwrite.deny);
+        if kind == PermissionOverwriteType::Role(everyone) {
+            allow.remove(Permissions::SEND_MESSAGES);
+            deny.insert(Permissions::SEND_MESSAGES);
+        } else {
+            deny.remove(Permissions::SEND_MESSAGES);
+            allow.insert(Permissions::SEND_MESSAGES);
+        }
+        if let Err(error) = channel
+            .create_permission(http, PermissionOverwrite { allow, deny, kind })
+            .await
+        {
+            if restore_channel_permissions(http, &snapshot).await.is_ok() {
+                let mut rollback = core.config.read().await.clone();
+                rollback.channel_lock = None;
+                let _ = core.set_config(rollback).await;
+            }
+            bail!("Discord refused the channel lock: {error}");
+        }
+    }
+    Ok(format!(
+        "<#{0}> is locked. Administrators and moderation roles can still write.",
+        snapshot.channel_id
+    ))
+}
+
+fn snapshot_permission(
+    overwrites: &[PermissionOverwrite],
+    kind: PermissionOverwriteType,
+) -> Option<PermissionOverwriteSnapshot> {
+    let (target_kind, target_id) = match kind {
+        PermissionOverwriteType::Member(id) => ("member", id.to_string()),
+        PermissionOverwriteType::Role(id) => ("role", id.to_string()),
+        _ => return None,
+    };
+    let existing = overwrites.iter().find(|overwrite| overwrite.kind == kind);
+    Some(PermissionOverwriteSnapshot {
+        target_id,
+        target_kind: target_kind.into(),
+        allow: existing.map_or(0, |overwrite| overwrite.allow.bits()),
+        deny: existing.map_or(0, |overwrite| overwrite.deny.bits()),
+        existed: existing.is_some(),
+    })
+}
+
+async fn restore_channel_permissions(http: &Http, snapshot: &ChannelLockSnapshot) -> Result<()> {
+    let channel_id = ChannelId::new(snapshot.channel_id.parse()?);
+    let Channel::Guild(channel) = channel_id.to_channel(http).await? else {
+        bail!("the locked channel is no longer a server channel");
+    };
+    for saved in &snapshot.overwrites {
+        let id = saved.target_id.parse::<u64>()?;
+        let kind = match saved.target_kind.as_str() {
+            "member" => PermissionOverwriteType::Member(UserId::new(id)),
+            "role" => PermissionOverwriteType::Role(serenity::all::RoleId::new(id)),
+            _ => bail!("the saved channel permission target is invalid"),
+        };
+        if saved.existed {
+            channel
+                .create_permission(
+                    http,
+                    PermissionOverwrite {
+                        allow: Permissions::from_bits_truncate(saved.allow),
+                        deny: Permissions::from_bits_truncate(saved.deny),
+                        kind,
+                    },
+                )
+                .await?;
+        } else if channel
+            .permission_overwrites
+            .iter()
+            .any(|overwrite| overwrite.kind == kind)
+        {
+            channel.delete_permission(http, kind).await?;
+        }
+    }
+    Ok(())
 }
 
 fn connection_details(config: &AppConfig, secret: &str) -> String {
@@ -752,8 +921,30 @@ mod tests {
     fn builds_invite_url_with_required_scopes_and_permissions() {
         assert_eq!(
             invite_url("123456789012345678"),
-            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=66560&scope=bot%20applications.commands"
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=66576&scope=bot%20applications.commands"
         );
+    }
+
+    #[test]
+    fn disables_commands_individually() {
+        let config = AppConfig {
+            command_clear_enabled: false,
+            ..AppConfig::default()
+        };
+        assert!(!command_enabled(&config, "clear"));
+        assert!(command_enabled(&config, "lock"));
+        assert!(!command_enabled(&config, "unknown"));
+    }
+
+    #[test]
+    fn snapshots_missing_permission_overwrites_for_exact_restoration() {
+        let kind = PermissionOverwriteType::Role(serenity::all::RoleId::new(42));
+        let saved = snapshot_permission(&[], kind).unwrap();
+        assert_eq!(saved.target_kind, "role");
+        assert_eq!(saved.target_id, "42");
+        assert!(!saved.existed);
+        assert_eq!(saved.allow, 0);
+        assert_eq!(saved.deny, 0);
     }
 
     #[test]
