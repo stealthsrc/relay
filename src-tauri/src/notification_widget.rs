@@ -3,14 +3,17 @@ use std::sync::{Arc, atomic::Ordering};
 use anyhow::{Context, Result};
 use serde::Serialize;
 use tauri::{
-    AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowSizeConstraints,
 };
 
-use crate::{credentials::load_or_create_relay_secret, state::AppCore};
+use crate::{
+    config::{MIN_WIDGET_HEIGHT, MIN_WIDGET_WIDTH},
+    credentials::load_or_create_relay_secret,
+    state::AppCore,
+};
 
 const WINDOW_LABEL: &str = "notification-widget";
-const WINDOW_WIDTH: f64 = 510.0;
-const WINDOW_HEIGHT: f64 = 130.0;
 const DEFAULT_MARGIN: i32 = 28;
 
 #[derive(Clone, Debug, Serialize)]
@@ -88,10 +91,25 @@ async fn ensure_window(app: &AppHandle, core: Arc<AppCore>) -> Result<WebviewWin
 
     let config = core.config.read().await.clone();
     let url = widget_url(&core).await?;
+    let (position, max_width, max_height) = resolved_geometry(
+        app,
+        config
+            .notification_widget_x
+            .zip(config.notification_widget_y),
+        config.notification_widget_width,
+    )?;
+    let width = config
+        .notification_widget_width
+        .clamp(MIN_WIDGET_WIDTH, max_width);
+    let height = config
+        .notification_widget_height
+        .clamp(MIN_WIDGET_HEIGHT, max_height);
     let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::External(url.parse()?))
         .title("Relay - TTS notifications")
-        .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-        .resizable(false)
+        .inner_size(width, height)
+        .min_inner_size(MIN_WIDGET_WIDTH, MIN_WIDGET_HEIGHT)
+        .max_inner_size(max_width, max_height)
+        .resizable(!config.notification_widget_locked)
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -103,19 +121,22 @@ async fn ensure_window(app: &AppHandle, core: Arc<AppCore>) -> Result<WebviewWin
         .visible(false)
         .build()?;
 
-    let position = resolved_position(
-        app,
-        config
-            .notification_widget_x
-            .zip(config.notification_widget_y),
-    )?;
     window.set_position(position)?;
     apply_lock(&window, config.notification_widget_locked)?;
-    watch_position(&window, core);
+    apply_monitor_constraints(&window)?;
+    watch_geometry(&window, core.clone());
+    if width != config.notification_widget_width || height != config.notification_widget_height {
+        core.update_config(|config| {
+            config.notification_widget_width = width;
+            config.notification_widget_height = height;
+        })
+        .await?;
+    }
     Ok(window)
 }
 
 fn apply_lock(window: &WebviewWindow, locked: bool) -> Result<()> {
+    window.set_resizable(!locked)?;
     window.set_focusable(!locked)?;
     window.set_ignore_cursor_events(locked)?;
     window.eval(format!(
@@ -125,61 +146,124 @@ fn apply_lock(window: &WebviewWindow, locked: bool) -> Result<()> {
     Ok(())
 }
 
-fn watch_position(window: &WebviewWindow, core: Arc<AppCore>) {
-    window.on_window_event(move |event| {
-        let tauri::WindowEvent::Moved(position) = event else {
-            return;
-        };
-        let position = *position;
-        let generation = core
-            .notification_widget_move_generation
-            .fetch_add(1, Ordering::Relaxed)
-            + 1;
-        let core = core.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
-            if core
-                .notification_widget_move_generation
-                .load(Ordering::Relaxed)
-                != generation
-            {
-                return;
+fn watch_geometry(window: &WebviewWindow, core: Arc<AppCore>) {
+    let window = window.clone();
+    window.clone().on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::Moved(position) => {
+                let _ = apply_monitor_constraints(&window);
+                persist_position(core.clone(), *position);
             }
-            let _ = core
-                .update_config(|config| {
-                    config.notification_widget_x = Some(position.x);
-                    config.notification_widget_y = Some(position.y);
-                })
-                .await;
-        });
+            tauri::WindowEvent::Resized(size) => {
+                persist_size(core.clone(), &window, *size);
+            }
+            tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                let _ = apply_monitor_constraints(&window);
+            }
+            _ => {}
+        }
     });
 }
 
-fn resolved_position(app: &AppHandle, saved: Option<(i32, i32)>) -> Result<PhysicalPosition<i32>> {
+fn persist_position(core: Arc<AppCore>, position: PhysicalPosition<i32>) {
+    let generation = core
+        .notification_widget_move_generation
+        .fetch_add(1, Ordering::Relaxed)
+        + 1;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        if core
+            .notification_widget_move_generation
+            .load(Ordering::Relaxed)
+            != generation
+        {
+            return;
+        }
+        let _ = core
+            .update_config(|config| {
+                config.notification_widget_x = Some(position.x);
+                config.notification_widget_y = Some(position.y);
+            })
+            .await;
+    });
+}
+
+fn persist_size(core: Arc<AppCore>, window: &WebviewWindow, size: PhysicalSize<u32>) {
+    let generation = core
+        .notification_widget_resize_generation
+        .fetch_add(1, Ordering::Relaxed)
+        + 1;
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let logical = size.to_logical::<f64>(scale);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        if core
+            .notification_widget_resize_generation
+            .load(Ordering::Relaxed)
+            != generation
+        {
+            return;
+        }
+        let _ = core
+            .update_config(|config| {
+                config.notification_widget_width = logical.width;
+                config.notification_widget_height = logical.height;
+            })
+            .await;
+    });
+}
+
+fn resolved_geometry(
+    app: &AppHandle,
+    saved: Option<(i32, i32)>,
+    width: f64,
+) -> Result<(PhysicalPosition<i32>, f64, f64)> {
     let monitors = app.available_monitors()?;
-    if let Some((x, y)) = saved
-        && monitors.iter().any(|monitor| {
+    let saved_monitor = saved.and_then(|(x, y)| {
+        monitors.iter().find(|monitor| {
             let area = monitor.work_area();
             x >= area.position.x
                 && y >= area.position.y
                 && x < area.position.x + area.size.width as i32
                 && y < area.position.y + area.size.height as i32
         })
-    {
-        return Ok(PhysicalPosition::new(x, y));
-    }
-
-    let monitor = app
-        .primary_monitor()?
-        .or_else(|| monitors.into_iter().next())
-        .context("no display is available")?;
+    });
+    let has_saved_monitor = saved_monitor.is_some();
+    let monitor = match saved_monitor {
+        Some(monitor) => monitor.clone(),
+        None => app
+            .primary_monitor()?
+            .or_else(|| monitors.into_iter().next())
+            .context("no display is available")?,
+    };
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
-    let physical_width = (WINDOW_WIDTH * scale).round() as i32;
-    Ok(PhysicalPosition::new(
-        area.position.x + area.size.width as i32 - physical_width - DEFAULT_MARGIN,
-        area.position.y + DEFAULT_MARGIN,
-    ))
+    let max_width = area.size.width as f64 / scale;
+    let max_height = area.size.height as f64 / scale;
+    let position = if has_saved_monitor {
+        let (x, y) = saved.expect("saved monitor requires a saved position");
+        PhysicalPosition::new(x, y)
+    } else {
+        let physical_width = (width.min(max_width) * scale).round() as i32;
+        PhysicalPosition::new(
+            area.position.x + area.size.width as i32 - physical_width - DEFAULT_MARGIN,
+            area.position.y + DEFAULT_MARGIN,
+        )
+    };
+    Ok((position, max_width, max_height))
+}
+
+fn apply_monitor_constraints(window: &WebviewWindow) -> Result<()> {
+    let monitor = window.current_monitor()?.context("no display is available")?;
+    let area = monitor.work_area();
+    let scale = monitor.scale_factor();
+    window.set_size_constraints(WindowSizeConstraints {
+        min_width: Some(tauri::LogicalUnit::new(MIN_WIDGET_WIDTH).into()),
+        min_height: Some(tauri::LogicalUnit::new(MIN_WIDGET_HEIGHT).into()),
+        max_width: Some(tauri::LogicalUnit::new(area.size.width as f64 / scale).into()),
+        max_height: Some(tauri::LogicalUnit::new(area.size.height as f64 / scale).into()),
+    })?;
+    Ok(())
 }
 
 async fn update_visibility(core: &Arc<AppCore>, visible: bool) -> Result<()> {
@@ -206,10 +290,14 @@ async fn widget_url(core: &Arc<AppCore>) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn notification_widget_uses_compact_console_dimensions() {
-        assert_eq!((WINDOW_WIDTH, WINDOW_HEIGHT), (510.0, 130.0));
+    fn notification_widget_defaults_remain_compact() {
+        assert_eq!(
+            (
+                crate::config::DEFAULT_NOTIFICATION_WIDGET_WIDTH,
+                crate::config::DEFAULT_NOTIFICATION_WIDGET_HEIGHT,
+            ),
+            (510.0, 130.0)
+        );
     }
 }
