@@ -11,6 +11,38 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-12
+
+### English
+
+#### Added
+
+- Added persistent resizing for the media and notification Windows widgets, with monitor-aware limits and an optional 16:9 ratio for media.
+- Added independent crop controls (0–40% per side) and content scaling (50–200%) for media and notifications in OBS and Windows widgets.
+- Added configurable Discord bot online status and activity text for custom, playing, listening, watching, and competing activities.
+- Added optional media sound in the Windows widget and configurable notification sounds for the widget and OBS.
+
+#### Changed
+
+- Output geometry, crop, scale, and bot presence changes now apply live without reloading overlays or interrupting playback.
+- Audio cards, notification cards, and author details now scale cleanly while preserving readable, bounded text.
+- Remote artwork downloads now accept only approved HTTPS media hosts and safe redirects.
+
+### Français
+
+#### Ajouté
+
+- Ajout du redimensionnement persistant des widgets Windows médias et notifications, avec des limites adaptées à l’écran et un ratio 16:9 optionnel pour les médias.
+- Ajout de contrôles indépendants de rognage (0–40 % par côté) et d’échelle du contenu (50–200 %) pour les médias et notifications dans OBS et les widgets Windows.
+- Ajout de la configuration du statut en ligne et de l’activité du bot Discord : personnalisé, joue, écoute, regarde ou participe à une compétition.
+- Ajout du son optionnel des médias dans le widget Windows et de sons de notification configurables pour le widget et OBS.
+
+#### Modifié
+
+- Les changements de géométrie, rognage, échelle et présence du bot s’appliquent désormais en direct, sans recharger les overlays ni interrompre la lecture.
+- Les cartes audio, cartes de notification et informations d’auteur se redimensionnent proprement avec des textes lisibles et contenus.
+- Les téléchargements de pochettes distantes sont désormais limités aux hôtes médias HTTPS approuvés et aux redirections sûres.
+
 ## [1.1.0] - 2026-07-12
 
 ### English
@@ -101,6 +133,7 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/stealthsrc/relay/releases/tag/v1.1.1
 [1.1.0]: https://github.com/stealthsrc/relay/releases/tag/v1.1.0
 [1.0.0]: https://github.com/stealthsrc/relay/releases/tag/v1.0.0
