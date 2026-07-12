@@ -126,6 +126,7 @@ impl EventHandler for Handler {
                 id: sticker.id.to_string(),
                 name: sticker.name.clone(),
                 format: format.into(),
+                url,
                 cached_media_id,
                 author: message_author(&message),
                 timestamp: message_timestamp(&message),

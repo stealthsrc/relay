@@ -54,6 +54,7 @@ pub struct StickerEvent {
     pub id: String,
     pub name: String,
     pub format: String,
+    pub url: String,
     pub cached_media_id: Option<String>,
     pub author: AuthorIdentity,
     pub timestamp: u64,

@@ -42,6 +42,9 @@ const TTS_JS: &str = include_str!("../../tts/tts.js");
 const NOTIFICATIONS_HTML: &str = include_str!("../../notifications/index.html");
 const NOTIFICATIONS_CSS: &str = include_str!("../../notifications/notifications.css");
 const NOTIFICATIONS_JS: &str = include_str!("../../notifications/notifications.js");
+const STICKERS_HTML: &str = include_str!("../../stickers/index.html");
+const STICKERS_CSS: &str = include_str!("../../stickers/stickers.css");
+const STICKERS_JS: &str = include_str!("../../stickers/stickers.js");
 
 #[derive(Clone)]
 struct RelayServerState {
@@ -88,6 +91,9 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         .route("/media-audio/{id}", get(media_audio))
         .route("/media-cache/{id}", get(cached_media))
         .route("/notifications", get(notifications_page))
+        .route("/stickers", get(stickers_page))
+        .route("/sticker-assets/stickers.css", get(stickers_css))
+        .route("/sticker-assets/stickers.js", get(stickers_js))
         .route(
             "/notification-assets/notifications.css",
             get(notifications_css),
@@ -267,6 +273,27 @@ async fn notifications_js() -> impl IntoResponse {
     )
 }
 
+async fn stickers_page(
+    State(state): State<RelayServerState>,
+    Query(query): Query<AccessQuery>,
+) -> Response {
+    if query.secret.is_some() && !secret_matches(query.secret.as_deref(), &state.relay_secret) {
+        return (StatusCode::UNAUTHORIZED, "Invalid relay secret.").into_response();
+    }
+    short_page(&state, STICKERS_HTML)
+}
+
+async fn stickers_css() -> impl IntoResponse {
+    ([(header::CONTENT_TYPE, "text/css; charset=utf-8")], STICKERS_CSS)
+}
+
+async fn stickers_js() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+        STICKERS_JS,
+    )
+}
+
 async fn tts_audio(
     Path(id): Path<String>,
     State(state): State<RelayServerState>,
@@ -443,7 +470,7 @@ async fn websocket(
     }
     let role = query.role.as_deref().unwrap_or("overlay");
     let authorized = match role {
-        "overlay" | "tts" | "notification" => {
+        "overlay" | "tts" | "notification" | "sticker" => {
             request_secret_matches(query.secret.as_deref(), &headers, &state.relay_secret)
         }
         "panel" => secret_matches(query.token.as_deref(), &state.core.panel_token),
@@ -453,7 +480,7 @@ async fn websocket(
         return StatusCode::UNAUTHORIZED.into_response();
     }
 
-    let is_output = matches!(role, "overlay" | "tts" | "notification");
+    let is_output = matches!(role, "overlay" | "tts" | "notification" | "sticker");
     upgrade.on_upgrade(move |socket| handle_socket(socket, state, is_output))
 }
 
