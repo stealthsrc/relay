@@ -18,7 +18,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
   <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
   <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2F6FED" />
+  <img alt="Version 1.1.0" src="https://img.shields.io/badge/version-1.1.0-2F6FED" />
 </p>
 
 <p align="center">
@@ -82,7 +82,8 @@ Relay bot ──► optional moderation ──► bounded FIFO queues
 | Area | Capability |
 |---|---|
 | Visual media | Images, animated GIFs, Discord GIF-picker embeds, MP4/WebM video, transparent idle canvas, native aspect ratios, and fade transitions |
-| Timing | Independent 1–60 second timers for static images and GIFs; normal videos play to completion |
+| Timing | Independent 1–60 second timers for static images, GIFs, stickers, and silent TTS notifications; normal videos play to completion |
+| Stickers | Discord PNG, APNG, GIF, and Lottie stickers on a dedicated OBS source with its own FIFO queue |
 | Audio | Common audio formats, original cached bytes, embedded album artwork, title and artist metadata, and a “Now playing” card |
 | Text-to-speech | Dedicated Discord channel, Windows voices, French/English detection, character limit, queue capacity, skip, and clear |
 | Notifications | Independent OBS notification source plus an optional movable Windows notification widget |
@@ -91,13 +92,15 @@ Relay bot ──► optional moderation ──► bounded FIFO queues
 | Queueing | Multi-user FIFO handling with watchdog recovery instead of silent stalls or dropped bursts |
 | Widgets | Transparent, always-on-top, movable, lockable windows that restore their position after restart |
 | Personalization | Light and OLED-dark themes, RGB accent color, text scale, and complete EN/FR/ES/DE interfaces |
-| Control | System tray panel, live status, overlay count, `/relay` command, and global `Ctrl+Alt+S` skip shortcut |
+| Control | System tray panel, live status, overlay count, `/relay` commands (`channel`, `url`, `show`, `regenerate`, `clear`, `lock`, `changelog`) with individual switches, and global `Ctrl+Alt+S` skip shortcut |
 
 ## Quick start
 
 ### 1. Install Relay
 
 Download the latest `Relay_x.x.x_x64-setup.exe` from the repository releases and run the per-user installer. Administrator rights are not required.
+
+A portable `Relay_x.x.x_x64-portable.exe` is also attached to each release: it runs without installation and stores its configuration in the same per-user location as the installed version.
 
 ### 2. Create the Discord bot
 
@@ -135,6 +138,7 @@ Relay keeps different media classes independent so each source can be positioned
 | Audio | `http://127.0.0.1:4590/audios` | Music, soundboard clips, and Discord audio attachments |
 | TTS | `http://127.0.0.1:4590/tts` | Synthesized speech as a dedicated audio source |
 | Notifications | `http://127.0.0.1:4590/notifications` | Author and message card synchronized with TTS |
+| Stickers | `http://127.0.0.1:4590/stickers` | Discord stickers with their own queue and duration |
 
 The URLs shown inside Relay also carry private authorization. Copy them from the application rather than recreating them manually. If you change the local port, every displayed URL updates accordingly.
 
@@ -191,10 +195,13 @@ Settings are editable live from Relay and stored in the application configuratio
 | Local port | `4590` | Must be between `1024` and `65535` |
 | Image duration | `8 s` | Static images only, from `1` to `60` seconds |
 | GIF duration | `8 s` | Animated GIFs loop for this duration, from `1` to `60` seconds |
+| Sticker duration | `8 s` | Discord stickers stay visible for this duration, from `1` to `60` seconds |
+| Notification duration | `8 s` | Silent TTS notifications stay visible for this duration, from `1` to `60` seconds |
 | Media volume | `50%` | Video and audio playback volume |
 | Show author | On | Displays Discord avatar and username over media |
 | TTS character limit | Unlimited | `0` keeps the full message |
 | TTS queue capacity | `50` | Maximum waiting TTS messages |
+| TTS voice | On | When disabled, TTS messages become silent notifications |
 | Manual moderation | Off | Optional approval queue and media-type filters |
 
 Existing installations automatically migrate the previous combined image/GIF duration into the new GIF duration.
