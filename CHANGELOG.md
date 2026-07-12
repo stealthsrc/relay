@@ -11,6 +11,32 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.1.22] - 2026-07-12
+
+### English
+
+#### Added
+
+- Added an Output readiness center showing connection status for visual, audio, TTS, notification, and sticker outputs.
+- Added separate OBS, preview, and Windows widget connection tracking for every output.
+- Added isolated local output tests that never post to Discord or add entries to Relay history.
+
+#### Changed
+
+- The top-bar OBS source count now excludes internal previews and connection probes.
+
+### Français
+
+#### Ajouté
+
+- Ajout d’un centre d’état des sorties pour les médias visuels, l’audio, le TTS, les notifications et les stickers.
+- Ajout d’un suivi distinct des connexions OBS, aperçu et widget Windows pour chaque sortie.
+- Ajout de tests locaux isolés par sortie, sans publication Discord ni ajout à l’historique Relay.
+
+#### Modifié
+
+- Le compteur de sources OBS de la barre supérieure exclut désormais les aperçus internes et les sondes de connexion.
+
 ## [1.1.21] - 2026-07-12
 
 ### English
