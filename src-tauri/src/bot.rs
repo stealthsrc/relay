@@ -10,11 +10,13 @@ use serenity::{
         CommandOptionType, Context, CreateCommand, CreateCommandOption,
         CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
         GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent,
-        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, StickerFormatType, UserId,
+        OnlineStatus, PermissionOverwrite, PermissionOverwriteType, Permissions, Ready,
+        StickerFormatType, UserId,
     },
     async_trait,
     cache::Cache,
     client::Client,
+    gateway::ActivityData,
     http::Http,
 };
 
@@ -40,6 +42,9 @@ struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, context: Context, ready: Ready) {
+        let config = self.core.config.read().await.clone();
+        let (activity, status) = presence_from_config(&config);
+        context.set_presence(activity, status);
         let avatar = ready
             .user
             .avatar_url()
@@ -450,6 +455,51 @@ pub async fn refresh_channel_list(core: &Arc<AppCore>) -> Result<()> {
     *core.channels.write().await = channels;
     warn_if_watched_channel_missing(core).await;
     Ok(())
+}
+
+pub async fn apply_bot_presence(core: &Arc<AppCore>, config: &AppConfig) {
+    let shard_manager = {
+        let runtime = core.bot_runtime.lock().await;
+        runtime
+            .as_ref()
+            .map(|runtime| Arc::clone(&runtime.shard_manager))
+    };
+    let Some(shard_manager) = shard_manager else {
+        return;
+    };
+    let messengers = shard_manager
+        .runners
+        .lock()
+        .await
+        .values()
+        .map(|runner| runner.runner_tx.clone())
+        .collect::<Vec<_>>();
+    let (activity, status) = presence_from_config(config);
+    for messenger in messengers {
+        messenger.set_presence(activity.clone(), status);
+    }
+}
+
+fn presence_from_config(config: &AppConfig) -> (Option<ActivityData>, OnlineStatus) {
+    let status = match config.bot_online_status.as_str() {
+        "idle" => OnlineStatus::Idle,
+        "dnd" => OnlineStatus::DoNotDisturb,
+        "invisible" => OnlineStatus::Invisible,
+        _ => OnlineStatus::Online,
+    };
+    let text = config.bot_activity_text.trim();
+    let activity = if text.is_empty() || config.bot_activity_type == "none" {
+        None
+    } else {
+        Some(match config.bot_activity_type.as_str() {
+            "playing" => ActivityData::playing(text),
+            "listening" => ActivityData::listening(text),
+            "watching" => ActivityData::watching(text),
+            "competing" => ActivityData::competing(text),
+            _ => ActivityData::custom(text),
+        })
+    };
+    (activity, status)
 }
 
 async fn discover_channels(
@@ -1516,6 +1566,28 @@ mod tests {
     fn leaves_plain_tts_messages_on_the_audio_path() {
         assert!(parse_visual_segments("Relay reads this message").is_none());
         assert!(parse_visual_segments("invalid <:emoji:not-an-id>").is_none());
+    }
+
+    #[test]
+    fn maps_configured_bot_presence() {
+        let config = AppConfig {
+            bot_online_status: "idle".into(),
+            bot_activity_type: "custom".into(),
+            bot_activity_text: "Send your memes".into(),
+            ..AppConfig::default()
+        };
+        let (activity, status) = presence_from_config(&config);
+        assert_eq!(status, OnlineStatus::Idle);
+        assert_eq!(activity.unwrap().state.as_deref(), Some("Send your memes"));
+
+        let hidden = AppConfig {
+            bot_online_status: "invisible".into(),
+            bot_activity_type: "none".into(),
+            ..AppConfig::default()
+        };
+        let (activity, status) = presence_from_config(&hidden);
+        assert_eq!(status, OnlineStatus::Invisible);
+        assert!(activity.is_none());
     }
 
     #[test]

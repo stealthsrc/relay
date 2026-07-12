@@ -5,7 +5,7 @@ use tauri::{AppHandle, State};
 
 use crate::{
     artwork,
-    bot::{invite_url, refresh_channel_list, start_bot},
+    bot::{apply_bot_presence, invite_url, refresh_channel_list, start_bot},
     config::{AppConfig, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
@@ -75,6 +75,9 @@ pub struct PanelConfig {
     tts_queue_limit: u8,
     tts_speech_enabled: bool,
     tts_notifications_obs_enabled: bool,
+    bot_online_status: String,
+    bot_activity_type: String,
+    bot_activity_text: String,
     show_author: bool,
     widget_sound_enabled: bool,
     moderation_enabled: bool,
@@ -282,6 +285,9 @@ pub async fn apply_config(
             current.tts_queue_limit = config.tts_queue_limit;
             current.tts_speech_enabled = config.tts_speech_enabled;
             current.tts_notifications_obs_enabled = config.tts_notifications_obs_enabled;
+            current.bot_online_status = config.bot_online_status;
+            current.bot_activity_type = config.bot_activity_type;
+            current.bot_activity_text = config.bot_activity_text.trim().to_owned();
             current.show_author = config.show_author;
             current.widget_sound_enabled = config.widget_sound_enabled;
             current.moderation_enabled = config.moderation_enabled;
@@ -300,6 +306,12 @@ pub async fn apply_config(
             core.server_status.write().await.error = Some(rollback_error.to_string());
         }
         return Err(format!("Unable to use the requested local port: {error}"));
+    }
+    if previous.bot_online_status != next.bot_online_status
+        || previous.bot_activity_type != next.bot_activity_type
+        || previous.bot_activity_text != next.bot_activity_text
+    {
+        apply_bot_presence(&core, &next).await;
     }
     widget::refresh(&app, &core).await.map_err(display_error)?;
     notification_widget::refresh(&app, &core)
