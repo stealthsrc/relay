@@ -82,18 +82,31 @@ impl EventHandler for Handler {
                 return;
             }
             if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit)
-                && let Err(error) = self
-                    .core
-                    .publish_tts(TtsRequest {
+            {
+                let request = TtsRequest {
                         id: message.id.to_string(),
-                        text,
+                        text: text.clone(),
                         author: message_author(&message),
                         timestamp: message_timestamp(&message),
-                    })
-                    .await
-            {
-                self.core.bot_status.write().await.error =
-                    Some(format!("Windows TTS failed: {error}"));
+                    };
+                if let Err(error) = self.core.publish_tts(request.clone()).await {
+                    self.core.publish_visual_tts(
+                        request.id,
+                        request.text.clone(),
+                        request.author,
+                        request.timestamp,
+                        vec![VisualSegment {
+                            kind: "text".into(),
+                            value: request.text,
+                            url: None,
+                            animated: false,
+                        }],
+                    );
+                    self.core.bot_status.write().await.error =
+                        Some(format!("Windows TTS failed: {error}"));
+                } else {
+                    self.core.bot_status.write().await.error = None;
+                }
             }
             return;
         }

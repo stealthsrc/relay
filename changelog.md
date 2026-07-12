@@ -33,6 +33,7 @@ Next planned version: **1.0.1**.
 
 - Fixed visual emoji notifications blocking the following spoken TTS message.
 - Added a synthesis timeout so a stalled Windows voice cannot freeze the global TTS queue.
+- Added automatic fallback to the default Windows voice and preserved notifications when synthesis fails.
 - Fixed `/relay clear` by requiring one explicit Discord channel and a message count from 1 to 1000.
 - Fixed delayed Discord GIF embeds that arrived through partial message updates.
 - Fixed favorite GIFs represented by Discord as thumbnail-only image embeds.

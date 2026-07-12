@@ -46,36 +46,27 @@ fn synthesize_blocking(text: &str) -> Result<SynthesizedSpeech> {
     };
     let language = detect_language(text);
     let voices = installed_voices(&voice_selector)?;
-    let mut last_error = None;
-
-    if language == SpeechLanguage::Default {
-        match synthesize_with_voice(text, None) {
-            Ok(bytes) => return synthesized_wave(bytes),
-            Err(error) => last_error = Some(error),
-        }
-    } else {
+    if language != SpeechLanguage::Default {
         let matching_voices = preferred_voices(&voices, language);
-        if matching_voices.is_empty() {
-            bail!("Windows has no installed {language:?} speech voice");
-        }
         for token in matching_voices {
-            match synthesize_with_voice(text, Some(token)) {
-                Ok(bytes) => return synthesized_wave(bytes),
-                Err(error) => last_error = Some(error),
+            if let Ok(bytes) = synthesize_with_voice(text, Some(token)) {
+                return synthesized_wave(bytes);
             }
         }
-        return Err(last_error.unwrap_or_else(|| {
-            anyhow::anyhow!("Windows has no usable {language:?} speech voice")
-        }));
     }
+
+    let mut last_error = match synthesize_with_voice(text, None) {
+        Ok(bytes) => return synthesized_wave(bytes),
+        Err(error) => error,
+    };
 
     for token in &voices {
         match synthesize_with_voice(text, Some(token)) {
             Ok(bytes) => return synthesized_wave(bytes),
-            Err(error) => last_error = Some(error),
+            Err(error) => last_error = error,
         }
     }
-    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Windows has no usable speech voice")))
+    Err(last_error)
 }
 
 fn installed_voices(voice_selector: &ISpeechVoice) -> Result<Vec<ISpeechObjectToken>> {
