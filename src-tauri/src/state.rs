@@ -405,6 +405,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn broadcasts_visual_tts_without_touching_the_audio_cache() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        core.publish_visual_tts(
+            "123456789012345678".into(),
+            "test".into(),
+            crate::model::AuthorIdentity {
+                username: "Silent tester".into(),
+                display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
+            },
+            42,
+            vec![VisualSegment {
+                kind: "text".into(),
+                value: "test".into(),
+                url: None,
+                animated: false,
+            }],
+        );
+
+        let RelayEvent::Tts(event) = events.recv().await.unwrap() else {
+            panic!("expected a TTS relay event");
+        };
+        assert!(event.visual_only);
+        assert_eq!(event.text, "test");
+        assert_eq!(event.segments.len(), 1);
+        assert!(core.tts_audio.read().await.is_empty());
+    }
+
+    #[tokio::test]
     async fn claims_delayed_embeds_only_once() {
         let directory = tempfile::tempdir().unwrap();
         let core = AppCore::load(directory.path().join("config.json")).unwrap();

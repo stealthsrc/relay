@@ -83,6 +83,16 @@ impl EventHandler for Handler {
             }
             if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit)
             {
+                if !config.tts_speech_enabled {
+                    self.core.publish_visual_tts(
+                        message.id.to_string(),
+                        text.clone(),
+                        message_author(&message),
+                        message_timestamp(&message),
+                        plain_text_segments(text),
+                    );
+                    return;
+                }
                 let request = TtsRequest {
                         id: message.id.to_string(),
                         text: text.clone(),
@@ -95,12 +105,7 @@ impl EventHandler for Handler {
                         request.text.clone(),
                         request.author,
                         request.timestamp,
-                        vec![VisualSegment {
-                            kind: "text".into(),
-                            value: request.text,
-                            url: None,
-                            animated: false,
-                        }],
+                        plain_text_segments(request.text),
                     );
                     self.core.bot_status.write().await.error =
                         Some(format!("Windows TTS failed: {error}"));
@@ -358,6 +363,15 @@ fn parse_custom_emoji(content: &str) -> Option<(usize, String, String, bool)> {
     Some((token.len(), format!(":{name}:"), url, animated))
 }
 
+fn plain_text_segments(text: String) -> Vec<VisualSegment> {
+    vec![VisualSegment {
+        kind: "text".into(),
+        value: text,
+        url: None,
+        animated: false,
+    }]
+}
+
 fn push_text_segment(segments: &mut Vec<VisualSegment>, text: &mut String) {
     if !text.is_empty() {
         segments.push(VisualSegment {
@@ -564,6 +578,22 @@ fn relay_command() -> CreateCommand {
             "lock",
             "Toggle the configured media channel lock",
         ))
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "changelog",
+                "Post the latest Relay release notes from GitHub",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Channel,
+                    "channel",
+                    "Channel that receives the release notes",
+                )
+                .channel_types(vec![ChannelType::Text, ChannelType::News])
+                .required(true),
+            ),
+        )
 }
 
 async fn handle_relay(
@@ -647,8 +677,79 @@ async fn handle_relay(
             clear_selected_channel(http, channel_id, count).await
         }
         "lock" => toggle_channel_lock(core, http).await,
+        "changelog" => {
+            let channel_id = arguments
+                .iter()
+                .find_map(|argument| match argument.value {
+                    CommandDataOptionValue::Channel(channel_id) => Some(channel_id),
+                    _ => None,
+                })
+                .context("a channel is required")?;
+            post_changelog(http, channel_id).await
+        }
         _ => Ok("Unknown Relay subcommand.".into()),
     }
+}
+
+const CHANGELOG_URL: &str =
+    "https://raw.githubusercontent.com/stealthsrc/relay/main/CHANGELOG.md";
+const CHANGELOG_MAX_BYTES: usize = 256 * 1024;
+const DISCORD_MESSAGE_LIMIT: usize = 1_900;
+
+async fn post_changelog(http: &Http, channel_id: ChannelId) -> Result<String> {
+    let bytes = artwork::download_bounded(CHANGELOG_URL, CHANGELOG_MAX_BYTES)
+        .await
+        .context("failed to download the changelog from GitHub")?;
+    let changelog = String::from_utf8(bytes).context("the changelog is not valid UTF-8")?;
+    let section = latest_changelog_section(&changelog)
+        .context("no published release section was found in the changelog")?;
+    for chunk in split_message_chunks(&section, DISCORD_MESSAGE_LIMIT) {
+        channel_id.say(http, chunk).await?;
+    }
+    Ok(format!("Latest release notes posted to <#{channel_id}>."))
+}
+
+fn latest_changelog_section(changelog: &str) -> Option<String> {
+    let mut lines = Vec::new();
+    let mut in_release = false;
+    for line in changelog.lines() {
+        if line.starts_with("## ") {
+            if in_release {
+                break;
+            }
+            in_release = line.starts_with("## [") && !line.starts_with("## [Unreleased]");
+            if !in_release {
+                continue;
+            }
+        } else if line.starts_with("[") && line.contains("]: http") {
+            continue;
+        }
+        if in_release {
+            lines.push(line);
+        }
+    }
+    if lines.is_empty() {
+        return None;
+    }
+    Some(lines.join("\n").trim().to_owned())
+}
+
+fn split_message_chunks(text: &str, limit: usize) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+    for line in text.lines() {
+        if !current.is_empty() && current.len() + line.len() + 1 > limit {
+            chunks.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push('\n');
+        }
+        current.push_str(line);
+    }
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+    chunks
 }
 
 async fn clear_selected_channel(
@@ -719,6 +820,7 @@ fn command_enabled(config: &AppConfig, command: &str) -> bool {
         "regenerate" => config.command_regenerate_enabled,
         "clear" => config.command_clear_enabled,
         "lock" => config.command_lock_enabled,
+        "changelog" => config.command_changelog_enabled,
         _ => false,
     }
 }
@@ -1211,6 +1313,28 @@ mod tests {
     }
 
     #[test]
+    fn extracts_the_latest_release_section_from_the_changelog() {
+        let changelog = "# Changelog\n\nIntro text.\n\n## [Unreleased]\n\n- Pending change.\n\n## [1.1.0] - 2026-07-12\n\n### Added\n\n- New feature.\n\n## [1.0.0] - 2026-07-12\n\n- First release.\n\n[Unreleased]: https://example.com/compare\n[1.1.0]: https://example.com/tag\n";
+        let section = latest_changelog_section(changelog).unwrap();
+        assert!(section.starts_with("## [1.1.0] - 2026-07-12"));
+        assert!(section.contains("New feature."));
+        assert!(!section.contains("Pending change."));
+        assert!(!section.contains("First release."));
+        assert!(!section.contains("example.com"));
+        assert!(latest_changelog_section("# Changelog\n\n## [Unreleased]\n\n- Only pending.\n").is_none());
+    }
+
+    #[test]
+    fn splits_long_changelog_sections_into_discord_sized_messages() {
+        let long_line = "x".repeat(80);
+        let text = (0..60).map(|_| long_line.clone()).collect::<Vec<_>>().join("\n");
+        let chunks = split_message_chunks(&text, 1_900);
+        assert!(chunks.len() > 1);
+        assert!(chunks.iter().all(|chunk| chunk.len() <= 1_900));
+        assert_eq!(chunks.join("\n"), text);
+    }
+
+    #[test]
     fn snapshots_missing_permission_overwrites_for_exact_restoration() {
         let kind = PermissionOverwriteType::Role(serenity::all::RoleId::new(42));
         let saved = snapshot_permission(&[], kind).unwrap();
@@ -1374,6 +1498,16 @@ mod tests {
                 && segment.animated
                 && segment.url.as_deref().is_some_and(|url| url.contains("223456789012345678"))
         }));
+    }
+
+    #[test]
+    fn wraps_disabled_speech_messages_in_a_single_text_segment() {
+        let segments = plain_text_segments("test".into());
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].kind, "text");
+        assert_eq!(segments[0].value, "test");
+        assert!(segments[0].url.is_none());
+        assert!(!segments[0].animated);
     }
 
     #[test]

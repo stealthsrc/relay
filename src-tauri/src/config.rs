@@ -11,6 +11,7 @@ pub const DEFAULT_PORT: u16 = 4590;
 pub const DEFAULT_DISPLAY_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_GIF_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_STICKER_DURATION_MS: u64 = 8_000;
+pub const DEFAULT_NOTIFICATION_DURATION_MS: u64 = 8_000;
 const LEGACY_CONFIG_DIRECTORIES: [&str; 2] =
     ["eu.stealthylabs.discord-obs-relay", "discord-obs-relay"];
 
@@ -40,9 +41,11 @@ pub struct AppConfig {
     pub display_duration_ms: u64,
     pub gif_duration_ms: u64,
     pub sticker_duration_ms: u64,
+    pub notification_duration_ms: u64,
     pub media_volume: u8,
     pub tts_character_limit: u32,
     pub tts_queue_limit: u8,
+    pub tts_speech_enabled: bool,
     pub tts_notifications_obs_enabled: bool,
     pub show_author: bool,
     pub moderation_enabled: bool,
@@ -55,6 +58,7 @@ pub struct AppConfig {
     pub command_regenerate_enabled: bool,
     pub command_clear_enabled: bool,
     pub command_lock_enabled: bool,
+    pub command_changelog_enabled: bool,
     pub channel_lock: Option<ChannelLockSnapshot>,
     pub widget_x: Option<i32>,
     pub widget_y: Option<i32>,
@@ -75,9 +79,11 @@ impl Default for AppConfig {
             display_duration_ms: DEFAULT_DISPLAY_DURATION_MS,
             gif_duration_ms: DEFAULT_GIF_DURATION_MS,
             sticker_duration_ms: DEFAULT_STICKER_DURATION_MS,
+            notification_duration_ms: DEFAULT_NOTIFICATION_DURATION_MS,
             media_volume: 50,
             tts_character_limit: 0,
             tts_queue_limit: 50,
+            tts_speech_enabled: true,
             tts_notifications_obs_enabled: false,
             show_author: true,
             moderation_enabled: false,
@@ -90,6 +96,7 @@ impl Default for AppConfig {
             command_regenerate_enabled: true,
             command_clear_enabled: true,
             command_lock_enabled: true,
+            command_changelog_enabled: true,
             channel_lock: None,
             widget_x: None,
             widget_y: None,
@@ -121,6 +128,9 @@ impl AppConfig {
         }
         if !(1_000..=60_000).contains(&self.sticker_duration_ms) {
             bail!("The sticker duration must be between 1 and 60 seconds.");
+        }
+        if !(1_000..=60_000).contains(&self.notification_duration_ms) {
+            bail!("The notification duration must be between 1 and 60 seconds.");
         }
         if self.media_volume > 100 {
             bail!("The media volume must be between 0 and 100 percent.");
@@ -277,9 +287,11 @@ mod tests {
             display_duration_ms: 4_000,
             gif_duration_ms: 6_000,
             sticker_duration_ms: 7_000,
+            notification_duration_ms: 9_000,
             media_volume: 65,
             tts_character_limit: 280,
             tts_queue_limit: 24,
+            tts_speech_enabled: false,
             tts_notifications_obs_enabled: true,
             show_author: false,
             moderation_enabled: true,
@@ -292,6 +304,7 @@ mod tests {
             command_regenerate_enabled: false,
             command_clear_enabled: true,
             command_lock_enabled: true,
+            command_changelog_enabled: false,
             channel_lock: None,
             widget_x: Some(-640),
             widget_y: Some(120),

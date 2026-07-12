@@ -1,0 +1,106 @@
+# Changelog
+
+All notable user-facing changes to Relay are documented in this file, in English and in French.
+Toutes les évolutions notables de Relay sont documentées dans ce fichier, en anglais et en français.
+
+## Versioning policy / Politique de version
+
+- A major Relay update increments the middle number: `1.0.0` → `1.1.0`.
+- A minor update, bug fix, or simple addition increments the patch number: `1.0.0` → `1.0.1`.
+- Changes remain under `Unreleased` until the matching GitHub release is published.
+
+## [Unreleased]
+
+## [1.1.0] - 2026-07-12
+
+### English
+
+#### Added
+
+- Added a dedicated Commands page with individual availability switches.
+- Added `/relay clear` to delete messages from the configured Discord media and TTS channels without clearing Relay history.
+- Added `/relay lock` as a reversible toggle for the configured Discord media channel.
+- Added `/relay changelog <channel>` to post the latest release notes, fetched live from GitHub, into a chosen Discord channel.
+- Preserved access for Discord administrators and moderation roles while a channel is locked.
+- Stored channel permission snapshots locally so unlock restores the previous state.
+- Added a dedicated `/stickers` OBS Browser Source with its own 50-item FIFO queue and configurable duration.
+- Added Discord PNG, APNG, GIF, and Lottie sticker capture with bounded local caching and a safe visual fallback.
+- Added visual rendering for Unicode, static custom, and animated custom emojis in TTS notifications.
+- Added a "TTS voice" playback switch; when disabled, TTS messages become silent notifications.
+- Added a configurable notification duration (1 to 60 seconds) controlling how long silent TTS notifications stay visible in OBS and the Windows widget.
+
+#### Changed
+
+- Reorganized the playback settings into collapsible categories: display durations, audio and TTS, display.
+- Updated the Discord invitation URL with the permissions required for media reading, channel permission overwrites, and message cleanup.
+- Documented command permissions in English, French, Spanish, and German.
+- Messages containing an emoji now skip speech synthesis while preserving the author and message in the notification output.
+
+#### Fixed
+
+- TTS notifications now appear immediately and stay visible even when audio playback fails in OBS or the widget.
+- Fixed visual emoji notifications blocking the following spoken TTS message.
+- Added a synthesis timeout so a stalled Windows voice cannot freeze the global TTS queue.
+- Added automatic fallback to the default Windows voice and preserved notifications when synthesis fails.
+- Fixed `/relay clear` by requiring one explicit Discord channel and a message count from 1 to 1000.
+- Fixed delayed Discord GIF embeds that arrived through partial message updates.
+- Fixed favorite GIFs represented by Discord as thumbnail-only image embeds.
+- Added support for direct thumbnail GIFs without a known GIF provider.
+
+### Français
+
+#### Ajouté
+
+- Ajout d’une page Commandes dédiée avec des interrupteurs de disponibilité individuels.
+- Ajout de `/relay clear` pour supprimer des messages des salons Discord médias et TTS configurés sans effacer l’historique Relay.
+- Ajout de `/relay lock`, un verrouillage réversible du salon média Discord configuré.
+- Ajout de `/relay changelog <channel>` pour publier les dernières notes de version, récupérées en direct depuis GitHub, dans le salon Discord choisi.
+- Préservation de l’accès des administrateurs Discord et des rôles de modération pendant le verrouillage d’un salon.
+- Sauvegarde locale des instantanés de permissions du salon afin que le déverrouillage restaure l’état précédent.
+- Ajout d’une source navigateur OBS `/stickers` dédiée avec sa propre file FIFO de 50 éléments et une durée configurable.
+- Ajout de la capture des stickers Discord PNG, APNG, GIF et Lottie avec un cache local borné et un repli visuel sûr.
+- Ajout du rendu visuel des emojis Unicode, personnalisés statiques et personnalisés animés dans les notifications TTS.
+- Ajout d’un interrupteur « Voix TTS » ; désactivé, les messages TTS deviennent des notifications silencieuses.
+- Ajout d’une durée de notification configurable (1 à 60 secondes) contrôlant la visibilité des notifications TTS silencieuses dans OBS et le widget Windows.
+
+#### Modifié
+
+- Réorganisation des réglages de lecture en catégories dépliables : durées d’affichage, audio et TTS, affichage.
+- Mise à jour de l’URL d’invitation Discord avec les permissions requises pour la lecture des médias, la modification des permissions de salon et le nettoyage des messages.
+- Documentation des permissions des commandes en anglais, français, espagnol et allemand.
+- Les messages contenant un emoji sautent désormais la synthèse vocale tout en conservant l’auteur et le message dans la sortie de notification.
+
+#### Corrigé
+
+- Les notifications TTS apparaissent immédiatement et restent visibles même si la lecture audio échoue dans OBS ou le widget.
+- Correction des notifications emoji visuelles qui bloquaient le message TTS parlé suivant.
+- Ajout d’un délai de synthèse afin qu’une voix Windows bloquée ne puisse plus geler la file TTS globale.
+- Ajout d’un repli automatique vers la voix Windows par défaut et préservation des notifications en cas d’échec de synthèse.
+- Correction de `/relay clear` en exigeant un salon Discord explicite et un nombre de messages entre 1 et 1000.
+- Correction des embeds GIF Discord retardés arrivant via des mises à jour partielles de message.
+- Correction des GIF favoris représentés par Discord comme des embeds d’image miniature uniquement.
+- Prise en charge des GIF miniatures directs sans fournisseur GIF connu.
+
+## [1.0.0] - 2026-07-12
+
+### English
+
+#### Added
+
+- First public release of Relay for Windows.
+- Discord media relay for OBS Browser Sources and Windows widgets.
+- Separate media, audio, TTS, and notification outputs.
+- Local moderation, playback controls, history, personalization, and multilingual interface.
+
+### Français
+
+#### Ajouté
+
+- Première version publique de Relay pour Windows.
+- Relais de médias Discord vers les sources navigateur OBS et les widgets Windows.
+- Sorties séparées pour les médias, l’audio, le TTS et les notifications.
+- Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
+
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/stealthsrc/relay/releases/tag/v1.1.0
+[1.0.0]: https://github.com/stealthsrc/relay/releases/tag/v1.0.0

@@ -69,9 +69,11 @@ pub struct PanelConfig {
     display_duration_ms: u64,
     gif_duration_ms: u64,
     sticker_duration_ms: u64,
+    notification_duration_ms: u64,
     media_volume: u8,
     tts_character_limit: u32,
     tts_queue_limit: u8,
+    tts_speech_enabled: bool,
     tts_notifications_obs_enabled: bool,
     show_author: bool,
     moderation_enabled: bool,
@@ -89,6 +91,7 @@ pub struct CommandSettings {
     regenerate: bool,
     clear: bool,
     lock: bool,
+    changelog: bool,
 }
 
 #[tauri::command]
@@ -190,9 +193,11 @@ pub async fn apply_config(
         display_duration_ms: config.display_duration_ms,
         gif_duration_ms: config.gif_duration_ms,
         sticker_duration_ms: config.sticker_duration_ms,
+        notification_duration_ms: config.notification_duration_ms,
         media_volume: config.media_volume,
         tts_character_limit: config.tts_character_limit,
         tts_queue_limit: config.tts_queue_limit,
+        tts_speech_enabled: config.tts_speech_enabled,
         tts_notifications_obs_enabled: config.tts_notifications_obs_enabled,
         show_author: config.show_author,
         moderation_enabled: config.moderation_enabled,
@@ -234,6 +239,7 @@ pub async fn save_command_settings(
     config.command_regenerate_enabled = settings.regenerate;
     config.command_clear_enabled = settings.clear;
     config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
+    config.command_changelog_enabled = settings.changelog;
     core.set_config(config.clone()).await.map_err(display_error)?;
     Ok(config)
 }

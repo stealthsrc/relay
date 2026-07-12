@@ -22,6 +22,7 @@ const translations = {
     mediaVolume: "Media volume", mediaVolumeHelp: "Applied to video, audio and spoken messages.",
     ttsCharacterLimit: "TTS character limit", ttsCharacterLimitHelp: "Use 0 for unlimited message length.", characters: "chars",
     ttsQueueLimit: "TTS queue capacity", ttsQueueLimitHelp: "Maximum waiting messages, from 1 to 50.", items: "items",
+    ttsSpeech: "TTS voice", ttsSpeechHelp: "When off, TTS messages show as silent notifications.",
     obsNotifications: "Show TTS notifications in OBS", obsNotificationsHelp: "Display the author and message while TTS is speaking.",
     obsNotificationOutput: "OBS TTS notification overlay", obsNotificationOutputHelp: "Independent Browser Source displayed only inside OBS.",
     enableObsNotifications: "Enable OBS overlay", enableObsNotificationsHelp: "Does not change the Windows widget.",
@@ -128,6 +129,7 @@ const translations = {
     mediaVolume: "Volume des médias", mediaVolumeHelp: "Appliqué aux vidéos, aux audios et aux messages lus.",
     ttsCharacterLimit: "Limite de caractères TTS", ttsCharacterLimitHelp: "Utilisez 0 pour une longueur de message illimitée.", characters: "car.",
     ttsQueueLimit: "Capacité de la file TTS", ttsQueueLimitHelp: "Nombre maximal de messages en attente, de 1 à 50.", items: "éléments",
+    ttsSpeech: "Voix TTS", ttsSpeechHelp: "Désactivée, les messages TTS deviennent des notifications silencieuses.",
     obsNotifications: "Afficher les notifications TTS dans OBS", obsNotificationsHelp: "Affiche l’auteur et le message pendant la lecture TTS.",
     obsNotificationOutput: "Overlay de notifications TTS OBS", obsNotificationOutputHelp: "Source navigateur indépendante affichée uniquement dans OBS.",
     enableObsNotifications: "Activer l’overlay OBS", enableObsNotificationsHelp: "Ne modifie pas le widget Windows.",
@@ -217,6 +219,10 @@ const translations = {
 
 Object.assign(translations.en, {
   stickerDuration: "Sticker duration", stickerDurationHelp: "Discord stickers stay visible for this duration.",
+  notificationDuration: "Notification duration", notificationDurationHelp: "TTS notifications without audio stay visible for this duration.",
+  durationsGroup: "Display durations", durationsGroupHelp: "How long images, stickers, notifications and GIFs stay visible.",
+  audioTtsGroup: "Audio and TTS", audioTtsGroupHelp: "Volume, message length, queue and voice.",
+  displayGroup: "Display", displayGroupHelp: "What appears over the media.",
   stickerSource: "Discord stickers",
   navPersonalization: "Personalization",
   personalizationKicker: "Interface",
@@ -229,6 +235,10 @@ Object.assign(translations.en, {
 
 Object.assign(translations.fr, {
   stickerDuration: "Durée des stickers", stickerDurationHelp: "Les stickers Discord restent visibles pendant cette durée.",
+  notificationDuration: "Durée des notifications", notificationDurationHelp: "Les notifications TTS sans audio restent visibles pendant cette durée.",
+  durationsGroup: "Durées d’affichage", durationsGroupHelp: "Temps de visibilité des images, stickers, notifications et GIF.",
+  audioTtsGroup: "Audio et TTS", audioTtsGroupHelp: "Volume, longueur des messages, file d’attente et voix.",
+  displayGroup: "Affichage", displayGroupHelp: "Ce qui apparaît au-dessus des médias.",
   stickerSource: "Stickers Discord",
   mediaCopy: "Les images et les GIF utilisent des durées distinctes. Les vidéos et les audios continuent naturellement jusqu’à leur fin.",
   gifDuration: "Durée des GIF",
@@ -259,6 +269,7 @@ translations.es = {
   playbackTitle: "Ajustes de reproducción", imageDuration: "Duración de imágenes", gifDuration: "Duración de GIF", imageDurationHelp: "Solo para imágenes estáticas.", gifDurationHelp: "Los GIF animados se repiten durante este tiempo.", seconds: "s",
   mediaVolume: "Volumen de medios", mediaVolumeHelp: "Se aplica a vídeos, audio y mensajes hablados.",
   ttsCharacterLimit: "Límite de caracteres TTS", ttsCharacterLimitHelp: "Usa 0 para una longitud ilimitada.", characters: "car.", ttsQueueLimit: "Capacidad de la cola TTS", ttsQueueLimitHelp: "Máximo de mensajes en espera, de 1 a 50.", items: "elementos",
+  ttsSpeech: "Voz TTS", ttsSpeechHelp: "Desactivada, los mensajes TTS se muestran como notificaciones silenciosas.",
   obsNotifications: "Mostrar notificaciones TTS en OBS", obsNotificationsHelp: "Muestra el autor y el mensaje mientras habla el TTS.", obsNotificationOutput: "Overlay de notificaciones TTS de OBS", obsNotificationOutputHelp: "Fuente de navegador independiente visible solo en OBS.",
   enableObsNotifications: "Activar overlay de OBS", enableObsNotificationsHelp: "No modifica el widget de Windows.", windowsNotificationWidget: "Widget de notificaciones TTS de Windows", windowsNotificationWidgetHelp: "Ventana independiente que puede colocarse en cualquier pantalla.",
   showAuthor: "Mostrar autor", showAuthorHelp: "Muestra el nombre y avatar de Discord sobre el medio.", supportedFormats: "Se aceptan imágenes, GIF, MP4/WebM y formatos de audio habituales.", savePlayback: "Guardar reproducción",
@@ -292,6 +303,7 @@ translations.de = {
   routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
   mediaKicker: "Wiedergabewarteschlange", mediaTitle: "Medien nach deinen Regeln.", mediaCopy: "Bilder und GIFs verwenden getrennte Anzeigedauern. Videos und Audio laufen bis zum Ende.", transportLabel: "Live-Steuerung", transportReady: "Bereit für das nächste Element", skip: "Aktuelles Element überspringen",
   playbackTitle: "Wiedergabeeinstellungen", imageDuration: "Bilddauer", gifDuration: "GIF-Dauer", imageDurationHelp: "Nur für statische Bilder.", gifDurationHelp: "Animierte GIFs wiederholen sich für diese Dauer.", seconds: "Sek.", mediaVolume: "Medienlautstärke", mediaVolumeHelp: "Gilt für Video, Audio und gesprochene Nachrichten.", ttsCharacterLimit: "TTS-Zeichenlimit", ttsCharacterLimitHelp: "0 bedeutet unbegrenzte Nachrichtenlänge.", characters: "Zeichen", ttsQueueLimit: "TTS-Warteschlangengröße", ttsQueueLimitHelp: "Maximal 1 bis 50 wartende Nachrichten.", items: "Elemente",
+  ttsSpeech: "TTS-Stimme", ttsSpeechHelp: "Deaktiviert erscheinen TTS-Nachrichten als stille Benachrichtigungen.",
   obsNotifications: "TTS-Benachrichtigungen in OBS anzeigen", obsNotificationsHelp: "Zeigt Autor und Nachricht während der TTS-Ausgabe.", obsNotificationOutput: "OBS-TTS-Benachrichtigungs-Overlay", obsNotificationOutputHelp: "Unabhängige Browserquelle, die nur in OBS angezeigt wird.", enableObsNotifications: "OBS-Overlay aktivieren", enableObsNotificationsHelp: "Ändert das Windows-Widget nicht.", windowsNotificationWidget: "Windows-TTS-Benachrichtigungswidget", windowsNotificationWidgetHelp: "Unabhängiges Fenster, das auf jedem Bildschirm platziert werden kann.",
   showAuthor: "Autor anzeigen", showAuthorHelp: "Zeigt Discord-Name und Avatar über dem Medium.", supportedFormats: "Bilder, GIFs, MP4/WebM und gängige Audioformate werden unterstützt.", savePlayback: "Wiedergabe speichern",
   overlayKicker: "Programmausgabe", overlayTitle: "Was OBS empfängt.", overlayCopy: "Die Fläche bleibt transparent, bis ein Medium die Warteschlange erreicht.", livePreview: "Live-Vorschau", transparentCanvas: "Transparente Fläche", browserSource: "OBS-Browserquellen", browserSourceHelp: "Füge jede private URL als separate OBS-Browserquelle hinzu.", visualSource: "Visuelle Medien", ttsSource: "TTS-Audio", notificationSource: "TTS-Benachrichtigungen", audioSource: "Audio, Musik und Sprachnachrichten", regenerateSecret: "OBS-Quellen neu verbinden",
@@ -318,6 +330,7 @@ Object.assign(translations.en, {
   commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
   commandShowHelp: "Show the active Relay configuration.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
   commandClearHelp: "Delete the requested number of messages from one Discord channel selected in the command.", commandLockHelp: "Toggle the configured media channel lock.",
+  commandChangelogHelp: "Post the latest release notes from GitHub into a chosen channel.",
   commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
   saveCommands: "Save commands", commandsSaved: "Command availability saved",
   commandsPermission: "Channel locking requires Manage Roles; clearing requires Manage Messages. Commands are restricted to Discord administrators.",
@@ -328,30 +341,41 @@ Object.assign(translations.fr, {
   commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
   commandShowHelp: "Affiche la configuration Relay active.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
   commandClearHelp: "Supprime le nombre demandé de messages dans le salon Discord choisi dans la commande.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
+  commandChangelogHelp: "Publie les dernières notes de version depuis GitHub dans le salon choisi.",
   commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
   saveCommands: "Enregistrer les commandes", commandsSaved: "Disponibilité des commandes enregistrée",
   commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages. Les commandes sont réservées aux administrateurs Discord.",
 });
 Object.assign(translations.es, {
   stickerDuration: "Duración de stickers", stickerDurationHelp: "Los stickers de Discord permanecen visibles durante este tiempo.",
+  notificationDuration: "Duración de notificaciones", notificationDurationHelp: "Las notificaciones TTS sin audio permanecen visibles durante este tiempo.",
+  durationsGroup: "Duraciones de visualización", durationsGroupHelp: "Tiempo de visibilidad de imágenes, stickers, notificaciones y GIF.",
+  audioTtsGroup: "Audio y TTS", audioTtsGroupHelp: "Volumen, longitud de mensajes, cola y voz.",
+  displayGroup: "Visualización", displayGroupHelp: "Lo que aparece sobre los medios.",
   stickerSource: "Stickers de Discord",
   navCommands: "Comandos", commandsKicker: "Controles de Discord", commandsTitle: "Tus comandos, tus reglas.",
   commandsCopy: "Activa solo los comandos de Relay que quieras usar en Discord.", commandsSettings: "Disponibilidad de comandos",
   commandChannelHelp: "Elige el canal de medios de Discord.", commandUrlHelp: "Muestra de forma efímera las URL locales de Relay y OBS.",
   commandShowHelp: "Muestra la configuración activa de Relay.", commandRegenerateHelp: "Reconecta las salidas locales sin cambiar sus URL.",
   commandClearHelp: "Elimina el número solicitado de mensajes del canal Discord elegido en el comando.", commandLockHelp: "Bloquea o desbloquea el canal de medios configurado.",
+  commandChangelogHelp: "Publica las últimas notas de versión desde GitHub en el canal elegido.",
   commandLockInactive: "El canal de medios está desbloqueado.", commandLockActive: "El canal de medios está bloqueado. /relay lock sigue disponible para desbloquearlo.",
   saveCommands: "Guardar comandos", commandsSaved: "Disponibilidad de comandos guardada",
   commandsPermission: "El bloqueo requiere Gestionar roles; la limpieza requiere Gestionar mensajes. Los comandos están restringidos a administradores de Discord.",
 });
 Object.assign(translations.de, {
   stickerDuration: "Sticker-Dauer", stickerDurationHelp: "Discord-Sticker bleiben für diese Dauer sichtbar.",
+  notificationDuration: "Benachrichtigungsdauer", notificationDurationHelp: "TTS-Benachrichtigungen ohne Audio bleiben für diese Dauer sichtbar.",
+  durationsGroup: "Anzeigedauern", durationsGroupHelp: "Sichtbarkeitsdauer von Bildern, Stickern, Benachrichtigungen und GIFs.",
+  audioTtsGroup: "Audio und TTS", audioTtsGroupHelp: "Lautstärke, Nachrichtenlänge, Warteschlange und Stimme.",
+  displayGroup: "Anzeige", displayGroupHelp: "Was über den Medien erscheint.",
   stickerSource: "Discord-Sticker",
   navCommands: "Befehle", commandsKicker: "Discord-Steuerung", commandsTitle: "Deine Befehle, deine Regeln.",
   commandsCopy: "Aktiviere nur die Relay-Befehle, die in Discord verfügbar sein sollen.", commandsSettings: "Befehlsverfügbarkeit",
   commandChannelHelp: "Wählt den Discord-Medienkanal.", commandUrlHelp: "Zeigt lokale Relay- und OBS-URLs ephemer an.",
   commandShowHelp: "Zeigt die aktive Relay-Konfiguration.", commandRegenerateHelp: "Verbindet lokale Ausgaben neu, ohne ihre URLs zu ändern.",
   commandClearHelp: "Löscht die angegebene Anzahl Nachrichten aus dem im Befehl gewählten Discord-Kanal.", commandLockHelp: "Sperrt oder entsperrt den konfigurierten Medienkanal.",
+  commandChangelogHelp: "Veröffentlicht die neuesten Versionshinweise von GitHub im gewählten Kanal.",
   commandLockInactive: "Der Medienkanal ist derzeit entsperrt.", commandLockActive: "Der Medienkanal ist gesperrt. /relay lock bleibt zum Entsperren verfügbar.",
   saveCommands: "Befehle speichern", commandsSaved: "Befehlsverfügbarkeit gespeichert",
   commandsPermission: "Die Sperre erfordert Rollen verwalten; die Bereinigung erfordert Nachrichten verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
@@ -388,6 +412,7 @@ const channelLockStateElement = $("#channel-lock-state");
 const commandInputs = {
   channel: $("#command-channel"), url: $("#command-url"), show: $("#command-show"),
   regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
+  changelog: $("#command-changelog"),
 };
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
@@ -406,6 +431,8 @@ const mediaVolumeElement = $("#media-volume");
 const mediaVolumeValueElement = $("#media-volume-value");
 const ttsCharacterLimitElement = $("#tts-character-limit");
 const ttsQueueLimitElement = $("#tts-queue-limit");
+const notificationDurationElement = $("#notification-duration");
+const ttsSpeechEnabledElement = $("#tts-speech-enabled");
 const ttsNotificationsObsElement = $("#tts-notifications-obs");
 const showAuthorElement = $("#show-author");
 const moderationEnabledElement = $("#moderation-enabled");
@@ -633,6 +660,8 @@ function applyConfig(config) {
   mediaVolumeValueElement.textContent = `${mediaVolumeElement.value}%`;
   ttsCharacterLimitElement.value = String(config.ttsCharacterLimit ?? 0);
   ttsQueueLimitElement.value = String(config.ttsQueueLimit ?? 50);
+  notificationDurationElement.value = String((config.notificationDurationMs ?? 8000) / 1000);
+  ttsSpeechEnabledElement.checked = config.ttsSpeechEnabled !== false;
   ttsNotificationsObsElement.checked = Boolean(config.ttsNotificationsObsEnabled);
   showAuthorElement.checked = config.showAuthor;
   moderationEnabledElement.checked = Boolean(config.moderationEnabled);
@@ -647,6 +676,7 @@ function applyConfig(config) {
   commandInputs.regenerate.checked = config.commandRegenerateEnabled !== false;
   commandInputs.clear.checked = config.commandClearEnabled !== false;
   commandInputs.lock.checked = config.commandLockEnabled !== false;
+  commandInputs.changelog.checked = config.commandChangelogEnabled !== false;
   commandInputs.lock.disabled = Boolean(config.channelLock);
   channelLockStateElement.dataset.i18n = config.channelLock ? "commandLockActive" : "commandLockInactive";
   channelLockStateElement.textContent = t(channelLockStateElement.dataset.i18n);
@@ -915,6 +945,8 @@ async function saveConfig(stateElement) {
         mediaVolume: Number(mediaVolumeElement.value),
         ttsCharacterLimit: Number(ttsCharacterLimitElement.value),
         ttsQueueLimit: Number(ttsQueueLimitElement.value),
+        notificationDurationMs: Number(notificationDurationElement.value) * 1000,
+        ttsSpeechEnabled: ttsSpeechEnabledElement.checked,
         ttsNotificationsObsEnabled: ttsNotificationsObsElement.checked,
         port: Number(portElement.value),
         showAuthor: showAuthorElement.checked,

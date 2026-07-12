@@ -200,76 +200,129 @@
                 <span id="media-save-state" class="save-state" role="status"></span>
               </div>
               <form id="media-form" class="settings-list">
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="imageDuration">Image duration</strong>
-                    <small data-i18n="imageDurationHelp">Used for static images only.</small>
-                  </span>
-                  <span class="field__unit field__unit--short">
-                    <input id="duration" name="displayDurationSeconds" type="number" min="1" max="60" step="1" required>
-                    <small data-i18n="seconds">sec</small>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="stickerDuration">Sticker duration</strong>
-                    <small data-i18n="stickerDurationHelp">Discord stickers stay visible for this duration.</small>
-                  </span>
-                  <span class="field__unit field__unit--short">
-                    <input id="sticker-duration" name="stickerDurationSeconds" type="number" min="1" max="60" step="1" required>
-                    <small data-i18n="seconds">sec</small>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="gifDuration">GIF duration</strong>
-                    <small data-i18n="gifDurationHelp">Animated GIFs loop for this duration.</small>
-                  </span>
-                  <span class="field__unit field__unit--short">
-                    <input id="gif-duration" name="gifDurationSeconds" type="number" min="1" max="60" step="1" required>
-                    <small data-i18n="seconds">sec</small>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="mediaVolume">Media volume</strong>
-                    <small data-i18n="mediaVolumeHelp">Applied to video, audio and spoken messages.</small>
-                  </span>
-                  <span class="volume-control">
-                    <input id="media-volume" type="range" min="0" max="100" step="1">
-                    <output id="media-volume-value">50%</output>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="ttsCharacterLimit">TTS character limit</strong>
-                    <small data-i18n="ttsCharacterLimitHelp">Use 0 for unlimited message length.</small>
-                  </span>
-                  <span class="field__unit field__unit--short">
-                    <input id="tts-character-limit" name="ttsCharacterLimit" type="number" min="0" max="4294967295" step="1" required>
-                    <small data-i18n="characters">chars</small>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="ttsQueueLimit">TTS queue capacity</strong>
-                    <small data-i18n="ttsQueueLimitHelp">Maximum waiting messages, from 1 to 50.</small>
-                  </span>
-                  <span class="field__unit field__unit--short">
-                    <input id="tts-queue-limit" name="ttsQueueLimit" type="number" min="1" max="50" step="1" required>
-                    <small data-i18n="items">items</small>
-                  </span>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="showAuthor">Show author</strong>
-                    <small data-i18n="showAuthorHelp">Display the Discord name and avatar over media.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="show-author" name="showAuthor" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
+                <details class="settings-disclosure" open>
+                  <summary>
+                    <span>
+                      <strong data-i18n="durationsGroup">Display durations</strong>
+                      <small data-i18n="durationsGroupHelp">How long images, stickers, notifications and GIFs stay visible.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content">
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="imageDuration">Image duration</strong>
+                        <small data-i18n="imageDurationHelp">Used for static images only.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="duration" name="displayDurationSeconds" type="number" min="1" max="60" step="1" required>
+                        <small data-i18n="seconds">sec</small>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="stickerDuration">Sticker duration</strong>
+                        <small data-i18n="stickerDurationHelp">Discord stickers stay visible for this duration.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="sticker-duration" name="stickerDurationSeconds" type="number" min="1" max="60" step="1" required>
+                        <small data-i18n="seconds">sec</small>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="notificationDuration">Notification duration</strong>
+                        <small data-i18n="notificationDurationHelp">TTS notifications without audio stay visible for this duration.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="notification-duration" name="notificationDurationSeconds" type="number" min="1" max="60" step="1" required>
+                        <small data-i18n="seconds">sec</small>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="gifDuration">GIF duration</strong>
+                        <small data-i18n="gifDurationHelp">Animated GIFs loop for this duration.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="gif-duration" name="gifDurationSeconds" type="number" min="1" max="60" step="1" required>
+                        <small data-i18n="seconds">sec</small>
+                      </span>
+                    </label>
+                  </div>
+                </details>
+                <details class="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong data-i18n="audioTtsGroup">Audio and TTS</strong>
+                      <small data-i18n="audioTtsGroupHelp">Volume, message length, queue and voice.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content">
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="mediaVolume">Media volume</strong>
+                        <small data-i18n="mediaVolumeHelp">Applied to video, audio and spoken messages.</small>
+                      </span>
+                      <span class="volume-control">
+                        <input id="media-volume" type="range" min="0" max="100" step="1">
+                        <output id="media-volume-value">50%</output>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="ttsCharacterLimit">TTS character limit</strong>
+                        <small data-i18n="ttsCharacterLimitHelp">Use 0 for unlimited message length.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="tts-character-limit" name="ttsCharacterLimit" type="number" min="0" max="4294967295" step="1" required>
+                        <small data-i18n="characters">chars</small>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="ttsQueueLimit">TTS queue capacity</strong>
+                        <small data-i18n="ttsQueueLimitHelp">Maximum waiting messages, from 1 to 50.</small>
+                      </span>
+                      <span class="field__unit field__unit--short">
+                        <input id="tts-queue-limit" name="ttsQueueLimit" type="number" min="1" max="50" step="1" required>
+                        <small data-i18n="items">items</small>
+                      </span>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="ttsSpeech">TTS voice</strong>
+                        <small data-i18n="ttsSpeechHelp">When off, TTS messages show as silent notifications.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="tts-speech-enabled" name="ttsSpeechEnabled" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                  </div>
+                </details>
+                <details class="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong data-i18n="displayGroup">Display</strong>
+                      <small data-i18n="displayGroupHelp">What appears over the media.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content">
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="showAuthor">Show author</strong>
+                        <small data-i18n="showAuthorHelp">Display the Discord name and avatar over media.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="show-author" name="showAuthor" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                  </div>
+                </details>
                 <div class="settings-actions">
                   <p data-i18n="supportedFormats">Images, GIF, MP4/WebM and common audio formats are accepted.</p>
                   <button class="button button--primary" type="submit" data-i18n="savePlayback">Save playback</button>
@@ -516,6 +569,10 @@
                 <label class="setting-row setting-row--switch">
                   <span><strong class="command-code">/relay lock</strong><small data-i18n="commandLockHelp">Toggle the configured media channel lock.</small></span>
                   <span class="switch"><input id="command-lock" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span><strong class="command-code">/relay changelog</strong><small data-i18n="commandChangelogHelp">Post the latest release notes from GitHub into a chosen channel.</small></span>
+                  <span class="switch"><input id="command-changelog" type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
                 </label>
                 <div class="settings-actions">
                   <p id="channel-lock-state" data-i18n="commandLockInactive">The media channel is currently unlocked.</p>

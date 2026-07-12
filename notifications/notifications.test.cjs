@@ -23,6 +23,7 @@ function classList() {
 function createHarness(target = "obs", language = "en") {
   const sockets = [];
   const timers = new Map();
+  const timerDelays = [];
   let nextTimerId = 1;
   const elements = {
     "#notification": {
@@ -83,9 +84,10 @@ function createHarness(target = "obs", language = "en") {
     location,
     addEventListener() {},
     clearTimeout(id) { timers.delete(id); },
-    setTimeout(callback) {
+    setTimeout(callback, delay) {
       const id = nextTimerId++;
       timers.set(id, callback);
+      timerDelays.push(delay);
       return id;
     },
   };
@@ -117,7 +119,7 @@ function createHarness(target = "obs", language = "en") {
   const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
   vm.runInContext(source, context);
 
-  return { elements, socket: sockets[0], timers };
+  return { elements, socket: sockets[0], timers, timerDelays };
 }
 
 test("notification widget move label follows the Relay language", () => {
@@ -260,6 +262,93 @@ test("emoji messages render visually without requesting TTS audio", () => {
   assert.equal(elements["#notification"].classList.contains("is-visible"), true);
   assert.equal(elements["#notification-message"].children.length, 3);
   assert.equal(elements["#notification-message"].children[2].tagName, "img");
+});
+
+test("a spoken notification stays visible even when audio playback fails", async () => {
+  const { elements, socket, timers } = createHarness("widget");
+  const card = elements["#notification"];
+  const audio = elements["#notification-clock"];
+  audio.play = () => Promise.reject(new Error("playback blocked"));
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("silent", "Muted") }));
+  assert.equal(card.classList.contains("is-visible"), true);
+  await nextMicrotask();
+
+  assert.equal(card.classList.contains("is-visible"), true);
+  assert.equal(elements["#notification-author"].textContent, "Muted");
+  assert.equal(elements["#notification-message"].textContent, "Message silent");
+
+  for (const fire of [...timers.values()]) fire();
+  assert.equal(card.classList.contains("is-visible"), false);
+
+  audio.play = () => Promise.resolve();
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("next", "Speaker") }));
+  await nextMicrotask();
+  assert.match(audio.src, /\/tts-audio\/next\?secret=private$/);
+  assert.equal(card.classList.contains("is-visible"), true);
+});
+
+test("emoji then plain text messages both notify and keep the queue moving", async () => {
+  const { elements, socket } = createHarness("widget");
+  const card = elements["#notification"];
+  const audio = elements["#notification-clock"];
+
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("emoji-first"),
+      visualOnly: true,
+      segments: [{ kind: "emoji", value: "👋", url: null }],
+    },
+  }));
+  assert.equal(card.classList.contains("is-visible"), true);
+  assert.equal(audio.src, "");
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("test", "Tester") }));
+  await nextMicrotask();
+  assert.equal(card.classList.contains("is-visible"), true);
+  assert.equal(elements["#notification-author"].textContent, "Tester");
+  assert.match(audio.src, /\/tts-audio\/test\?secret=private$/);
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("second", "Second user") }));
+  audio.onended();
+  await nextMicrotask();
+  assert.equal(elements["#notification-author"].textContent, "Second user");
+  assert.match(audio.src, /\/tts-audio\/second\?secret=private$/);
+  assert.equal(card.classList.contains("is-visible"), true);
+});
+
+test("visual notifications stay visible for the configured duration", () => {
+  const { elements, socket, timerDelays } = createHarness("widget");
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { notificationDurationMs: 12000 },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("timed"),
+      visualOnly: true,
+      segments: [{ kind: "emoji", value: "👋", url: null }],
+    },
+  }));
+
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+  assert.equal(timerDelays.at(-1), 12000);
+});
+
+test("visual notifications fall back to eight seconds without a configured duration", () => {
+  const { socket, timerDelays } = createHarness("widget");
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("default-timed"),
+      visualOnly: true,
+      segments: [{ kind: "emoji", value: "👋", url: null }],
+    },
+  }));
+
+  assert.equal(timerDelays.at(-1), 8000);
 });
 
 test("a visual emoji notification never blocks the next spoken message", async () => {

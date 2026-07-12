@@ -12,7 +12,7 @@ const moveLabels = { en: "Move notification", fr: "Déplacer la notification", e
 const fallbackAvatar = "/overlay-assets/relay-radar.png";
 const queue = [];
 
-let config = { ttsNotificationsObsEnabled: false, ttsQueueLimit: 50 };
+let config = { ttsNotificationsObsEnabled: false, ttsQueueLimit: 50, notificationDurationMs: 8000 };
 let currentNotification;
 let socket;
 let reconnectTimer;
@@ -32,6 +32,10 @@ function isEnabled() {
 
 function queueLimit() {
   return Math.min(50, Math.max(1, Number(config.ttsQueueLimit) || 50));
+}
+
+function displayDuration() {
+  return Math.min(60000, Math.max(1000, Number(config.notificationDurationMs) || 8000));
 }
 
 function audioUrl(ttsEvent) {
@@ -110,13 +114,21 @@ function playNext() {
   currentNotification = queue.shift();
   const generation = playbackGeneration;
   setCardContent(currentNotification);
+  showCard();
   if (currentNotification.visualOnly) {
-    showCard();
-    visualTimer = window.setTimeout(() => finishCurrent(generation), 8000);
+    visualTimer = window.setTimeout(() => finishCurrent(generation), displayDuration());
     return;
   }
+  const keepVisibleWithoutAudio = () => {
+    if (!currentNotification || generation !== playbackGeneration) {
+      return;
+    }
+    window.clearTimeout(playbackWatchdog);
+    window.clearTimeout(visualTimer);
+    visualTimer = window.setTimeout(() => finishCurrent(generation), displayDuration());
+  };
   audioElement.onended = () => finishCurrent(generation);
-  audioElement.onerror = () => finishCurrent(generation);
+  audioElement.onerror = keepVisibleWithoutAudio;
   const armWatchdog = (delay = 20000) => {
     window.clearTimeout(playbackWatchdog);
     playbackWatchdog = window.setTimeout(() => finishCurrent(generation), delay);
@@ -125,18 +137,12 @@ function playNext() {
   audioElement.ontimeupdate = () => armWatchdog();
   audioElement.onwaiting = () => armWatchdog(15000);
   audioElement.onstalled = () => armWatchdog(15000);
-  audioElement.onabort = () => finishCurrent(generation);
-  audioElement.onemptied = () => finishCurrent(generation);
+  audioElement.onabort = keepVisibleWithoutAudio;
+  audioElement.onemptied = keepVisibleWithoutAudio;
   audioElement.src = audioUrl(currentNotification);
   audioElement.load();
   armWatchdog(15000);
-  audioElement.play()
-    .then(() => {
-      if (currentNotification && generation === playbackGeneration) {
-        showCard();
-      }
-    })
-    .catch(() => finishCurrent(generation));
+  audioElement.play().catch(keepVisibleWithoutAudio);
 }
 
 function enqueue(notification) {
