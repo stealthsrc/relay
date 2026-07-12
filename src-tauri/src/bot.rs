@@ -524,13 +524,22 @@ fn relay_command() -> CreateCommand {
             CreateCommandOption::new(
                 CommandOptionType::SubCommand,
                 "clear",
-                "Delete a chosen number of messages from each configured channel",
+                "Delete a chosen number of messages from one channel",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Channel,
+                    "channel",
+                    "Channel whose messages will be deleted",
+                )
+                .channel_types(vec![ChannelType::Text, ChannelType::News])
+                .required(true),
             )
             .add_sub_option(
                 CreateCommandOption::new(
                     CommandOptionType::Integer,
                     "count",
-                    "Number of messages to delete from each channel (1-1000)",
+                    "Number of messages to delete (1-1000)",
                 )
                 .min_int_value(1)
                 .max_int_value(1_000)
@@ -607,6 +616,13 @@ async fn handle_relay(
             ))
         }
         "clear" => {
+            let channel_id = arguments
+                .iter()
+                .find_map(|argument| match argument.value {
+                    CommandDataOptionValue::Channel(channel_id) => Some(channel_id),
+                    _ => None,
+                })
+                .context("a channel is required")?;
             let count = arguments
                 .iter()
                 .find_map(|argument| match argument.value {
@@ -615,48 +631,22 @@ async fn handle_relay(
                 })
                 .filter(|count| (1..=1_000).contains(count))
                 .context("a message count between 1 and 1000 is required")?;
-            clear_configured_channels(core, http, count).await
+            clear_selected_channel(http, channel_id, count).await
         }
         "lock" => toggle_channel_lock(core, http).await,
         _ => Ok("Unknown Relay subcommand.".into()),
     }
 }
 
-async fn clear_configured_channels(
-    core: &Arc<AppCore>,
+async fn clear_selected_channel(
     http: &Http,
+    channel_id: ChannelId,
     count: usize,
 ) -> Result<String> {
-    let config = core.config.read().await.clone();
-    let channels = [
-        ("Media", config.watched_channel_id),
-        ("TTS", config.tts_channel_id),
-    ]
-    .into_iter()
-    .filter(|(_, channel_id)| !channel_id.is_empty())
-    .collect::<Vec<_>>();
-    if channels.is_empty() {
-        bail!("configure a media or TTS channel before clearing Discord messages");
-    }
-
-    let mut cleared = Vec::new();
-    let mut failures = Vec::new();
-    for (label, channel_id) in channels {
-        let id = ChannelId::new(channel_id.parse()?);
-        match clear_channel_messages(http, id, count).await {
-            Ok(count) => cleared.push(format!("{label} <#{channel_id}>: {count} messages")),
-            Err(error) => failures.push(format!("{label} <#{channel_id}>: {error}")),
-        }
-    }
-    if !failures.is_empty() {
-        let completed = if cleared.is_empty() {
-            "No channel was cleared.".into()
-        } else {
-            format!("Completed: {}.", cleared.join(", "))
-        };
-        bail!("Discord channel cleanup was partial. {completed} Failed: {}", failures.join(", "));
-    }
-    Ok(format!("Discord channels cleared: {}.", cleared.join(", ")))
+    let deleted = clear_channel_messages(http, channel_id, count).await?;
+    Ok(format!(
+        "Cleared {deleted} message(s) from <#{channel_id}>."
+    ))
 }
 
 async fn clear_channel_messages(
@@ -1197,7 +1187,10 @@ mod tests {
             .iter()
             .find(|option| option["name"] == "clear")
             .unwrap();
-        let count = &clear["options"][0];
+        let channel = &clear["options"][0];
+        assert_eq!(channel["name"], "channel");
+        assert_eq!(channel["required"], true);
+        let count = &clear["options"][1];
         assert_eq!(count["name"], "count");
         assert_eq!(count["required"], true);
         assert_eq!(count["min_value"], 1);
