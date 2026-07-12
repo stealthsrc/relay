@@ -11,6 +11,34 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.1.21] - 2026-07-12
+
+### English
+
+#### Added
+
+- Added persistent live previews for media and notification output geometry in the Relay panel.
+- Added a synchronized top-bar audio player with previous, pause/resume, and skip controls.
+
+#### Fixed
+
+- History now loads a first-frame thumbnail for videos and MP4 GIFs; the Relay logo is used only when loading fails.
+- Discord stickers posted in the TTS channel now render in notification cards without speech synthesis.
+- Notification content scaling keeps cards inside the viewport.
+
+### Français
+
+#### Ajouté
+
+- Ajout d’aperçus persistants en direct pour régler la géométrie des sorties médias et notifications dans le panneau Relay.
+- Ajout d’un mini-lecteur audio synchronisé dans la barre supérieure avec précédent, pause/reprise et suivant.
+
+#### Corrigé
+
+- L’historique charge désormais une miniature de la première image des vidéos et GIF MP4 ; le logo Relay n’est utilisé qu’en cas d’échec.
+- Les stickers Discord publiés dans le salon TTS s’affichent désormais dans les cartes de notification sans synthèse vocale.
+- L’échelle du contenu des notifications conserve les cartes dans le viewport.
+
 ## [1.1.1] - 2026-07-12
 
 ### English
@@ -133,7 +161,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.21...HEAD
+[1.1.21]: https://github.com/stealthsrc/relay/releases/tag/v1.1.21
 [1.1.1]: https://github.com/stealthsrc/relay/releases/tag/v1.1.1
 [1.1.0]: https://github.com/stealthsrc/relay/releases/tag/v1.1.0
 [1.0.0]: https://github.com/stealthsrc/relay/releases/tag/v1.0.0

@@ -18,7 +18,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
   <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
   <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.1.1" src="https://img.shields.io/badge/version-1.1.1-2F6FED" />
+  <img alt="Version 1.1.21" src="https://img.shields.io/badge/version-1.1.21-2F6FED" />
 </p>
 
 <p align="center">
