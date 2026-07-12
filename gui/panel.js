@@ -1003,11 +1003,7 @@ function showPage(page) {
     button.classList.toggle("is-active", button.dataset.pageTarget === page);
   }
   if (page === "history") {
-    window.requestAnimationFrame(() => {
-      for (const video of historyListElement.querySelectorAll("video")) {
-        video.play().catch(() => {});
-      }
-    });
+    window.requestAnimationFrame(loadHistoryVideoThumbnails);
   }
   updatePageHeading();
 }
@@ -1141,6 +1137,19 @@ function renderHistory() {
   }
 }
 
+function isVideoThumbnail(kind, contentType) {
+  return kind === "video" || (kind === "gif" && contentType?.startsWith("video/"));
+}
+
+function loadHistoryVideoThumbnails() {
+  for (const video of historyListElement.querySelectorAll("video[data-thumbnail-source]")) {
+    if (!video.src) {
+      video.src = video.dataset.thumbnailSource;
+      video.load();
+    }
+  }
+}
+
 function setMediaThumbnail(item, mediaEvent, kind) {
   const thumbnail = item.querySelector(".history-item__thumb");
   const panelToken = bootstrap?.wsUrl
@@ -1149,14 +1158,27 @@ function setMediaThumbnail(item, mediaEvent, kind) {
   const source = mediaEvent.cachedMediaId
     ? `http://127.0.0.1:${bootstrap.config.port}/media-cache/${encodeURIComponent(mediaEvent.cachedMediaId)}?token=${encodeURIComponent(panelToken)}`
     : mediaEvent.url || mediaEvent.proxyUrl;
-  if (kind === "gif" && mediaEvent.contentType?.startsWith("video/") && source) {
+  if (isVideoThumbnail(kind, mediaEvent.contentType) && source) {
     const video = document.createElement("video");
     video.className = thumbnail.className;
-    video.src = source;
+    video.poster = "./assets/relay-radar.png";
+    video.preload = "none";
     video.muted = true;
-    video.autoplay = true;
-    video.loop = true;
     video.playsInline = true;
+    video.dataset.thumbnailSource = source;
+    video.addEventListener("loadeddata", () => {
+      const time = Number.isFinite(video.duration) ? Math.min(0.1, video.duration / 2) : 0;
+      if (time > 0) {
+        video.addEventListener("seeked", () => video.pause(), { once: true });
+        video.currentTime = time;
+      } else {
+        video.pause();
+      }
+    }, { once: true });
+    video.addEventListener("error", () => {
+      video.removeAttribute("src");
+      video.poster = "./assets/relay-radar.png";
+    }, { once: true });
     thumbnail.replaceWith(video);
     return;
   }
