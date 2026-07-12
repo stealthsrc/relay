@@ -801,7 +801,7 @@ function setOutputGeometryPreviewUrls() {
   for (const [target, metadata] of Object.entries(outputGeometryTargets)) {
     const iframe = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-preview]`);
     const url = new URL(bootstrap[metadata.previewKey]);
-    if (metadata.previewKey === "notificationUrl") url.searchParams.set("preview", "1");
+    url.searchParams.set("preview", "1");
     if (metadata.widget === "media") {
       url.searchParams.set("widget", "1");
       url.searchParams.set("locked", "1");
@@ -1215,8 +1215,10 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   stickerUrlElement.value = bootstrap.stickerUrl;
   inviteRowElement.hidden = !bootstrap.inviteUrl;
   inviteUrlElement.value = bootstrap.inviteUrl || "";
-  if (previewElement.src !== bootstrap.overlayUrl) {
-    previewElement.src = bootstrap.overlayUrl;
+  const previewUrl = new URL(bootstrap.overlayUrl);
+  previewUrl.searchParams.set("preview", "1");
+  if (previewElement.src !== previewUrl.href) {
+    previewElement.src = previewUrl.href;
   }
   setOutputGeometryPreviewUrls();
   if (reconnect) {

@@ -8,12 +8,46 @@ function classList() {
   return {
     add: (...names) => names.forEach((name) => values.add(name)),
     remove: (...names) => names.forEach((name) => values.delete(name)),
+    contains: (name) => values.has(name),
     toggle(name, force) {
       if (force) values.add(name);
       else values.delete(name);
     },
   };
 }
+
+test("media previews stay visible and isolated from the live media queue", () => {
+  const preview = createHarness("?secret=private&preview=1&lang=fr");
+  const image = preview.elements["#image"];
+  const author = preview.elements["#author"];
+
+  assert.equal(image.src, "/overlay-assets/relay-radar.png");
+  assert.equal(image.classList.contains("is-visible"), true);
+  assert.equal(image.style.height, "100%");
+  assert.equal(preview.elements["#author-name"].textContent, "Aperçu en direct");
+  assert.equal(author.hidden, false);
+
+  preview.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { mediaObsGeometry: { cropRight: 18, contentScale: 140 } },
+  }));
+  preview.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "video", url: "https://cdn.discordapp.com/ignored.mp4" },
+  }));
+  preview.socket.emit("message", JSON.stringify({ type: "clear" }));
+
+  assert.equal(preview.cssProperties["--crop-right"], "18%");
+  assert.equal(preview.cssProperties["--content-scale"], "1.4");
+  assert.equal(image.src, "/overlay-assets/relay-radar.png");
+  assert.equal(image.classList.contains("is-visible"), true);
+  assert.equal(preview.elements["#video"].src, "");
+  assert.equal(preview.timerDelays().length, 0);
+
+  const panelSource = fs.readFileSync(__dirname + "/../gui/panel.js", "utf8");
+  assert.match(panelSource, /previewUrl\.searchParams\.set\("preview", "1"\)/);
+  assert.match(panelSource, /url\.searchParams\.set\("preview", "1"\)/);
+});
 
 function element() {
   const listeners = new Map();

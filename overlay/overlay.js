@@ -11,10 +11,12 @@ const authorNameElement = document.querySelector("#author-name");
 const widgetParameters = new URLSearchParams(window.location.search);
 const relaySecret = widgetParameters.get("secret") || "";
 const isWidgetWindow = widgetParameters.get("widget") === "1";
+const isPreview = widgetParameters.get("preview") === "1";
 let interfaceLanguage = widgetParameters.get("lang") || "en";
 const relayMode = document.querySelector('meta[name="relay-mode"]')?.content || "all";
 const moveLabelElement = document.querySelector("#widget-move-label");
 const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
+const previewLabels = { en: "Live preview", fr: "Aperçu en direct", es: "Vista previa", de: "Live-Vorschau" };
 
 window.setWidgetLocked = (locked) => {
   document.documentElement.classList.toggle("widget-window", isWidgetWindow);
@@ -84,6 +86,21 @@ function setAuthor(media) {
   } else {
     authorElement.hidden = true;
   }
+}
+
+function showPreview() {
+  imageElement.src = FALLBACK_AVATAR;
+  imageElement.alt = "Relay preview";
+  imageElement.style.width = "auto";
+  imageElement.style.height = "100%";
+  imageElement.classList.add("is-visible");
+  setAuthor({
+    author: {
+      username: previewLabels[interfaceLanguage] || previewLabels.en,
+      displayAvatarUrl: FALLBACK_AVATAR,
+    },
+  });
+  if (!authorElement.hidden) authorElement.classList.add("is-visible");
 }
 
 function fitVisualToViewport(element, width, height) {
@@ -387,13 +404,18 @@ function handleMessage(event) {
       authorElement.classList.remove("is-visible");
       authorElement.hidden = true;
     }
+    if (isPreview) showPreview();
   } else if (message.type === "media") {
+    if (isPreview) return;
     if (message.payload) enqueueMedia(message.payload);
   } else if (message.type === "image") {
+    if (isPreview) return;
     if (message.payload) enqueueMedia({ kind: "image", ...message.payload });
   } else if (message.type === "skip") {
+    if (isPreview) return;
     skipCurrentMedia();
   } else if (message.type === "clear") {
+    if (isPreview) return;
     clearOverlay();
   } else if (message.type === "serverMove") {
     const movedPort = Number(message.payload?.port);
@@ -414,6 +436,7 @@ function applyAppearance(preferences = {}) {
   document.documentElement.style.setProperty("--accent", `rgb(${rgb.join(" ")})`);
   document.documentElement.style.setProperty("--font-scale", String((preferences.fontScale || 100) / 100));
   if (moveLabelElement) moveLabelElement.textContent = moveLabels[interfaceLanguage] || moveLabels.en;
+  if (isPreview) showPreview();
 }
 
 applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 185, 137] });
