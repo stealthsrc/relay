@@ -140,7 +140,18 @@ function playNext() {
 }
 
 function enqueue(notification) {
-  if (!isEnabled() || queue.length >= queueLimit()) {
+  if (!isEnabled()) {
+    return;
+  }
+  if (currentNotification?.visualOnly && !notification?.visualOnly) {
+    resetAudio();
+    currentNotification = undefined;
+    hideCard();
+    queue.unshift(notification);
+    playNext();
+    return;
+  }
+  if (queue.length >= queueLimit()) {
     return;
   }
   queue.push(notification);

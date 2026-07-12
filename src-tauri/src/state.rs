@@ -5,6 +5,7 @@ use std::{
         Arc,
         atomic::{AtomicU64, Ordering},
     },
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -33,6 +34,7 @@ pub const TTS_CACHE_LIMIT: usize = 50;
 pub const PROCESSED_EMBED_LIMIT: usize = 500;
 pub const MEDIA_CACHE_ITEM_LIMIT: usize = 30;
 pub const MEDIA_CACHE_BYTE_LIMIT: usize = 100 * 1024 * 1024;
+const TTS_SYNTHESIS_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 pub struct TtsAudio {
@@ -255,7 +257,12 @@ impl AppCore {
 
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
         let _synthesis = self.tts_synthesis_lock.lock().await;
-        let speech = tts::synthesize(request.text.clone()).await?;
+        let speech = tokio::time::timeout(
+            TTS_SYNTHESIS_TIMEOUT,
+            tts::synthesize(request.text.clone()),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Windows TTS timed out; the queue was released"))??;
         let event = TtsEvent {
             id: request.id.clone(),
             text: request.text,

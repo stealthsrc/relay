@@ -31,6 +31,8 @@ Next planned version: **1.0.1**.
 
 ### Fixed
 
+- Fixed visual emoji notifications blocking the following spoken TTS message.
+- Added a synthesis timeout so a stalled Windows voice cannot freeze the global TTS queue.
 - Fixed delayed Discord GIF embeds that arrived through partial message updates.
 - Fixed favorite GIFs represented by Discord as thumbnail-only image embeds.
 - Added support for direct thumbnail GIFs without a known GIF provider.

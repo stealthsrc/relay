@@ -22,6 +22,8 @@ function classList() {
 
 function createHarness(target = "obs", language = "en") {
   const sockets = [];
+  const timers = new Map();
+  let nextTimerId = 1;
   const elements = {
     "#notification": {
       classList: classList(),
@@ -80,8 +82,12 @@ function createHarness(target = "obs", language = "en") {
   const window = {
     location,
     addEventListener() {},
-    clearTimeout() {},
-    setTimeout() { return 1; },
+    clearTimeout(id) { timers.delete(id); },
+    setTimeout(callback) {
+      const id = nextTimerId++;
+      timers.set(id, callback);
+      return id;
+    },
   };
   const context = vm.createContext({
     URL,
@@ -111,7 +117,7 @@ function createHarness(target = "obs", language = "en") {
   const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
   vm.runInContext(source, context);
 
-  return { elements, socket: sockets[0] };
+  return { elements, socket: sockets[0], timers };
 }
 
 test("notification widget move label follows the Relay language", () => {
@@ -254,4 +260,25 @@ test("emoji messages render visually without requesting TTS audio", () => {
   assert.equal(elements["#notification"].classList.contains("is-visible"), true);
   assert.equal(elements["#notification-message"].children.length, 3);
   assert.equal(elements["#notification-message"].children[2].tagName, "img");
+});
+
+test("a visual emoji notification never blocks the next spoken message", async () => {
+  const { elements, socket } = createHarness("widget");
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("emoji"),
+      visualOnly: true,
+      segments: [{ kind: "emoji", value: "👋", url: null }],
+    },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("after-emoji", "Friend"),
+  }));
+  await nextMicrotask();
+
+  assert.match(elements["#notification-clock"].src, /\/tts-audio\/after-emoji\?secret=private$/);
+  assert.equal(elements["#notification-author"].textContent, "Friend");
+  assert.equal(elements["#notification-message"].textContent, "Message after-emoji");
 });
