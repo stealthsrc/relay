@@ -253,6 +253,17 @@ impl AppCore {
         }
     }
 
+    pub async fn cache_tts_audio(&self, id: String, content_type: String, bytes: Vec<u8>) {
+        let mut cache = self.tts_audio.write().await;
+        cache.retain(|item| item.id != id);
+        cache.push_front(TtsAudio {
+            id,
+            content_type,
+            bytes: Bytes::from(bytes),
+        });
+        cache.truncate(TTS_CACHE_LIMIT);
+    }
+
     pub async fn claim_embed(&self, id: String) -> bool {
         let mut processed = self.processed_embed_ids.write().await;
         if processed.contains(&id) {
@@ -318,15 +329,8 @@ impl AppCore {
             visual_only: false,
             segments: Vec::new(),
         };
-        {
-            let mut cache = self.tts_audio.write().await;
-            cache.push_front(TtsAudio {
-                id: request.id,
-                content_type: speech.content_type,
-                bytes: Bytes::from(speech.bytes),
-            });
-            cache.truncate(TTS_CACHE_LIMIT);
-        }
+        self.cache_tts_audio(request.id, speech.content_type, speech.bytes)
+            .await;
         let _ = self.relay_tx.send(RelayEvent::Tts(event));
         Ok(())
     }

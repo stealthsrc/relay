@@ -114,6 +114,28 @@ pub struct TtsEvent {
     pub segments: Vec<VisualSegment>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputTestTarget {
+    Visual,
+    Audio,
+    Tts,
+    Notification,
+    Sticker,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputTestEvent {
+    pub target: OutputTestTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media: Option<MediaEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tts: Option<TtsEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sticker: Option<StickerEvent>,
+}
+
 #[derive(Clone, Debug)]
 pub struct TtsRequest {
     pub id: String,
@@ -195,6 +217,7 @@ pub enum RelayEvent {
     AudioControl(AudioControlEvent),
     Sticker(StickerEvent),
     Tts(TtsEvent),
+    TestOutput(Box<OutputTestEvent>),
     Config(AppConfig),
     Clear,
     Skip,

@@ -12,8 +12,9 @@ use crate::{
         save_discord_credentials,
     },
     model::{
-        AudioControlAction, AudioControlEvent, BotStatus, ChannelSummary, InterfacePreferences,
-        MediaEvent, PendingMedia, RelayEvent, ServerStatus,
+        AudioControlAction, AudioControlEvent, AuthorIdentity, BotStatus, ChannelSummary,
+        InterfacePreferences, MediaEvent, MediaKind, OutputTestEvent, OutputTestTarget,
+        PendingMedia, RelayEvent, ServerStatus, StickerEvent, TtsEvent, VisualSegment,
     },
     notification_widget::{self, NotificationWidgetState},
     server::start_server,
@@ -397,6 +398,149 @@ pub async fn skip_media(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn test_output(
+    core: State<'_, Arc<AppCore>>,
+    target: OutputTestTarget,
+) -> Result<(), String> {
+    emit_output_test(&core, target).await.map_err(display_error)
+}
+
+async fn emit_output_test(core: &AppCore, target: OutputTestTarget) -> anyhow::Result<()> {
+    const TEST_AUTHOR: &str = "Relay test";
+    const TEST_AVATAR: &str = "/overlay-assets/relay-radar.png";
+    const TEST_AUDIO_ID: &str = "relay-test-audio";
+    const TEST_TTS_ID: &str = "relay-test-tts";
+
+    let author = AuthorIdentity {
+        username: TEST_AUTHOR.into(),
+        display_avatar_url: TEST_AVATAR.into(),
+    };
+    let event = match target {
+        OutputTestTarget::Visual => OutputTestEvent {
+            target,
+            media: Some(test_media(MediaKind::Image, "Relay visual test", None)),
+            tts: None,
+            sticker: None,
+        },
+        OutputTestTarget::Audio => {
+            core.cache_audio(TEST_AUDIO_ID.into(), "audio/wav".into(), silent_wav())
+                .await;
+            OutputTestEvent {
+                target,
+                media: Some(test_media(
+                    MediaKind::Audio,
+                    "Relay audio test",
+                    Some(TEST_AUDIO_ID.into()),
+                )),
+                tts: None,
+                sticker: None,
+            }
+        }
+        OutputTestTarget::Tts => {
+            core.cache_tts_audio(TEST_TTS_ID.into(), "audio/wav".into(), silent_wav())
+                .await;
+            OutputTestEvent {
+                target,
+                media: None,
+                tts: Some(TtsEvent {
+                    id: TEST_TTS_ID.into(),
+                    text: "Relay TTS test".into(),
+                    author,
+                    content_type: "audio/wav".into(),
+                    timestamp: 0,
+                    visual_only: false,
+                    segments: Vec::new(),
+                }),
+                sticker: None,
+            }
+        }
+        OutputTestTarget::Notification => OutputTestEvent {
+            target,
+            media: None,
+            tts: Some(TtsEvent {
+                id: "relay-test-notification".into(),
+                text: "Relay notification test".into(),
+                author,
+                content_type: String::new(),
+                timestamp: 0,
+                visual_only: true,
+                segments: vec![VisualSegment {
+                    kind: "text".into(),
+                    value: "Relay notification test".into(),
+                    url: None,
+                    animated: false,
+                }],
+            }),
+            sticker: None,
+        },
+        OutputTestTarget::Sticker => OutputTestEvent {
+            target,
+            media: None,
+            tts: None,
+            sticker: Some(StickerEvent {
+                id: "relay-test-sticker".into(),
+                name: "Relay sticker test".into(),
+                format: "png".into(),
+                url: TEST_AVATAR.into(),
+                cached_media_id: None,
+                author,
+                timestamp: 0,
+                message_id: "relay-test-sticker".into(),
+            }),
+        },
+    };
+    let _ = core.relay_tx.send(RelayEvent::TestOutput(Box::new(event)));
+    Ok(())
+}
+
+fn test_media(kind: MediaKind, filename: &str, audio_id: Option<String>) -> MediaEvent {
+    MediaEvent {
+        kind,
+        url: "/overlay-assets/relay-radar.png".into(),
+        proxy_url: "/overlay-assets/relay-radar.png".into(),
+        filename: filename.into(),
+        content_type: if matches!(kind, MediaKind::Audio) {
+            "audio/wav".into()
+        } else {
+            "image/png".into()
+        },
+        artwork_id: None,
+        audio_id,
+        cached_media_id: None,
+        title: None,
+        artist: None,
+        author: AuthorIdentity {
+            username: "Relay test".into(),
+            display_avatar_url: "/overlay-assets/relay-radar.png".into(),
+        },
+        timestamp: 0,
+        message_id: format!("relay-test-{}", filename.replace(' ', "-")),
+    }
+}
+
+fn silent_wav() -> Vec<u8> {
+    const SAMPLE_RATE: u32 = 8_000;
+    const SAMPLE_COUNT: u32 = 1_600;
+    const BYTES_PER_SAMPLE: u16 = 2;
+    let data_length = SAMPLE_COUNT * u32::from(BYTES_PER_SAMPLE);
+    let mut bytes = Vec::with_capacity(44 + data_length as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_length).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16_u32.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+    bytes.extend_from_slice(&(SAMPLE_RATE * u32::from(BYTES_PER_SAMPLE)).to_le_bytes());
+    bytes.extend_from_slice(&BYTES_PER_SAMPLE.to_le_bytes());
+    bytes.extend_from_slice(&16_u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_length.to_le_bytes());
+    bytes.resize(44 + data_length as usize, 0);
+    bytes
+}
+
+#[tauri::command]
 pub async fn control_audio(
     core: State<'_, Arc<AppCore>>,
     action: String,
@@ -648,4 +792,61 @@ fn short_overlay_url(port: u16, path: &str) -> String {
 
 fn display_error(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn creates_a_valid_silent_wav() {
+        let wav = silent_wav();
+        assert_eq!(&wav[..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 3_200);
+    }
+
+    #[tokio::test]
+    async fn output_tests_bypass_history_and_cache_their_audio() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        emit_output_test(&core, OutputTestTarget::Visual)
+            .await
+            .unwrap();
+        let RelayEvent::TestOutput(visual) = events.recv().await.unwrap() else {
+            panic!("expected visual output test");
+        };
+        assert_eq!(visual.target, OutputTestTarget::Visual);
+        assert!(visual.media.is_some());
+        assert!(core.history.read().await.is_empty());
+
+        emit_output_test(&core, OutputTestTarget::Audio)
+            .await
+            .unwrap();
+        let RelayEvent::TestOutput(audio) = events.recv().await.unwrap() else {
+            panic!("expected audio output test");
+        };
+        assert_eq!(audio.target, OutputTestTarget::Audio);
+        assert_eq!(
+            audio.media.and_then(|media| media.audio_id).as_deref(),
+            Some("relay-test-audio")
+        );
+        assert_eq!(core.media_audio.read().await.len(), 1);
+
+        emit_output_test(&core, OutputTestTarget::Tts)
+            .await
+            .unwrap();
+        let RelayEvent::TestOutput(tts) = events.recv().await.unwrap() else {
+            panic!("expected TTS output test");
+        };
+        assert_eq!(tts.target, OutputTestTarget::Tts);
+        assert_eq!(
+            tts.tts.as_ref().map(|event| event.id.as_str()),
+            Some("relay-test-tts")
+        );
+        assert_eq!(core.tts_audio.read().await.len(), 1);
+        assert!(core.history.read().await.is_empty());
+    }
 }
