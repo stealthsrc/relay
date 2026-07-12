@@ -520,11 +520,23 @@ fn relay_command() -> CreateCommand {
             "regenerate",
             "Reconnect local relay outputs without changing their URLs",
         ))
-        .add_option(CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "clear",
-            "Delete messages from the configured media and TTS channels",
-        ))
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "clear",
+                "Delete a chosen number of messages from each configured channel",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Integer,
+                    "count",
+                    "Number of messages to delete from each channel (1-1000)",
+                )
+                .min_int_value(1)
+                .max_int_value(1_000)
+                .required(true),
+            ),
+        )
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
             "lock",
@@ -595,14 +607,26 @@ async fn handle_relay(
             ))
         }
         "clear" => {
-            clear_configured_channels(core, http).await
+            let count = arguments
+                .iter()
+                .find_map(|argument| match argument.value {
+                    CommandDataOptionValue::Integer(value) => usize::try_from(value).ok(),
+                    _ => None,
+                })
+                .filter(|count| (1..=1_000).contains(count))
+                .context("a message count between 1 and 1000 is required")?;
+            clear_configured_channels(core, http, count).await
         }
         "lock" => toggle_channel_lock(core, http).await,
         _ => Ok("Unknown Relay subcommand.".into()),
     }
 }
 
-async fn clear_configured_channels(core: &Arc<AppCore>, http: &Http) -> Result<String> {
+async fn clear_configured_channels(
+    core: &Arc<AppCore>,
+    http: &Http,
+    count: usize,
+) -> Result<String> {
     let config = core.config.read().await.clone();
     let channels = [
         ("Media", config.watched_channel_id),
@@ -619,7 +643,7 @@ async fn clear_configured_channels(core: &Arc<AppCore>, http: &Http) -> Result<S
     let mut failures = Vec::new();
     for (label, channel_id) in channels {
         let id = ChannelId::new(channel_id.parse()?);
-        match clear_channel_messages(http, id).await {
+        match clear_channel_messages(http, id, count).await {
             Ok(count) => cleared.push(format!("{label} <#{channel_id}>: {count} messages")),
             Err(error) => failures.push(format!("{label} <#{channel_id}>: {error}")),
         }
@@ -635,11 +659,16 @@ async fn clear_configured_channels(core: &Arc<AppCore>, http: &Http) -> Result<S
     Ok(format!("Discord channels cleared: {}.", cleared.join(", ")))
 }
 
-async fn clear_channel_messages(http: &Http, channel_id: ChannelId) -> Result<usize> {
+async fn clear_channel_messages(
+    http: &Http,
+    channel_id: ChannelId,
+    limit: usize,
+) -> Result<usize> {
     let mut before = None;
     let mut deleted = 0;
-    loop {
-        let mut request = GetMessages::new().limit(100);
+    while deleted < limit {
+        let page_limit = (limit - deleted).min(100) as u8;
+        let mut request = GetMessages::new().limit(page_limit);
         if let Some(message_id) = before {
             request = request.before(message_id);
         }
@@ -651,6 +680,7 @@ async fn clear_channel_messages(http: &Http, channel_id: ChannelId) -> Result<us
         let now = current_timestamp_ms() / 1_000;
         let (recent, old): (Vec<MessageId>, Vec<MessageId>) = messages
             .iter()
+            .take(limit - deleted)
             .map(|message| message.id)
             .partition(|message_id| is_bulk_deletable(*message_id, now));
 
@@ -665,7 +695,7 @@ async fn clear_channel_messages(http: &Http, channel_id: ChannelId) -> Result<us
             channel_id.delete_message(http, message_id).await?;
             deleted += 1;
         }
-        if messages.len() < 100 {
+        if messages.len() < usize::from(page_limit) {
             break;
         }
     }
@@ -1156,6 +1186,22 @@ mod tests {
         assert!(!command_enabled(&config, "clear"));
         assert!(command_enabled(&config, "lock"));
         assert!(!command_enabled(&config, "unknown"));
+    }
+
+    #[test]
+    fn clear_command_requires_a_bounded_message_count() {
+        let command = serde_json::to_value(relay_command()).unwrap();
+        let clear = command["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|option| option["name"] == "clear")
+            .unwrap();
+        let count = &clear["options"][0];
+        assert_eq!(count["name"], "count");
+        assert_eq!(count["required"], true);
+        assert_eq!(count["min_value"], 1);
+        assert_eq!(count["max_value"], 1_000);
     }
 
     #[test]
