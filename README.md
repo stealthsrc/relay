@@ -248,11 +248,11 @@ cd src-tauri
 cargo test
 cargo clippy --all-targets -- -D warnings
 
-# From the repository root: browser-source and localization tests
-node --test gui/translations.test.cjs overlay/overlay.test.cjs notifications/notifications.test.cjs tts/tts.test.cjs
+# From the repository root: panel and browser-source tests
+node --test gui/translations.test.cjs gui/panel-history.test.cjs gui/panel-output-status.test.cjs overlay/overlay.test.cjs notifications/notifications.test.cjs stickers/stickers.test.cjs tts/tts.test.cjs
 ```
 
-The test suite covers configuration migration, moderation, queue recovery, authenticated media ranges, GIF classification, separate timing, TTS ordering, translations, and local server behavior.
+The test suite covers configuration migration, moderation, queue recovery, authenticated media ranges, GIF classification, separate timing, output readiness, TTS ordering, translations, and local server behavior.
 
 ## Project map
 

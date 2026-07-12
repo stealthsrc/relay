@@ -418,11 +418,63 @@
               </div>
             </section>
 
+            <section class="panel-section panel-section--wide output-readiness-section">
+              <div class="section-heading">
+                <div>
+                  <span class="section-number">04</span>
+                  <h3 data-i18n="outputReadiness">Output readiness</h3>
+                </div>
+              </div>
+              <p class="section-copy" data-i18n="outputReadinessHelp">See which local outputs are connected. Tests stay local and never post to Discord.</p>
+              <div class="output-readiness-grid">
+                <article class="output-readiness-card" data-output-card="visual">
+                  <div class="output-readiness-card__heading">
+                    <strong data-i18n="visualSource">Visual media</strong>
+                    <span class="output-readiness-card__state" data-output-state="visual" role="status"></span>
+                  </div>
+                  <small class="output-readiness-card__last" data-output-last-connected="visual"></small>
+                  <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="visual" data-i18n="testOutput" disabled>Test output</button>
+                </article>
+                <article class="output-readiness-card" data-output-card="audio">
+                  <div class="output-readiness-card__heading">
+                    <strong data-i18n="audioSource">Audio, music and voice messages</strong>
+                    <span class="output-readiness-card__state" data-output-state="audio" role="status"></span>
+                  </div>
+                  <small class="output-readiness-card__last" data-output-last-connected="audio"></small>
+                  <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="audio" data-i18n="testOutput" disabled>Test output</button>
+                </article>
+                <article class="output-readiness-card" data-output-card="tts">
+                  <div class="output-readiness-card__heading">
+                    <strong data-i18n="ttsSource">TTS audio</strong>
+                    <span class="output-readiness-card__state" data-output-state="tts" role="status"></span>
+                  </div>
+                  <small class="output-readiness-card__last" data-output-last-connected="tts"></small>
+                  <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="tts" data-i18n="testOutput" disabled>Test output</button>
+                </article>
+                <article class="output-readiness-card" data-output-card="notification">
+                  <div class="output-readiness-card__heading">
+                    <strong data-i18n="notificationSource">TTS notifications</strong>
+                    <span class="output-readiness-card__state" data-output-state="notification" role="status"></span>
+                  </div>
+                  <small class="output-readiness-card__last" data-output-last-connected="notification"></small>
+                  <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="notification" data-i18n="testOutput" disabled>Test output</button>
+                </article>
+                <article class="output-readiness-card" data-output-card="sticker">
+                  <div class="output-readiness-card__heading">
+                    <strong data-i18n="stickerSource">Discord stickers</strong>
+                    <span class="output-readiness-card__state" data-output-state="sticker" role="status"></span>
+                  </div>
+                  <small class="output-readiness-card__last" data-output-last-connected="sticker"></small>
+                  <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="sticker" data-i18n="testOutput" disabled>Test output</button>
+                </article>
+              </div>
+            </section>
+
             <div class="split-layout split-layout--overlay">
               <section class="panel-section">
                 <div class="section-heading">
                   <div>
-                    <span class="section-number">04</span>
+                    <span class="section-number">05</span>
                     <h3 data-i18n="browserSource">OBS Browser Sources</h3>
                   </div>
                 </div>
@@ -461,7 +513,7 @@
               <section class="panel-section">
                 <div class="section-heading">
                   <div>
-                    <span class="section-number">05</span>
+                    <span class="section-number">06</span>
                     <h3 data-i18n="floatingWidget">Media floating widget</h3>
                   </div>
                 </div>
@@ -478,7 +530,7 @@
               <section class="panel-section panel-section--wide notification-output-card" data-output="obs">
                 <div class="section-heading">
                   <div>
-                    <span class="section-number">06</span>
+                    <span class="section-number">07</span>
                     <h3 data-i18n="obsNotificationOutput">OBS TTS notification overlay</h3>
                   </div>
                   <span id="obs-notification-save-state" class="save-state" role="status"></span>
@@ -516,7 +568,7 @@
               <section class="panel-section panel-section--wide notification-output-card" data-output="windows">
                 <div class="section-heading">
                   <div>
-                    <span class="section-number">07</span>
+                    <span class="section-number">08</span>
                     <h3 data-i18n="windowsNotificationWidget">Windows TTS notification widget</h3>
                   </div>
                 </div>
@@ -553,7 +605,7 @@
             <section class="panel-section panel-section--wide output-geometry-section">
               <div class="section-heading">
                 <div>
-                  <span class="section-number">08</span>
+                  <span class="section-number">09</span>
                   <h3 data-i18n="sizeAndCrop">Size and crop</h3>
                 </div>
               </div>

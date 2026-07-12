@@ -3,7 +3,7 @@ const { invoke } = window.__TAURI__.core;
 const translations = {
   en: {
     navOverview: "Overview", navMedia: "Media", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "History", navHelp: "Help", navAbout: "About",
-    language: "Language", appearance: "Appearance", light: "Light", dark: "Dark", overlays: "overlays",
+    language: "Language", appearance: "Appearance", light: "Light", dark: "Dark", overlays: "OBS sources",
     system: "System", playback: "Playback", output: "Output", safety: "Safety", archive: "Archive", guide: "Guide", about: "About",
     overviewKicker: "Local broadcast", overviewTitle: "One channel. Every screen.",
     overviewCopy: "Connect Discord once, choose a channel, then keep the relay running quietly in the tray.",
@@ -114,7 +114,7 @@ const translations = {
   },
   fr: {
     navOverview: "Aperçu", navMedia: "Médias", navOverlay: "Overlay", navModeration: "Modération", navHistory: "Historique", navHelp: "Aide", navAbout: "À propos",
-    language: "Langue", appearance: "Apparence", light: "Clair", dark: "Sombre", overlays: "overlays",
+    language: "Langue", appearance: "Apparence", light: "Clair", dark: "Sombre", overlays: "sources OBS",
     system: "Système", playback: "Lecture", output: "Sortie", safety: "Sécurité", archive: "Archives", guide: "Guide", about: "À propos",
     overviewKicker: "Diffusion locale", overviewTitle: "Un canal. Tous vos écrans.",
     overviewCopy: "Connectez Discord une fois, choisissez un canal, puis laissez le relais fonctionner discrètement dans la zone de notification.",
@@ -263,7 +263,7 @@ Object.assign(translations.fr, {
 
 translations.es = {
   navOverview: "Resumen", navMedia: "Medios", navOverlay: "Overlay", navModeration: "Moderación", navHistory: "Historial", navHelp: "Ayuda", navPersonalization: "Personalización", navAbout: "Acerca de",
-  language: "Idioma", appearance: "Apariencia", light: "Claro", dark: "Oscuro", overlays: "superposiciones",
+  language: "Idioma", appearance: "Apariencia", light: "Claro", dark: "Oscuro", overlays: "fuentes OBS",
   system: "Sistema", playback: "Reproducción", output: "Salida", safety: "Seguridad", archive: "Archivo", guide: "Guía", about: "Acerca de",
   overviewKicker: "Emisión local", overviewTitle: "Un canal. Todas tus pantallas.", overviewCopy: "Conecta Discord una vez, elige un canal y deja que Relay funcione discretamente en la bandeja del sistema.",
   credentialsTitle: "Conexión con Discord", credentialsCopy: "Las credenciales se cifran con Windows y no vuelven a mostrarse.",
@@ -309,7 +309,7 @@ translations.es = {
 
 translations.de = {
   navOverview: "Übersicht", navMedia: "Medien", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "Verlauf", navHelp: "Hilfe", navPersonalization: "Personalisierung", navAbout: "Info",
-  language: "Sprache", appearance: "Darstellung", light: "Hell", dark: "Dunkel", overlays: "Overlays", system: "System", playback: "Wiedergabe", output: "Ausgabe", safety: "Sicherheit", archive: "Archiv", guide: "Anleitung", about: "Info",
+  language: "Sprache", appearance: "Darstellung", light: "Hell", dark: "Dunkel", overlays: "OBS-Quellen", system: "System", playback: "Wiedergabe", output: "Ausgabe", safety: "Sicherheit", archive: "Archiv", guide: "Anleitung", about: "Info",
   overviewKicker: "Lokale Übertragung", overviewTitle: "Ein Kanal. Alle Bildschirme.", overviewCopy: "Verbinde Discord einmal, wähle einen Kanal und lasse Relay unauffällig im Infobereich laufen.",
   credentialsTitle: "Discord-Verbindung", credentialsCopy: "Die Zugangsdaten werden von Windows verschlüsselt und nie erneut angezeigt.", clientId: "Discord-Client-ID", botToken: "Discord-Bot-Token", connectBot: "Verschlüsseln und Bot starten", inviteUrl: "Einladungs-URL des Bots", copy: "Kopieren", copied: "Kopiert",
   routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
@@ -468,6 +468,39 @@ Object.assign(translations.de, {
   resumeAudio: "Audio fortsetzen", skipAudio: "Audio überspringen",
 });
 
+Object.assign(translations.en, {
+  outputReadiness: "Output readiness",
+  outputReadinessHelp: "See which local outputs are connected. Tests stay local and never post to Discord.",
+  outputObs: "OBS", outputPreview: "Preview", outputWidget: "Widget",
+  outputDisconnected: "Not connected", outputLastConnected: "Last connected", outputNeverConnected: "Never connected",
+  testOutput: "Test output", outputTestSent: "Test sent", outputTestFailed: "Test failed",
+  outputTestNeedsLiveOutput: "Connect OBS or a widget before testing.",
+});
+Object.assign(translations.fr, {
+  outputReadiness: "État des sorties",
+  outputReadinessHelp: "Vérifiez les sorties locales connectées. Les tests restent locaux et ne publient jamais sur Discord.",
+  outputObs: "OBS", outputPreview: "Aperçu", outputWidget: "Widget",
+  outputDisconnected: "Non connecté", outputLastConnected: "Dernière connexion", outputNeverConnected: "Jamais connecté",
+  testOutput: "Tester la sortie", outputTestSent: "Test envoyé", outputTestFailed: "Test échoué",
+  outputTestNeedsLiveOutput: "Connectez OBS ou un widget avant le test.",
+});
+Object.assign(translations.es, {
+  outputReadiness: "Estado de las salidas",
+  outputReadinessHelp: "Comprueba qué salidas locales están conectadas. Las pruebas son locales y nunca publican en Discord.",
+  outputObs: "OBS", outputPreview: "Vista previa", outputWidget: "Widget",
+  outputDisconnected: "Sin conexión", outputLastConnected: "Última conexión", outputNeverConnected: "Nunca conectado",
+  testOutput: "Probar salida", outputTestSent: "Prueba enviada", outputTestFailed: "Error en la prueba",
+  outputTestNeedsLiveOutput: "Conecta OBS o un widget antes de probar.",
+});
+Object.assign(translations.de, {
+  outputReadiness: "Ausgabestatus",
+  outputReadinessHelp: "Sieh, welche lokalen Ausgaben verbunden sind. Tests bleiben lokal und posten nie in Discord.",
+  outputObs: "OBS", outputPreview: "Vorschau", outputWidget: "Widget",
+  outputDisconnected: "Nicht verbunden", outputLastConnected: "Letzte Verbindung", outputNeverConnected: "Noch nie verbunden",
+  testOutput: "Ausgabe testen", outputTestSent: "Test gesendet", outputTestFailed: "Test fehlgeschlagen",
+  outputTestNeedsLiveOutput: "Verbinde vor dem Test OBS oder ein Widget.",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -555,6 +588,20 @@ const notificationUrlElement = $("#notification-url");
 const copyNotificationUrlButton = $("#copy-notification-url");
 const stickerUrlElement = $("#sticker-url");
 const copyStickerUrlButton = $("#copy-sticker-url");
+const outputReadinessCards = new Map(
+  $$('[data-output-card]').map((element) => [element.dataset.outputCard, element]),
+);
+const outputStateElements = new Map(
+  $$('[data-output-state]').map((element) => [element.dataset.outputState, element]),
+);
+const outputLastConnectedElements = new Map(
+  $$('[data-output-last-connected]').map(
+    (element) => [element.dataset.outputLastConnected, element],
+  ),
+);
+const outputTestButtons = new Map(
+  $$('[data-test-output]').map((element) => [element.dataset.testOutput, element]),
+);
 const regenerateSecretButton = $("#regenerate-secret");
 const widgetStateElement = $("#widget-state");
 const toggleWidgetButton = $("#toggle-widget");
@@ -1019,10 +1066,62 @@ function setBotStatus(status) {
   }
 }
 
+function outputClientCount(value) {
+  return Math.max(0, Number(value) || 0);
+}
+
+function formatOutputLastConnected(timestamp) {
+  const value = Number(timestamp);
+  if (!Number.isFinite(value) || value <= 0) {
+    return t("outputNeverConnected");
+  }
+  return `${t("outputLastConnected")} ${new Date(value).toLocaleTimeString(language, {
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  })}`;
+}
+
+function renderOutputReadiness(status = {}) {
+  const outputs = status.outputs || {};
+  for (const target of ["visual", "audio", "tts", "notification", "sticker"]) {
+    const output = outputs[target] || {};
+    const obsClients = outputClientCount(output.obsClients);
+    const previewClients = outputClientCount(output.previewClients);
+    const widgetClients = outputClientCount(output.widgetClients);
+    const clients = [
+      [t("outputObs"), obsClients],
+      [t("outputPreview"), previewClients],
+      [t("outputWidget"), widgetClients],
+    ].filter(([, count]) => count > 0);
+    const liveOutputConnected = obsClients + widgetClients > 0;
+    const stateElement = outputStateElements.get(target);
+    const lastConnectedElement = outputLastConnectedElements.get(target);
+    const card = outputReadinessCards.get(target);
+    const testButton = outputTestButtons.get(target);
+
+    if (stateElement) {
+      stateElement.textContent = clients.length > 0
+        ? clients.map(([name, count]) => `${name} ${count}`).join(" · ")
+        : t("outputDisconnected");
+    }
+    if (lastConnectedElement) {
+      lastConnectedElement.textContent = formatOutputLastConnected(output.lastConnectedAt);
+    }
+    if (card) {
+      card.classList.toggle("is-live", liveOutputConnected);
+      card.classList.toggle("is-preview-only", !liveOutputConnected && previewClients > 0);
+    }
+    if (testButton) {
+      testButton.disabled = !liveOutputConnected;
+      testButton.title = liveOutputConnected ? "" : t("outputTestNeedsLiveOutput");
+    }
+  }
+}
+
 function setServerStatus(status) {
   serverStatusElement.classList.toggle("is-online", status.connected);
   serverLabelElement.textContent = status.connected ? t("serverOnline") : status.error || t("serverOffline");
   clientCountElement.textContent = String(status.overlayClients || 0);
+  renderOutputReadiness(status);
   if (!status.connected) {
     audioPlaybackTargets.clear();
     renderNowPlaying();
@@ -1635,6 +1734,24 @@ copyTtsUrlButton.addEventListener("click", () => copyValue(copyTtsUrlButton, tts
 copyNotificationUrlButton.addEventListener("click", () => copyValue(copyNotificationUrlButton, notificationUrlElement.value));
 copyStickerUrlButton.addEventListener("click", () => copyValue(copyStickerUrlButton, stickerUrlElement.value));
 copyInviteButton.addEventListener("click", () => copyValue(copyInviteButton, inviteUrlElement.value));
+
+for (const [target, button] of outputTestButtons) {
+  button.addEventListener("click", async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      await invoke("test_output", { target });
+      button.textContent = t("outputTestSent");
+    } catch (error) {
+      button.textContent = t("outputTestFailed");
+      button.title = String(error);
+    }
+    window.setTimeout(() => {
+      button.textContent = t("testOutput");
+      renderOutputReadiness(bootstrap?.server);
+    }, 1600);
+  });
+}
 
 regenerateSecretButton.addEventListener("click", async () => {
   saveStateElement.textContent = t("regenerating");
