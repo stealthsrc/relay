@@ -20,7 +20,7 @@ use crate::{
     config::{AppConfig, ConfigStore},
     model::{
         BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, MediaKind, PendingMedia,
-        RelayEvent, ServerStatus, TtsEvent, TtsRequest,
+        RelayEvent, ServerStatus, StickerEvent, TtsEvent, TtsRequest, VisualSegment,
     },
     tts,
 };
@@ -249,6 +249,10 @@ impl AppCore {
         let _ = self.relay_tx.send(RelayEvent::Media(media));
     }
 
+    pub fn publish_sticker(&self, sticker: StickerEvent) {
+        let _ = self.relay_tx.send(RelayEvent::Sticker(sticker));
+    }
+
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
         let _synthesis = self.tts_synthesis_lock.lock().await;
         let speech = tts::synthesize(request.text.clone()).await?;
@@ -258,6 +262,8 @@ impl AppCore {
             author: request.author,
             content_type: speech.content_type.clone(),
             timestamp: request.timestamp,
+            visual_only: false,
+            segments: Vec::new(),
         };
         {
             let mut cache = self.tts_audio.write().await;
@@ -270,6 +276,26 @@ impl AppCore {
         }
         let _ = self.relay_tx.send(RelayEvent::Tts(event));
         Ok(())
+    }
+
+    pub fn publish_visual_tts(
+        &self,
+        id: String,
+        text: String,
+        author: crate::model::AuthorIdentity,
+        timestamp: u64,
+        segments: Vec<VisualSegment>,
+    ) {
+        let event = TtsEvent {
+            id,
+            text,
+            author,
+            content_type: String::new(),
+            timestamp,
+            visual_only: true,
+            segments,
+        };
+        let _ = self.relay_tx.send(RelayEvent::Tts(event));
     }
 }
 

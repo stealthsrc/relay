@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_PORT: u16 = 4590;
 pub const DEFAULT_DISPLAY_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_GIF_DURATION_MS: u64 = 8_000;
+pub const DEFAULT_STICKER_DURATION_MS: u64 = 8_000;
 const LEGACY_CONFIG_DIRECTORIES: [&str; 2] =
     ["eu.stealthylabs.discord-obs-relay", "discord-obs-relay"];
 
@@ -38,6 +39,7 @@ pub struct AppConfig {
     pub port: u16,
     pub display_duration_ms: u64,
     pub gif_duration_ms: u64,
+    pub sticker_duration_ms: u64,
     pub media_volume: u8,
     pub tts_character_limit: u32,
     pub tts_queue_limit: u8,
@@ -72,6 +74,7 @@ impl Default for AppConfig {
             port: DEFAULT_PORT,
             display_duration_ms: DEFAULT_DISPLAY_DURATION_MS,
             gif_duration_ms: DEFAULT_GIF_DURATION_MS,
+            sticker_duration_ms: DEFAULT_STICKER_DURATION_MS,
             media_volume: 50,
             tts_character_limit: 0,
             tts_queue_limit: 50,
@@ -115,6 +118,9 @@ impl AppConfig {
         }
         if !(1_000..=60_000).contains(&self.gif_duration_ms) {
             bail!("The GIF duration must be between 1 and 60 seconds.");
+        }
+        if !(1_000..=60_000).contains(&self.sticker_duration_ms) {
+            bail!("The sticker duration must be between 1 and 60 seconds.");
         }
         if self.media_volume > 100 {
             bail!("The media volume must be between 0 and 100 percent.");
@@ -225,8 +231,10 @@ impl ConfigStore {
 
 fn deserialize_config(bytes: &[u8]) -> Result<(AppConfig, bool)> {
     let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
-    let migrated = value.get("gifDurationMs").is_none();
-    if migrated {
+    let missing_gif_duration = value.get("gifDurationMs").is_none();
+    let missing_sticker_duration = value.get("stickerDurationMs").is_none();
+    let migrated = missing_gif_duration || missing_sticker_duration;
+    if missing_gif_duration {
         let duration = value
             .get("displayDurationMs")
             .cloned()
@@ -234,6 +242,12 @@ fn deserialize_config(bytes: &[u8]) -> Result<(AppConfig, bool)> {
         if let Some(config) = value.as_object_mut() {
             config.insert("gifDurationMs".into(), duration);
         }
+    }
+    if missing_sticker_duration && let Some(config) = value.as_object_mut() {
+        config.insert(
+            "stickerDurationMs".into(),
+            serde_json::json!(DEFAULT_STICKER_DURATION_MS),
+        );
     }
     Ok((serde_json::from_value(value)?, migrated))
 }
@@ -262,6 +276,7 @@ mod tests {
             port: 5_000,
             display_duration_ms: 4_000,
             gif_duration_ms: 6_000,
+            sticker_duration_ms: 7_000,
             media_volume: 65,
             tts_character_limit: 280,
             tts_queue_limit: 24,
@@ -322,6 +337,21 @@ mod tests {
         let persisted: serde_json::Value =
             serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         assert_eq!(persisted["gifDurationMs"], 15_000);
+    }
+
+    #[test]
+    fn migrates_missing_sticker_duration_to_eight_seconds() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("stickerDurationMs");
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path.clone()).load().unwrap();
+        assert_eq!(migrated.sticker_duration_ms, 8_000);
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(persisted["stickerDurationMs"], 8_000);
     }
 
     #[test]

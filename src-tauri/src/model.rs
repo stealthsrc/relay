@@ -48,6 +48,27 @@ pub struct PendingMedia {
     pub media: MediaEvent,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StickerEvent {
+    pub id: String,
+    pub name: String,
+    pub format: String,
+    pub cached_media_id: Option<String>,
+    pub author: AuthorIdentity,
+    pub timestamp: u64,
+    pub message_id: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VisualSegment {
+    pub kind: String,
+    pub value: String,
+    pub url: Option<String>,
+    pub animated: bool,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TtsEvent {
@@ -56,6 +77,8 @@ pub struct TtsEvent {
     pub author: AuthorIdentity,
     pub content_type: String,
     pub timestamp: u64,
+    pub visual_only: bool,
+    pub segments: Vec<VisualSegment>,
 }
 
 #[derive(Clone, Debug)]
@@ -115,6 +138,7 @@ impl Default for InterfacePreferences {
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 pub enum RelayEvent {
     Media(MediaEvent),
+    Sticker(StickerEvent),
     Tts(TtsEvent),
     Config(AppConfig),
     Clear,
