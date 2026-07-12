@@ -19,11 +19,15 @@ Next planned version: **1.0.1**.
 - Added `/relay lock` as a reversible toggle for the configured Discord media channel.
 - Preserved access for Discord administrators and moderation roles while a channel is locked.
 - Stored channel permission snapshots locally so unlock restores the previous state.
+- Added a dedicated `/stickers` OBS Browser Source with its own 50-item FIFO queue and configurable duration.
+- Added Discord PNG, APNG, GIF, and Lottie sticker capture with bounded local caching and a safe visual fallback.
+- Added visual rendering for Unicode, static custom, and animated custom emojis in TTS notifications.
 
 ### Changed
 
 - Updated the Discord invitation URL with the permissions required for media reading, channel permission overwrites, and message cleanup.
 - Documented command permissions in English, French, Spanish, and German.
+- Messages containing an emoji now skip speech synthesis while preserving the author and message in the notification output.
 
 ### Fixed
 
