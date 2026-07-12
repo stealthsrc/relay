@@ -244,8 +244,7 @@ pub async fn set_output_geometry(
         widget::apply_configured_size(&app, width, height).map_err(display_error)?;
     }
     if let Some((width, height)) = notification_size {
-        notification_widget::apply_configured_size(&app, width, height)
-            .map_err(display_error)?;
+        notification_widget::apply_configured_size(&app, width, height).map_err(display_error)?;
     }
     Ok(next)
 }
@@ -300,7 +299,9 @@ pub async fn apply_config(
     let port_changed = previous.port != next.port;
     let server_down = !core.server_status.read().await.connected;
 
-    if (port_changed || server_down) && let Err(error) = start_server(core.inner().clone()).await {
+    if (port_changed || server_down)
+        && let Err(error) = start_server(core.inner().clone()).await
+    {
         let _ = core.set_config(previous).await;
         if let Err(rollback_error) = start_server(core.inner().clone()).await {
             core.server_status.write().await.error = Some(rollback_error.to_string());
@@ -494,7 +495,9 @@ pub async fn pick_notification_sound(
     let file = rfd::AsyncFileDialog::new()
         .add_filter(
             "Audio",
-            &["mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba"],
+            &[
+                "mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba",
+            ],
         )
         .pick_file()
         .await;
@@ -514,9 +517,7 @@ pub async fn pick_notification_sound(
 }
 
 #[tauri::command]
-pub async fn clear_notification_sound(
-    core: State<'_, Arc<AppCore>>,
-) -> Result<AppConfig, String> {
+pub async fn clear_notification_sound(core: State<'_, Arc<AppCore>>) -> Result<AppConfig, String> {
     core.update_config(|config| config.notification_sound_path = None)
         .await
         .map_err(display_error)

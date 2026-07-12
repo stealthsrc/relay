@@ -170,20 +170,18 @@ fn apply_lock(window: &WebviewWindow, locked: bool) -> Result<()> {
 
 fn watch_geometry(window: &WebviewWindow, core: Arc<AppCore>) {
     let window = window.clone();
-    window.clone().on_window_event(move |event| {
-        match event {
-            tauri::WindowEvent::Moved(position) => {
-                let _ = apply_monitor_constraints(&window);
-                persist_position(core.clone(), *position);
-            }
-            tauri::WindowEvent::Resized(size) => {
-                persist_size(core.clone(), &window, *size);
-            }
-            tauri::WindowEvent::ScaleFactorChanged { .. } => {
-                let _ = apply_monitor_constraints(&window);
-            }
-            _ => {}
+    window.clone().on_window_event(move |event| match event {
+        tauri::WindowEvent::Moved(position) => {
+            let _ = apply_monitor_constraints(&window);
+            persist_position(core.clone(), *position);
         }
+        tauri::WindowEvent::Resized(size) => {
+            persist_size(core.clone(), &window, *size);
+        }
+        tauri::WindowEvent::ScaleFactorChanged { .. } => {
+            let _ = apply_monitor_constraints(&window);
+        }
+        _ => {}
     });
 }
 
@@ -276,7 +274,9 @@ fn resolved_geometry(
 }
 
 fn apply_monitor_constraints(window: &WebviewWindow) -> Result<()> {
-    let monitor = window.current_monitor()?.context("no display is available")?;
+    let monitor = window
+        .current_monitor()?
+        .context("no display is available")?;
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
     window.set_size_constraints(WindowSizeConstraints {

@@ -201,41 +201,37 @@ fn apply_lock(window: &WebviewWindow, locked: bool) -> Result<()> {
 fn watch_geometry(window: &WebviewWindow, core: Arc<AppCore>) {
     let window = window.clone();
     let last_size = Arc::new(Mutex::new(window.inner_size().unwrap_or_default()));
-    window.clone().on_window_event(move |event| {
-        match event {
-            tauri::WindowEvent::Moved(position) => {
-                let _ = apply_monitor_constraints(&window);
-                persist_position(core.clone(), *position);
-            }
-            tauri::WindowEvent::Resized(size) => {
-                let size = *size;
-                let previous = {
-                    let mut last = last_size.lock().expect("widget size lock poisoned");
-                    let previous = *last;
-                    *last = size;
-                    previous
-                };
-                let keep_ratio = core
-                    .config
-                    .try_read()
-                    .map(|config| config.widget_keep_aspect_ratio)
-                    .unwrap_or(false);
-                if keep_ratio
-                    && let Ok(Some(monitor)) = window.current_monitor()
-                {
-                    let adjusted = constrain_physical_aspect(size, previous, &monitor);
-                    if adjusted != size {
-                        let _ = window.set_size(adjusted);
-                        return;
-                    }
-                }
-                persist_size(core.clone(), &window, size);
-            }
-            tauri::WindowEvent::ScaleFactorChanged { .. } => {
-                let _ = apply_monitor_constraints(&window);
-            }
-            _ => {}
+    window.clone().on_window_event(move |event| match event {
+        tauri::WindowEvent::Moved(position) => {
+            let _ = apply_monitor_constraints(&window);
+            persist_position(core.clone(), *position);
         }
+        tauri::WindowEvent::Resized(size) => {
+            let size = *size;
+            let previous = {
+                let mut last = last_size.lock().expect("widget size lock poisoned");
+                let previous = *last;
+                *last = size;
+                previous
+            };
+            let keep_ratio = core
+                .config
+                .try_read()
+                .map(|config| config.widget_keep_aspect_ratio)
+                .unwrap_or(false);
+            if keep_ratio && let Ok(Some(monitor)) = window.current_monitor() {
+                let adjusted = constrain_physical_aspect(size, previous, &monitor);
+                if adjusted != size {
+                    let _ = window.set_size(adjusted);
+                    return;
+                }
+            }
+            persist_size(core.clone(), &window, size);
+        }
+        tauri::WindowEvent::ScaleFactorChanged { .. } => {
+            let _ = apply_monitor_constraints(&window);
+        }
+        _ => {}
     });
 }
 
@@ -256,7 +252,10 @@ fn persist_position(core: Arc<AppCore>, position: PhysicalPosition<i32>) {
 }
 
 fn persist_size(core: Arc<AppCore>, window: &WebviewWindow, size: PhysicalSize<u32>) {
-    let generation = core.widget_resize_generation.fetch_add(1, Ordering::Relaxed) + 1;
+    let generation = core
+        .widget_resize_generation
+        .fetch_add(1, Ordering::Relaxed)
+        + 1;
     let scale = window.scale_factor().unwrap_or(1.0);
     let logical = size.to_logical::<f64>(scale);
     tauri::async_runtime::spawn(async move {
@@ -305,18 +304,20 @@ fn resolved_geometry(
         let (x, y) = saved.expect("saved monitor requires a saved position");
         PhysicalPosition::new(x, y)
     } else {
-            let physical_width = (width.min(max_width) * scale).round() as i32;
-            let physical_height = (height.min(max_height) * scale).round() as i32;
-            PhysicalPosition::new(
-                area.position.x + (area.size.width as i32 - physical_width) / 2,
-                area.position.y + (area.size.height as i32 - physical_height) / 2,
-            )
+        let physical_width = (width.min(max_width) * scale).round() as i32;
+        let physical_height = (height.min(max_height) * scale).round() as i32;
+        PhysicalPosition::new(
+            area.position.x + (area.size.width as i32 - physical_width) / 2,
+            area.position.y + (area.size.height as i32 - physical_height) / 2,
+        )
     };
     Ok((position, max_width, max_height))
 }
 
 fn apply_monitor_constraints(window: &WebviewWindow) -> Result<()> {
-    let monitor = window.current_monitor()?.context("no display is available")?;
+    let monitor = window
+        .current_monitor()?
+        .context("no display is available")?;
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
     window.set_size_constraints(WindowSizeConstraints {
@@ -358,14 +359,16 @@ fn constrain_physical_aspect(
     let max_width = area.size.width;
     let max_height = area.size.height;
     if size.width.abs_diff(previous.width) >= size.height.abs_diff(previous.height) {
-        let width = size
-            .width
-            .clamp(min_width, max_width.min((max_height as f64 * ASPECT_RATIO) as u32));
+        let width = size.width.clamp(
+            min_width,
+            max_width.min((max_height as f64 * ASPECT_RATIO) as u32),
+        );
         PhysicalSize::new(width, (width as f64 / ASPECT_RATIO).round() as u32)
     } else {
-        let height = size
-            .height
-            .clamp(min_height, max_height.min((max_width as f64 / ASPECT_RATIO) as u32));
+        let height = size.height.clamp(
+            min_height,
+            max_height.min((max_width as f64 / ASPECT_RATIO) as u32),
+        );
         PhysicalSize::new((height as f64 * ASPECT_RATIO).round() as u32, height)
     }
 }

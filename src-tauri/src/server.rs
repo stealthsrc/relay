@@ -291,7 +291,14 @@ async fn notification_sound(
     if !request_secret_matches(query.secret.as_deref(), &headers, &state.relay_secret) {
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    let Some(path) = state.core.config.read().await.notification_sound_path.clone() else {
+    let Some(path) = state
+        .core
+        .config
+        .read()
+        .await
+        .notification_sound_path
+        .clone()
+    else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let bytes = tokio::task::spawn_blocking(move || -> anyhow::Result<(Vec<u8>, String)> {
@@ -402,7 +409,10 @@ async fn stickers_page(
 }
 
 async fn stickers_css() -> impl IntoResponse {
-    ([(header::CONTENT_TYPE, "text/css; charset=utf-8")], STICKERS_CSS)
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        STICKERS_CSS,
+    )
 }
 
 async fn stickers_js() -> impl IntoResponse {
@@ -613,9 +623,12 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
     } else {
         json!(config)
     };
-    if send_json(&mut sender, &json!({ "type": "config", "payload": config_payload }))
-        .await
-        .is_err()
+    if send_json(
+        &mut sender,
+        &json!({ "type": "config", "payload": config_payload }),
+    )
+    .await
+    .is_err()
     {
         if is_output {
             update_overlay_count(&state, -1).await;

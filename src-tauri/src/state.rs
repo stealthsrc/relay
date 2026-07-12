@@ -305,12 +305,10 @@ impl AppCore {
             anyhow::bail!("the TTS queue is full");
         }
         let _synthesis = self.tts_synthesis_lock.lock().await;
-        let speech = tokio::time::timeout(
-            TTS_SYNTHESIS_TIMEOUT,
-            tts::synthesize(request.text.clone()),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Windows TTS timed out; the queue was released"))??;
+        let speech =
+            tokio::time::timeout(TTS_SYNTHESIS_TIMEOUT, tts::synthesize(request.text.clone()))
+                .await
+                .map_err(|_| anyhow::anyhow!("Windows TTS timed out; the queue was released"))??;
         let event = TtsEvent {
             id: request.id.clone(),
             text: request.text,
@@ -490,5 +488,4 @@ mod tests {
         assert!(core.claim_embed("message-embed-0".into()).await);
         assert!(!core.claim_embed("message-embed-0".into()).await);
     }
-
 }

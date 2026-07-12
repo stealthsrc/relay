@@ -7,11 +7,10 @@ use anyhow::{Context as _, Result, bail};
 use serenity::{
     all::{
         Channel, ChannelId, ChannelType, Command, CommandDataOptionValue, CommandInteraction,
-        CommandOptionType, Context, CreateCommand, CreateCommandOption,
-        CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
-        GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent,
-        OnlineStatus, PermissionOverwrite, PermissionOverwriteType, Permissions, Ready,
-        StickerFormatType, UserId,
+        CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateInteractionResponse,
+        CreateInteractionResponseMessage, EventHandler, GatewayIntents, GetMessages, GuildId,
+        Interaction, Message, MessageId, MessageUpdateEvent, OnlineStatus, PermissionOverwrite,
+        PermissionOverwriteType, Permissions, Ready, StickerFormatType, UserId,
     },
     async_trait,
     cache::Cache,
@@ -88,8 +87,7 @@ impl EventHandler for Handler {
                 );
                 return;
             }
-            if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit)
-            {
+            if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit) {
                 if !config.tts_speech_enabled {
                     self.core.publish_visual_tts(
                         message.id.to_string(),
@@ -101,11 +99,11 @@ impl EventHandler for Handler {
                     return;
                 }
                 let request = TtsRequest {
-                        id: message.id.to_string(),
-                        text: text.clone(),
-                        author: message_author(&message),
-                        timestamp: message_timestamp(&message),
-                    };
+                    id: message.id.to_string(),
+                    text: text.clone(),
+                    author: message_author(&message),
+                    timestamp: message_timestamp(&message),
+                };
                 if let Err(error) = self.core.publish_tts(request.clone()).await {
                     self.core.publish_visual_tts(
                         request.id,
@@ -133,20 +131,16 @@ impl EventHandler for Handler {
             };
             let (format, content_type) = sticker_format(sticker.format_type);
             let cache_id = format!("sticker-{}", sticker.id);
-            let cached_media_id = match artwork::download_bounded(
-                &url,
-                artwork::MAX_ARTWORK_BYTES,
-            )
-            .await
-            {
-                Ok(bytes) => {
-                    self.core
-                        .cache_media(cache_id.clone(), content_type.into(), bytes)
-                        .await;
-                    Some(cache_id)
-                }
-                Err(_) => None,
-            };
+            let cached_media_id =
+                match artwork::download_bounded(&url, artwork::MAX_ARTWORK_BYTES).await {
+                    Ok(bytes) => {
+                        self.core
+                            .cache_media(cache_id.clone(), content_type.into(), bytes)
+                            .await;
+                        Some(cache_id)
+                    }
+                    Err(_) => None,
+                };
             self.core.publish_sticker(StickerEvent {
                 id: sticker.id.to_string(),
                 name: sticker.name.clone(),
@@ -335,7 +329,10 @@ fn parse_visual_segments(content: &str) -> Option<Vec<VisualSegment>> {
             continue;
         }
 
-        let character = remainder.chars().next().expect("cursor is on a character boundary");
+        let character = remainder
+            .chars()
+            .next()
+            .expect("cursor is on a character boundary");
         if is_unicode_emoji(character) {
             push_text_segment(&mut segments, &mut text);
             segments.push(VisualSegment {
@@ -361,14 +358,14 @@ fn parse_custom_emoji(content: &str) -> Option<(usize, String, String, bool)> {
     let end = content.find('>')?;
     let token = &content[..=end];
     let animated = token.starts_with("<a:");
-    let body = token.strip_prefix(if animated { "<a:" } else { "<:" })?.strip_suffix('>')?;
+    let body = token
+        .strip_prefix(if animated { "<a:" } else { "<:" })?
+        .strip_suffix('>')?;
     let (name, id) = body.rsplit_once(':')?;
     if name.is_empty() || id.len() > 20 || !id.chars().all(|character| character.is_ascii_digit()) {
         return None;
     }
-    let url = format!(
-        "https://cdn.discordapp.com/emojis/{id}.webp?size=128&animated={animated}"
-    );
+    let url = format!("https://cdn.discordapp.com/emojis/{id}.webp?size=128&animated={animated}");
     Some((token.len(), format!(":{name}:"), url, animated))
 }
 
@@ -441,9 +438,7 @@ pub async fn start_bot(core: Arc<AppCore>) -> Result<bool> {
 pub async fn refresh_channel_list(core: &Arc<AppCore>) -> Result<()> {
     let (http, cache) = {
         let runtime = core.bot_runtime.lock().await;
-        let runtime = runtime
-            .as_ref()
-            .context("the Discord bot is not running")?;
+        let runtime = runtime.as_ref().context("the Discord bot is not running")?;
         (runtime.http.clone(), runtime.cache.clone())
     };
     if !core.bot_status.read().await.connected {
@@ -564,12 +559,11 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
 }
 
 pub fn invite_url(client_id: &str) -> String {
-    let permissions =
-        (Permissions::VIEW_CHANNEL
-            | Permissions::READ_MESSAGE_HISTORY
-            | Permissions::MANAGE_ROLES
-            | Permissions::MANAGE_MESSAGES)
-            .bits();
+    let permissions = (Permissions::VIEW_CHANNEL
+        | Permissions::READ_MESSAGE_HISTORY
+        | Permissions::MANAGE_ROLES
+        | Permissions::MANAGE_MESSAGES)
+        .bits();
     format!(
         "https://discord.com/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands"
     )
@@ -819,11 +813,7 @@ async fn clear_selected_channel(
     ))
 }
 
-async fn clear_channel_messages(
-    http: &Http,
-    channel_id: ChannelId,
-    limit: usize,
-) -> Result<usize> {
+async fn clear_channel_messages(http: &Http, channel_id: ChannelId, limit: usize) -> Result<usize> {
     let mut before = None;
     let mut deleted = 0;
     while deleted < limit {
@@ -939,7 +929,9 @@ async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String>
             .await
         {
             if restore_channel_permissions(http, &snapshot).await.is_ok() {
-                let _ = core.update_config(|rollback| rollback.channel_lock = None).await;
+                let _ = core
+                    .update_config(|rollback| rollback.channel_lock = None)
+                    .await;
             }
             bail!("Discord refused the channel lock: {error}");
         }
@@ -1373,13 +1365,19 @@ mod tests {
         assert!(!section.contains("Pending change."));
         assert!(!section.contains("First release."));
         assert!(!section.contains("example.com"));
-        assert!(latest_changelog_section("# Changelog\n\n## [Unreleased]\n\n- Only pending.\n").is_none());
+        assert!(
+            latest_changelog_section("# Changelog\n\n## [Unreleased]\n\n- Only pending.\n")
+                .is_none()
+        );
     }
 
     #[test]
     fn splits_long_changelog_sections_into_discord_sized_messages() {
         let long_line = "x".repeat(80);
-        let text = (0..60).map(|_| long_line.clone()).collect::<Vec<_>>().join("\n");
+        let text = (0..60)
+            .map(|_| long_line.clone())
+            .collect::<Vec<_>>()
+            .join("\n");
         let chunks = split_message_chunks(&text, 1_900);
         assert!(chunks.len() > 1);
         assert!(chunks.iter().all(|chunk| chunk.len() <= 1_900));
@@ -1543,12 +1541,21 @@ mod tests {
             "Hello 👋 <:relay:123456789012345678> <a:dance:223456789012345678>",
         )
         .expect("message contains emojis");
-        assert_eq!(segments.iter().filter(|segment| segment.kind == "emoji").count(), 3);
+        assert_eq!(
+            segments
+                .iter()
+                .filter(|segment| segment.kind == "emoji")
+                .count(),
+            3
+        );
         assert!(segments.iter().any(|segment| segment.value == "👋"));
         assert!(segments.iter().any(|segment| {
             segment.value == ":dance:"
                 && segment.animated
-                && segment.url.as_deref().is_some_and(|url| url.contains("223456789012345678"))
+                && segment
+                    .url
+                    .as_deref()
+                    .is_some_and(|url| url.contains("223456789012345678"))
         }));
     }
 
@@ -1593,8 +1600,14 @@ mod tests {
     #[test]
     fn maps_all_discord_sticker_formats() {
         assert_eq!(sticker_format(StickerFormatType::Png), ("png", "image/png"));
-        assert_eq!(sticker_format(StickerFormatType::Apng), ("apng", "image/png"));
-        assert_eq!(sticker_format(StickerFormatType::Lottie), ("lottie", "application/json"));
+        assert_eq!(
+            sticker_format(StickerFormatType::Apng),
+            ("apng", "image/png")
+        );
+        assert_eq!(
+            sticker_format(StickerFormatType::Lottie),
+            ("lottie", "application/json")
+        );
         assert_eq!(sticker_format(StickerFormatType::Gif), ("gif", "image/gif"));
     }
 }
