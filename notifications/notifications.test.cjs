@@ -20,7 +20,7 @@ function classList() {
   };
 }
 
-function createHarness(target = "obs", language = "en") {
+function createHarness(target = "obs", language = "en", preview = false) {
   const sockets = [];
   const timers = new Map();
   const timerDelays = [];
@@ -73,7 +73,7 @@ function createHarness(target = "obs", language = "en") {
     close() {}
   }
 
-  const search = `?secret=private&target=${target}&locked=0&lang=${language}`;
+  const search = `?secret=private&target=${target}&locked=0&lang=${language}${preview ? "&preview=1" : ""}`;
   const location = {
     protocol: "http:",
     host: "127.0.0.1:4590",
@@ -138,6 +138,35 @@ function createHarness(target = "obs", language = "en") {
 
   return { cssProperties, elements, pings, socket: sockets[0], timers, timerDelays };
 }
+
+test("notification geometry previews stay visible without consuming live TTS or playing sound", () => {
+  const preview = createHarness("widget", "fr", true);
+  const card = preview.elements["#notification"];
+
+  assert.equal(card.classList.contains("is-visible"), true);
+  assert.equal(preview.elements["#notification-author"].textContent, "Aperçu en direct");
+  assert.equal(preview.elements["#notification-message"].textContent, "Votre notification apparaîtra ici.");
+
+  preview.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: {
+      notificationSoundEnabled: true,
+      notificationWidgetGeometry: { cropLeft: 15, contentScale: 125 },
+    },
+  }));
+  preview.socket.emit("message", JSON.stringify({ type: "tts", payload: notification("ignored") }));
+  preview.socket.emit("message", JSON.stringify({ type: "clear" }));
+
+  assert.equal(preview.cssProperties["--crop-left"], "15%");
+  assert.equal(preview.cssProperties["--content-scale"], "1.25");
+  assert.equal(preview.elements["#notification-author"].textContent, "Aperçu en direct");
+  assert.equal(card.classList.contains("is-visible"), true);
+  assert.equal(preview.elements["#notification-clock"].src, "");
+  assert.equal(preview.pings.length, 0);
+
+  const panelSource = fs.readFileSync(__dirname + "/../gui/panel.js", "utf8");
+  assert.match(panelSource, /notificationUrl[\s\S]*searchParams\.set\("preview", "1"\)/);
+});
 
 test("notification output applies live crop and scale for OBS and widgets", () => {
   const obs = createHarness("obs");

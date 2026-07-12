@@ -6,9 +6,16 @@ const audioElement = document.querySelector("#notification-clock");
 const parameters = new URLSearchParams(window.location.search);
 const relaySecret = parameters.get("secret") || "";
 const target = parameters.get("target") === "widget" ? "widget" : "obs";
+const isPreview = parameters.get("preview") === "1";
 let interfaceLanguage = parameters.get("lang") || "en";
 const moveLabelElement = document.querySelector("#notification-move-label");
 const moveLabels = { en: "Move notification", fr: "Déplacer la notification", es: "Mover notificación", de: "Benachrichtigung verschieben" };
+const previewCopy = {
+  en: { author: "Live preview", message: "Your notification will appear here." },
+  fr: { author: "Aperçu en direct", message: "Votre notification apparaîtra ici." },
+  es: { author: "Vista previa", message: "Tu notificación aparecerá aquí." },
+  de: { author: "Live-Vorschau", message: "Deine Benachrichtigung erscheint hier." },
+};
 const fallbackAvatar = "/overlay-assets/relay-radar.png";
 const queue = [];
 
@@ -97,7 +104,16 @@ function showCard() {
   cardElement.setAttribute("aria-hidden", "false");
 }
 
+function showPreview() {
+  const copy = previewCopy[interfaceLanguage] || previewCopy.en;
+  setCardContent({ author: { username: copy.author }, text: copy.message });
+  showCard();
+}
+
 function playNotificationPing() {
+  if (isPreview) {
+    return;
+  }
   const enabled = target === "widget"
     ? Boolean(config.notificationSoundEnabled)
     : Boolean(config.notificationSoundObsEnabled);
@@ -244,10 +260,13 @@ function handleMessage(event) {
       clearNotifications();
     }
   } else if (message.type === "tts") {
+    if (isPreview) return;
     if (message.payload) enqueue(message.payload);
   } else if (message.type === "skip") {
+    if (isPreview) return;
     finishCurrent();
   } else if (message.type === "clear") {
+    if (isPreview) return;
     clearNotifications();
   } else if (message.type === "serverMove") {
     const movedPort = Number(message.payload?.port);
@@ -268,6 +287,7 @@ function applyAppearance(preferences = {}) {
   document.documentElement.style.setProperty("--accent", `rgb(${rgb.join(" ")})`);
   document.documentElement.style.setProperty("--font-scale", String((preferences.fontScale || 100) / 100));
   if (moveLabelElement) moveLabelElement.textContent = moveLabels[interfaceLanguage] || moveLabels.en;
+  if (isPreview) showPreview();
 }
 
 applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 185, 137] });
@@ -321,7 +341,7 @@ function connect() {
       resetAudio();
       currentNotification = undefined;
     }
-    hideCard();
+    if (!isPreview) hideCard();
     if (pendingPort) {
       moveToPendingPort();
       return;

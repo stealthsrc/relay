@@ -801,6 +801,7 @@ function setOutputGeometryPreviewUrls() {
   for (const [target, metadata] of Object.entries(outputGeometryTargets)) {
     const iframe = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-preview]`);
     const url = new URL(bootstrap[metadata.previewKey]);
+    if (metadata.previewKey === "notificationUrl") url.searchParams.set("preview", "1");
     if (metadata.widget === "media") {
       url.searchParams.set("widget", "1");
       url.searchParams.set("locked", "1");
