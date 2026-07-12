@@ -77,6 +77,34 @@ impl EventHandler for Handler {
         let channel_id = message.channel_id.to_string();
 
         if !config.tts_channel_id.is_empty() && channel_id == config.tts_channel_id {
+            let mut sticker_segments = message
+                .sticker_items
+                .iter()
+                .take(3)
+                .map(|sticker| {
+                    sticker_visual_segment(
+                        sticker.name.clone(),
+                        sticker.image_url(),
+                        sticker.format_type,
+                    )
+                })
+                .collect::<Vec<_>>();
+            if !sticker_segments.is_empty() {
+                let mut segments = match message.content.trim() {
+                    "" => Vec::new(),
+                    content => parse_visual_segments(content)
+                        .unwrap_or_else(|| plain_text_segments(content.into())),
+                };
+                segments.append(&mut sticker_segments);
+                self.core.publish_visual_tts(
+                    message.id.to_string(),
+                    message.content.clone(),
+                    message_author(&message),
+                    message_timestamp(&message),
+                    segments,
+                );
+                return;
+            }
             if let Some(segments) = parse_visual_segments(&message.content) {
                 self.core.publish_visual_tts(
                     message.id.to_string(),
@@ -305,6 +333,24 @@ fn sticker_format(format: StickerFormatType) -> (&'static str, &'static str) {
         StickerFormatType::Gif => ("gif", "image/gif"),
         StickerFormatType::Unknown(_) => ("unknown", "application/octet-stream"),
         _ => ("unknown", "application/octet-stream"),
+    }
+}
+
+fn sticker_visual_segment(
+    name: String,
+    url: Option<String>,
+    format: StickerFormatType,
+) -> VisualSegment {
+    VisualSegment {
+        kind: "sticker".into(),
+        value: name,
+        url: url.filter(|_| {
+            matches!(
+                format,
+                StickerFormatType::Png | StickerFormatType::Apng | StickerFormatType::Gif
+            )
+        }),
+        animated: matches!(format, StickerFormatType::Apng | StickerFormatType::Gif),
     }
 }
 
@@ -1609,5 +1655,26 @@ mod tests {
             ("lottie", "application/json")
         );
         assert_eq!(sticker_format(StickerFormatType::Gif), ("gif", "image/gif"));
+    }
+
+    #[test]
+    fn converts_renderable_stickers_to_visual_notification_segments() {
+        let gif = sticker_visual_segment(
+            "Relay dance".into(),
+            Some("https://media.discordapp.net/stickers/1.gif".into()),
+            StickerFormatType::Gif,
+        );
+        assert_eq!(
+            (gif.kind.as_str(), gif.value.as_str()),
+            ("sticker", "Relay dance")
+        );
+        assert!(gif.url.is_some() && gif.animated);
+
+        let lottie = sticker_visual_segment(
+            "Relay wave".into(),
+            Some("https://cdn.discordapp.com/stickers/2.json".into()),
+            StickerFormatType::Lottie,
+        );
+        assert!(lottie.url.is_none() && !lottie.animated);
     }
 }

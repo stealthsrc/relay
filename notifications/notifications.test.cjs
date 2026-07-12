@@ -379,6 +379,25 @@ test("emoji messages render visually without requesting TTS audio", () => {
   assert.equal(elements["#notification-message"].children[2].tagName, "img");
 });
 
+test("Discord stickers render visually in TTS notifications", () => {
+  const { elements, socket } = createHarness("widget");
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("sticker", "Sticker user"),
+      visualOnly: true,
+      segments: [{ kind: "sticker", value: "Relay dance", url: "https://media.discordapp.net/stickers/1.gif" }],
+    },
+  }));
+
+  const message = elements["#notification-message"];
+  assert.equal(elements["#notification-clock"].src, "");
+  assert.equal(message.children.length, 1);
+  assert.equal(message.children[0].tagName, "img");
+  assert.equal(message.children[0].className, "notification-card__sticker");
+  assert.equal(message.children[0].alt, "Relay dance");
+});
+
 test("a spoken notification stays visible even when audio playback fails", async () => {
   const { elements, socket, timers } = createHarness("widget");
   const card = elements["#notification"];

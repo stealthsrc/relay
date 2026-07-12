@@ -147,6 +147,13 @@ body {
   object-fit: contain;
 }
 
+.notification-card__sticker {
+  width: calc(42px * var(--content-scale));
+  height: calc(42px * var(--content-scale));
+  vertical-align: middle;
+  object-fit: contain;
+}
+
 .notification-card__signal {
   width: calc(3px * var(--content-scale));
   height: calc(34px * var(--content-scale));

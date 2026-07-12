@@ -78,11 +78,13 @@ function setCardContent(notification) {
   messageElement.replaceChildren();
   if (notification.visualOnly && Array.isArray(notification.segments)) {
     for (const segment of notification.segments) {
-      if (segment.kind === "emoji" && segment.url) {
+      if ((segment.kind === "emoji" || segment.kind === "sticker") && segment.url) {
         const image = document.createElement("img");
-        image.className = "notification-card__emoji";
+        image.className = segment.kind === "sticker"
+          ? "notification-card__sticker"
+          : "notification-card__emoji";
         image.src = segment.url;
-        image.alt = segment.value || "emoji";
+        image.alt = segment.value || segment.kind;
         image.onerror = () => image.replaceWith(document.createTextNode(segment.value || ""));
         messageElement.append(image);
       } else {
