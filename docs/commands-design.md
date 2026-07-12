@@ -5,7 +5,7 @@
 - Relay gains a dedicated Commands page in the desktop application.
 - Discord controls remain grouped under the `/relay` command.
 - Each supported subcommand can be enabled or disabled locally.
-- `/relay clear` clears active outputs, waiting queues, and local media history.
+- `/relay clear` deletes messages from the configured Discord media and TTS channels.
 - `/relay lock` toggles the configured media channel between locked and unlocked.
 - Administrators and moderation roles retain access while the channel is locked.
 - Channel permission changes must be reversible and survive an application restart.
@@ -14,7 +14,7 @@
 
 - Relay manages one configured media channel at a time.
 - Moderation roles are roles with `Administrator`, `Manage Channels`, or `Manage Messages`.
-- The Relay bot has `Manage Roles`, which Discord requires to edit channel permission overwrites.
+- The Relay bot has `Manage Roles` for channel overwrites and `Manage Messages` for cleanup.
 - Command responses are ephemeral and commands remain unavailable to regular members.
 - Relay does not collect telemetry or transmit command configuration outside Discord.
 
@@ -25,8 +25,10 @@ through the existing Tauri configuration path. Disabled subcommands stay registe
 Discord clients do not require a slow global-command refresh; the handler rejects them
 ephemerally before any action is performed.
 
-`clear` performs one atomic local operation: clear every connected overlay, empty pending
-media, clear queued TTS work, and remove local history. It never deletes Discord messages.
+`clear` paginates through the configured media and TTS channels. Messages safely inside
+Discord's two-week bulk-delete window are deleted in batches; older messages are deleted
+individually. Relay history and active outputs remain unchanged. Partial failures report
+which channel was already cleaned and which channel Discord rejected.
 
 `lock` reads the configured channel and toggles a persisted lock record. Locking stores the
 channel's relevant permission overwrites, denies `Send Messages` to `@everyone`, and adds an

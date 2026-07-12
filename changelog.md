@@ -15,14 +15,14 @@ Next planned version: **1.0.1**.
 ### Added
 
 - Added a dedicated Commands page with individual availability switches.
-- Added `/relay clear` to stop current outputs and clear waiting media and local history.
+- Added `/relay clear` to delete messages from the configured Discord media and TTS channels without clearing Relay history.
 - Added `/relay lock` as a reversible toggle for the configured Discord media channel.
 - Preserved access for Discord administrators and moderation roles while a channel is locked.
 - Stored channel permission snapshots locally so unlock restores the previous state.
 
 ### Changed
 
-- Updated the Discord invitation URL with the permissions required for media reading and channel permission overwrites.
+- Updated the Discord invitation URL with the permissions required for media reading, channel permission overwrites, and message cleanup.
 - Documented command permissions in English, French, Spanish, and German.
 
 ### Fixed
