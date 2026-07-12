@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, atomic::Ordering};
 use anyhow::{Context, Result};
 use serde::Serialize;
 use tauri::{
-    AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
+    AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowSizeConstraints,
 };
 
@@ -77,6 +77,36 @@ pub async fn set_locked(app: &AppHandle, core: Arc<AppCore>, locked: bool) -> Re
 pub async fn toggle_lock(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> {
     let locked = !core.config.read().await.widget_locked;
     set_locked(app, core, locked).await
+}
+
+pub fn clamp_requested_size(
+    app: &AppHandle,
+    width: f64,
+    height: f64,
+    keep_ratio: bool,
+) -> Result<(f64, f64)> {
+    let monitor = app
+        .get_webview_window(WIDGET_LABEL)
+        .and_then(|window| window.current_monitor().ok().flatten())
+        .or(app.primary_monitor()?)
+        .or_else(|| app.available_monitors().ok()?.into_iter().next())
+        .context("no display is available")?;
+    let area = monitor.work_area();
+    let scale = monitor.scale_factor();
+    Ok(clamp_logical_size(
+        width,
+        height,
+        area.size.width as f64 / scale,
+        area.size.height as f64 / scale,
+        keep_ratio,
+    ))
+}
+
+pub fn apply_configured_size(app: &AppHandle, width: f64, height: f64) -> Result<()> {
+    if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+        window.set_size(LogicalSize::new(width, height))?;
+    }
+    Ok(())
 }
 
 pub async fn refresh(app: &AppHandle, core: &Arc<AppCore>) -> Result<()> {

@@ -397,6 +397,31 @@ Object.assign(translations.de, {
   commandsPermission: "Die Sperre erfordert Rollen verwalten; die Bereinigung erfordert Nachrichten verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
 });
 
+Object.assign(translations.en, {
+  sizeAndCrop: "Size and crop", sizeAndCropHelp: "Adjust each output independently. OBS keeps control of the Browser Source canvas size.",
+  mediaObsOutput: "Media in OBS", mediaWidgetOutput: "Media Windows widget", notificationObsOutput: "Notifications in OBS", notificationWidgetOutput: "Notifications Windows widget",
+  contentScale: "Content scale", cropTop: "Crop top", cropRight: "Crop right", cropBottom: "Crop bottom", cropLeft: "Crop left",
+  outputWidth: "Width", outputHeight: "Height", keepAspectRatio: "Keep 16:9 ratio", resetOutput: "Reset", geometrySaved: "Saved", geometryPreview: "Live preview",
+});
+Object.assign(translations.fr, {
+  sizeAndCrop: "Taille et rognage", sizeAndCropHelp: "Réglez chaque sortie indépendamment. OBS conserve le contrôle de la taille du canevas de la source navigateur.",
+  mediaObsOutput: "Médias dans OBS", mediaWidgetOutput: "Widget médias Windows", notificationObsOutput: "Notifications dans OBS", notificationWidgetOutput: "Widget notifications Windows",
+  contentScale: "Échelle du contenu", cropTop: "Rognage haut", cropRight: "Rognage droite", cropBottom: "Rognage bas", cropLeft: "Rognage gauche",
+  outputWidth: "Largeur", outputHeight: "Hauteur", keepAspectRatio: "Conserver le ratio 16:9", resetOutput: "Réinitialiser", geometrySaved: "Enregistré", geometryPreview: "Aperçu en direct",
+});
+Object.assign(translations.es, {
+  sizeAndCrop: "Tamaño y recorte", sizeAndCropHelp: "Ajusta cada salida por separado. OBS mantiene el control del tamaño del lienzo de la fuente del navegador.",
+  mediaObsOutput: "Medios en OBS", mediaWidgetOutput: "Widget multimedia de Windows", notificationObsOutput: "Notificaciones en OBS", notificationWidgetOutput: "Widget de notificaciones de Windows",
+  contentScale: "Escala del contenido", cropTop: "Recorte superior", cropRight: "Recorte derecho", cropBottom: "Recorte inferior", cropLeft: "Recorte izquierdo",
+  outputWidth: "Ancho", outputHeight: "Alto", keepAspectRatio: "Mantener proporción 16:9", resetOutput: "Restablecer", geometrySaved: "Guardado", geometryPreview: "Vista previa en directo",
+});
+Object.assign(translations.de, {
+  sizeAndCrop: "Größe und Zuschnitt", sizeAndCropHelp: "Passe jede Ausgabe separat an. OBS steuert weiterhin die Canvas-Größe der Browserquelle.",
+  mediaObsOutput: "Medien in OBS", mediaWidgetOutput: "Windows-Medienwidget", notificationObsOutput: "Benachrichtigungen in OBS", notificationWidgetOutput: "Windows-Benachrichtigungswidget",
+  contentScale: "Inhaltsskalierung", cropTop: "Oben zuschneiden", cropRight: "Rechts zuschneiden", cropBottom: "Unten zuschneiden", cropLeft: "Links zuschneiden",
+  outputWidth: "Breite", outputHeight: "Höhe", keepAspectRatio: "16:9-Verhältnis beibehalten", resetOutput: "Zurücksetzen", geometrySaved: "Gespeichert", geometryPreview: "Live-Vorschau",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -492,6 +517,7 @@ const pickNotificationSoundButton = $("#pick-notification-sound");
 const clearNotificationSoundButton = $("#clear-notification-sound");
 const notificationSoundStateElement = $("#notification-sound-state");
 const previewElement = $("#preview");
+const outputGeometryGridElement = $("#output-geometry-grid");
 const interfaceLanguageElement = $("#interface-language");
 const interfaceThemeElement = $("#interface-theme");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
@@ -567,6 +593,189 @@ function applyTheme() {
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, Number(value) || 0));
+}
+
+const outputGeometryTargets = {
+  mediaObs: { configKey: "mediaObsGeometry", titleKey: "mediaObsOutput", previewKey: "overlayUrl" },
+  mediaWidget: { configKey: "mediaWidgetGeometry", titleKey: "mediaWidgetOutput", previewKey: "overlayUrl", widget: "media" },
+  notificationObs: { configKey: "notificationObsGeometry", titleKey: "notificationObsOutput", previewKey: "notificationUrl" },
+  notificationWidget: { configKey: "notificationWidgetGeometry", titleKey: "notificationWidgetOutput", previewKey: "notificationUrl", widget: "notification" },
+};
+const outputGeometryTimers = new Map();
+
+function geometryControl(field, labelKey, minimum, maximum) {
+  return `
+    <label class="geometry-control">
+      <span data-i18n="${labelKey}"></span>
+      <input data-geometry-field="${field}" data-geometry-kind="range" type="range" min="${minimum}" max="${maximum}" step="1">
+      <input data-geometry-field="${field}" data-geometry-kind="number" type="number" min="${minimum}" max="${maximum}" step="1">
+    </label>`;
+}
+
+function initializeOutputGeometryControls() {
+  outputGeometryGridElement.innerHTML = Object.entries(outputGeometryTargets).map(([target, metadata]) => {
+    const sizeControls = metadata.widget ? `
+      <div class="geometry-size-row">
+        <label><span data-i18n="outputWidth"></span><input data-size-field="width" type="number" min="160" max="16384" step="1"></label>
+        <label><span data-i18n="outputHeight"></span><input data-size-field="height" type="number" min="90" max="16384" step="1"></label>
+      </div>` : "";
+    const ratioControl = metadata.widget === "media" ? `
+      <label class="inline-switch geometry-ratio">
+        <span data-i18n="keepAspectRatio"></span>
+        <span class="switch"><input data-keep-aspect-ratio type="checkbox"><span class="switch__track" aria-hidden="true"></span></span>
+      </label>` : "";
+    return `
+      <article class="output-geometry-card" data-geometry-target="${target}">
+        <header><h4 data-i18n="${metadata.titleKey}"></h4><span class="save-state" data-geometry-state role="status"></span></header>
+        <div class="geometry-preview">
+          <span data-i18n="geometryPreview"></span>
+          <iframe data-geometry-preview title="Relay output preview"></iframe>
+        </div>
+        ${sizeControls}
+        ${ratioControl}
+        <div class="geometry-controls">
+          ${geometryControl("contentScale", "contentScale", 50, 200)}
+          ${geometryControl("cropTop", "cropTop", 0, 40)}
+          ${geometryControl("cropRight", "cropRight", 0, 40)}
+          ${geometryControl("cropBottom", "cropBottom", 0, 40)}
+          ${geometryControl("cropLeft", "cropLeft", 0, 40)}
+        </div>
+        <button class="button button--quiet" data-reset-geometry type="button" data-i18n="resetOutput"></button>
+      </article>`;
+  }).join("");
+
+  for (const card of $$("[data-geometry-target]", outputGeometryGridElement)) {
+    const target = card.dataset.geometryTarget;
+    for (const input of $$('[data-geometry-field]', card)) {
+      input.addEventListener("input", () => {
+        const peer = card.querySelector(
+          `[data-geometry-field="${input.dataset.geometryField}"][data-geometry-kind="${input.dataset.geometryKind === "range" ? "number" : "range"}"]`,
+        );
+        peer.value = input.value;
+        queueOutputGeometrySave(target);
+      });
+    }
+    for (const input of $$('[data-size-field], [data-keep-aspect-ratio]', card)) {
+      input.addEventListener("input", () => queueOutputGeometrySave(target));
+    }
+    card.querySelector("[data-reset-geometry]").addEventListener("click", () => {
+      setOutputGeometryDefaults(target);
+      persistOutputGeometry(target);
+    });
+  }
+}
+
+function applyOutputGeometryTarget(config, target, force = false) {
+  const card = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"]`);
+  if (!card || (!force && card.contains(document.activeElement))) return;
+  const geometry = config[outputGeometryTargets[target].configKey] || {};
+  const values = {
+    contentScale: geometry.contentScale ?? 100,
+    cropTop: geometry.cropTop ?? 0,
+    cropRight: geometry.cropRight ?? 0,
+    cropBottom: geometry.cropBottom ?? 0,
+    cropLeft: geometry.cropLeft ?? 0,
+  };
+  for (const input of $$('[data-geometry-field]', card)) {
+    input.value = String(values[input.dataset.geometryField]);
+  }
+  if (target === "mediaWidget") {
+    card.querySelector('[data-size-field="width"]').value = String(Math.round(config.widgetWidth ?? 640));
+    card.querySelector('[data-size-field="height"]').value = String(Math.round(config.widgetHeight ?? 360));
+    card.querySelector("[data-keep-aspect-ratio]").checked = config.widgetKeepAspectRatio !== false;
+  } else if (target === "notificationWidget") {
+    card.querySelector('[data-size-field="width"]').value = String(Math.round(config.notificationWidgetWidth ?? 510));
+    card.querySelector('[data-size-field="height"]').value = String(Math.round(config.notificationWidgetHeight ?? 130));
+  }
+}
+
+function applyOutputGeometryConfig(config, force = false) {
+  for (const target of Object.keys(outputGeometryTargets)) {
+    applyOutputGeometryTarget(config, target, force);
+  }
+}
+
+function outputGeometryPayload(target) {
+  const card = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"]`);
+  const value = (field, minimum, maximum) => clamp(
+    card.querySelector(`[data-geometry-field="${field}"][data-geometry-kind="number"]`).value,
+    minimum,
+    maximum,
+  );
+  const payload = {
+    target,
+    geometry: {
+      contentScale: value("contentScale", 50, 200),
+      cropTop: value("cropTop", 0, 40),
+      cropRight: value("cropRight", 0, 40),
+      cropBottom: value("cropBottom", 0, 40),
+      cropLeft: value("cropLeft", 0, 40),
+    },
+  };
+  if (outputGeometryTargets[target].widget) {
+    payload.width = clamp(card.querySelector('[data-size-field="width"]').value, 160, 16384);
+    payload.height = clamp(card.querySelector('[data-size-field="height"]').value, 90, 16384);
+  }
+  if (target === "mediaWidget") {
+    payload.keepAspectRatio = card.querySelector("[data-keep-aspect-ratio]").checked;
+  }
+  return payload;
+}
+
+function queueOutputGeometrySave(target) {
+  outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-state]`).textContent = t("saving");
+  if (outputGeometryTimers.has(target)) return;
+  outputGeometryTimers.set(target, window.setTimeout(() => {
+    outputGeometryTimers.delete(target);
+    persistOutputGeometry(target);
+  }, 80));
+}
+
+async function persistOutputGeometry(target) {
+  if (outputGeometryTimers.has(target)) {
+    window.clearTimeout(outputGeometryTimers.get(target));
+    outputGeometryTimers.delete(target);
+  }
+  const state = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-state]`);
+  state.textContent = t("saving");
+  try {
+    const config = await invoke("set_output_geometry", outputGeometryPayload(target));
+    bootstrap.config = config;
+    applyOutputGeometryTarget(config, target);
+    state.textContent = t("geometrySaved");
+  } catch (error) {
+    state.textContent = String(error);
+  }
+}
+
+function setOutputGeometryDefaults(target) {
+  const card = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"]`);
+  for (const input of $$('[data-geometry-field]', card)) {
+    input.value = input.dataset.geometryField === "contentScale" ? "100" : "0";
+  }
+  if (target === "mediaWidget") {
+    card.querySelector('[data-size-field="width"]').value = "640";
+    card.querySelector('[data-size-field="height"]').value = "360";
+    card.querySelector("[data-keep-aspect-ratio]").checked = true;
+  } else if (target === "notificationWidget") {
+    card.querySelector('[data-size-field="width"]').value = "510";
+    card.querySelector('[data-size-field="height"]').value = "130";
+  }
+}
+
+function setOutputGeometryPreviewUrls() {
+  for (const [target, metadata] of Object.entries(outputGeometryTargets)) {
+    const iframe = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-preview]`);
+    const url = new URL(bootstrap[metadata.previewKey]);
+    if (metadata.widget === "media") {
+      url.searchParams.set("widget", "1");
+      url.searchParams.set("locked", "1");
+    } else if (metadata.widget === "notification") {
+      url.searchParams.set("target", "widget");
+      url.searchParams.set("locked", "1");
+    }
+    if (iframe.src !== url.href) iframe.src = url.href;
+  }
 }
 
 function parseStoredAccent() {
@@ -714,6 +923,7 @@ function applyConfig(config) {
   commandInputs.lock.disabled = Boolean(config.channelLock);
   channelLockStateElement.dataset.i18n = config.channelLock ? "commandLockActive" : "commandLockInactive";
   channelLockStateElement.textContent = t(channelLockStateElement.dataset.i18n);
+  applyOutputGeometryConfig(config);
 }
 
 function setCredentials(status) {
@@ -965,6 +1175,7 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   if (previewElement.src !== bootstrap.overlayUrl) {
     previewElement.src = bootstrap.overlayUrl;
   }
+  setOutputGeometryPreviewUrls();
   if (reconnect) {
     connectPanelSocket();
   }
@@ -1352,6 +1563,7 @@ window.addEventListener("beforeunload", () => {
   socket?.close();
 });
 
+initializeOutputGeometryControls();
 applyLanguage();
 applyTheme();
 applyPersonalization();

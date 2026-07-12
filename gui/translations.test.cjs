@@ -12,10 +12,11 @@ const context = vm.createContext({});
 vm.runInContext(`${dictionarySource}\nglobalThis.translationsForTest = translations;`, context);
 const translations = context.translationsForTest;
 
-test("Spanish and German provide every interface translation key", () => {
+test("French, Spanish and German provide every interface translation key", () => {
   const expectedKeys = Object.keys(translations.en).sort();
-  assert.deepEqual(Object.keys(translations.es).sort(), expectedKeys);
-  assert.deepEqual(Object.keys(translations.de).sort(), expectedKeys);
+  for (const language of ["fr", "es", "de"]) {
+    assert.deepEqual(Object.keys(translations[language]).sort(), expectedKeys, language);
+  }
 });
 
 test("reported Spanish and German pages no longer use English fallback copy", () => {

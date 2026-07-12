@@ -6,7 +6,7 @@ use tauri::{AppHandle, State};
 use crate::{
     artwork,
     bot::{invite_url, refresh_channel_list, start_bot},
-    config::AppConfig,
+    config::{AppConfig, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
         save_discord_credentials,
@@ -95,6 +95,15 @@ pub struct CommandSettings {
     changelog: bool,
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputTarget {
+    MediaObs,
+    MediaWidget,
+    NotificationObs,
+    NotificationWidget,
+}
+
 #[tauri::command]
 pub async fn get_bootstrap(
     app: AppHandle,
@@ -164,6 +173,78 @@ pub async fn set_interface_preferences(
     *core.interface_preferences.write().await = preferences.clone();
     let _ = core.relay_tx.send(RelayEvent::Appearance(preferences));
     Ok(())
+}
+
+#[tauri::command]
+pub async fn set_output_geometry(
+    app: AppHandle,
+    core: State<'_, Arc<AppCore>>,
+    target: OutputTarget,
+    geometry: OutputGeometry,
+    width: Option<f64>,
+    height: Option<f64>,
+    keep_aspect_ratio: Option<bool>,
+) -> Result<AppConfig, String> {
+    let current = core.config.read().await.clone();
+    let media_size = if matches!(target, OutputTarget::MediaWidget)
+        && (width.is_some() || height.is_some() || keep_aspect_ratio.is_some())
+    {
+        let keep_ratio = keep_aspect_ratio.unwrap_or(current.widget_keep_aspect_ratio);
+        let (width, height) = widget::clamp_requested_size(
+            &app,
+            width.unwrap_or(current.widget_width),
+            height.unwrap_or(current.widget_height),
+            keep_ratio,
+        )
+        .map_err(display_error)?;
+        Some((width, height, keep_ratio))
+    } else {
+        None
+    };
+    let notification_size = if matches!(target, OutputTarget::NotificationWidget)
+        && (width.is_some() || height.is_some())
+    {
+        Some(
+            notification_widget::clamp_requested_size(
+                &app,
+                width.unwrap_or(current.notification_widget_width),
+                height.unwrap_or(current.notification_widget_height),
+            )
+            .map_err(display_error)?,
+        )
+    } else {
+        None
+    };
+    let next = core
+        .update_config(|config| {
+            match target {
+                OutputTarget::MediaObs => config.media_obs_geometry = geometry,
+                OutputTarget::MediaWidget => config.media_widget_geometry = geometry,
+                OutputTarget::NotificationObs => config.notification_obs_geometry = geometry,
+                OutputTarget::NotificationWidget => {
+                    config.notification_widget_geometry = geometry;
+                }
+            }
+            if let Some((width, height, keep_ratio)) = media_size {
+                config.widget_width = width;
+                config.widget_height = height;
+                config.widget_keep_aspect_ratio = keep_ratio;
+            }
+            if let Some((width, height)) = notification_size {
+                config.notification_widget_width = width;
+                config.notification_widget_height = height;
+            }
+        })
+        .await
+        .map_err(display_error)?;
+    if let Some((width, height, _)) = media_size {
+        widget::apply_configured_size(&app, width, height).map_err(display_error)?;
+    }
+    if let Some((width, height)) = notification_size {
+        notification_widget::apply_configured_size(&app, width, height)
+            .map_err(display_error)?;
+    }
+    Ok(next)
 }
 
 #[tauri::command]
