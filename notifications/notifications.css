@@ -135,6 +135,14 @@ body {
   -webkit-line-clamp: 3;
 }
 
+.notification-card__emoji {
+  width: 1.35em;
+  height: 1.35em;
+  margin: 0 0.08em;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+
 .notification-card__signal {
   width: 3px;
   height: 34px;

@@ -30,7 +30,12 @@ function createHarness(target = "obs", language = "en") {
     },
     "#notification-avatar": { src: "", onerror: null },
     "#notification-author": { textContent: "" },
-    "#notification-message": { textContent: "" },
+    "#notification-message": {
+      textContent: "",
+      children: [],
+      replaceChildren() { this.children = []; this.textContent = ""; },
+      append(node) { this.children.push(node); },
+    },
     "#notification-move-label": { textContent: "" },
     "#notification-clock": {
       src: "",
@@ -90,6 +95,15 @@ function createHarness(target = "obs", language = "en") {
         style: { setProperty() {} },
       },
       querySelector: (selector) => elements[selector],
+      createElement: (tagName) => ({
+        tagName,
+        className: "",
+        src: "",
+        alt: "",
+        onerror: null,
+        replaceWith() {},
+      }),
+      createTextNode: (textContent) => ({ textContent }),
     },
     encodeURIComponent,
     window,
@@ -219,4 +233,25 @@ test("notification playback clears when Relay disconnects", async () => {
   socket.emit("close");
   assert.equal(elements["#notification-clock"].src, "");
   assert.equal(elements["#notification"].attributes.get("aria-hidden"), "true");
+});
+
+test("emoji messages render visually without requesting TTS audio", () => {
+  const { elements, socket } = createHarness("widget");
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: {
+      ...notification("emoji", "Emoji user"),
+      visualOnly: true,
+      segments: [
+        { kind: "text", value: "Hello " },
+        { kind: "emoji", value: "👋", url: null },
+        { kind: "emoji", value: ":relay:", url: "https://cdn.discordapp.com/emojis/1.webp" },
+      ],
+    },
+  }));
+
+  assert.equal(elements["#notification-clock"].src, "");
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+  assert.equal(elements["#notification-message"].children.length, 3);
+  assert.equal(elements["#notification-message"].children[2].tagName, "img");
 });

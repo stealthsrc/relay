@@ -21,6 +21,7 @@ let pendingPort;
 let isUnloading = false;
 let playbackGeneration = 0;
 let playbackWatchdog;
+let visualTimer;
 
 audioElement.muted = true;
 document.documentElement.classList.toggle("notification-widget", target === "widget");
@@ -39,7 +40,23 @@ function audioUrl(ttsEvent) {
 
 function setCardContent(notification) {
   authorElement.textContent = notification.author?.username || "Discord";
-  messageElement.textContent = notification.text || "";
+  messageElement.replaceChildren();
+  if (notification.visualOnly && Array.isArray(notification.segments)) {
+    for (const segment of notification.segments) {
+      if (segment.kind === "emoji" && segment.url) {
+        const image = document.createElement("img");
+        image.className = "notification-card__emoji";
+        image.src = segment.url;
+        image.alt = segment.value || "emoji";
+        image.onerror = () => image.replaceWith(document.createTextNode(segment.value || ""));
+        messageElement.append(image);
+      } else {
+        messageElement.append(document.createTextNode(segment.value || ""));
+      }
+    }
+  } else {
+    messageElement.textContent = notification.text || "";
+  }
   avatarElement.onerror = () => {
     avatarElement.onerror = null;
     avatarElement.src = fallbackAvatar;
@@ -68,6 +85,7 @@ function resetAudio() {
   audioElement.onabort = null;
   audioElement.onemptied = null;
   window.clearTimeout(playbackWatchdog);
+  window.clearTimeout(visualTimer);
   audioElement.pause();
   audioElement.removeAttribute("src");
   audioElement.load();
@@ -92,6 +110,11 @@ function playNext() {
   currentNotification = queue.shift();
   const generation = playbackGeneration;
   setCardContent(currentNotification);
+  if (currentNotification.visualOnly) {
+    showCard();
+    visualTimer = window.setTimeout(() => finishCurrent(generation), 8000);
+    return;
+  }
   audioElement.onended = () => finishCurrent(generation);
   audioElement.onerror = () => finishCurrent(generation);
   const armWatchdog = (delay = 20000) => {

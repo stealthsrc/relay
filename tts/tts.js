@@ -68,6 +68,9 @@ function playNextTts() {
 }
 
 function enqueueTts(ttsEvent) {
+  if (ttsEvent?.visualOnly) {
+    return;
+  }
   const queueLimit = Math.min(50, Math.max(1, Number(config.ttsQueueLimit) || 50));
   if (queue.length >= queueLimit) {
     return;

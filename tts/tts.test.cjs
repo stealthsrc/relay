@@ -71,6 +71,9 @@ test("TTS Browser Source plays FIFO and handles skip without double advancing", 
   socket.emit("message", JSON.stringify({ type: "config", payload: { mediaVolume: 25 } }));
   assert.equal(audio.volume, 0.25);
 
+  socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "visual", visualOnly: true } }));
+  assert.equal(audio.src, "");
+
   socket.emit("message", JSON.stringify({ type: "tts", payload: { id: "1" } }));
   const firstEnded = audio.onended;
   assert.match(audio.src, /\/tts-audio\/1\?secret=private$/);
