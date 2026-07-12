@@ -195,6 +195,8 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   const css = fs.readFileSync(__dirname + "/notifications.css", "utf8");
   assert.match(css, /clip-path: inset\(var\(--crop-top\)/);
   assert.match(css, /\.notification-card[\s\S]*var\(--content-scale\)/);
+  assert.match(css, /grid-template-columns: calc\(58px \* var\(--content-scale\)\)/);
+  assert.doesNotMatch(css, /\.notification-card\.is-visible\s*\{[^}]*scale\(/);
 });
 
 test("Windows widget plays the configured notification sound per message", () => {
