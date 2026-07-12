@@ -20,6 +20,7 @@ const translations = {
     playbackTitle: "Playback settings", imageDuration: "Image duration", gifDuration: "GIF duration",
     imageDurationHelp: "Used for static images only.", gifDurationHelp: "Animated GIFs loop for this duration.", seconds: "sec",
     mediaVolume: "Media volume", mediaVolumeHelp: "Applied to video, audio and spoken messages.",
+    widgetSound: "Widget sound", widgetSoundHelp: "Play video and audio sound in the Windows widget. OBS sources keep their own audio.",
     ttsCharacterLimit: "TTS character limit", ttsCharacterLimitHelp: "Use 0 for unlimited message length.", characters: "chars",
     ttsQueueLimit: "TTS queue capacity", ttsQueueLimitHelp: "Maximum waiting messages, from 1 to 50.", items: "items",
     ttsSpeech: "TTS voice", ttsSpeechHelp: "When off, TTS messages show as silent notifications.",
@@ -27,6 +28,9 @@ const translations = {
     obsNotificationOutput: "OBS TTS notification overlay", obsNotificationOutputHelp: "Independent Browser Source displayed only inside OBS.",
     enableObsNotifications: "Enable OBS overlay", enableObsNotificationsHelp: "Does not change the Windows widget.",
     windowsNotificationWidget: "Windows TTS notification widget", windowsNotificationWidgetHelp: "Independent desktop window that can be placed on any monitor.",
+    notificationSound: "Notification sound", notificationSoundHelp: "Played by the Windows widget for each message. Any audio file up to 10 seconds.",
+    chooseNotificationSound: "Choose audio file", resetNotificationSound: "Remove sound", noNotificationSound: "No file selected.",
+    notificationSoundObs: "Notification sound in OBS", notificationSoundObsHelp: "The OBS notification overlay plays the same chosen sound, audible on stream.",
     showAuthor: "Show author", showAuthorHelp: "Display the Discord name and avatar over media.",
     supportedFormats: "Images, GIF, MP4/WebM and common audio formats are accepted.", savePlayback: "Save playback",
     overlayKicker: "Program output", overlayTitle: "What OBS receives.",
@@ -127,6 +131,7 @@ const translations = {
     playbackTitle: "Réglages de lecture", imageDuration: "Durée des images",
     imageDurationHelp: "Utilisée uniquement pour les images et GIF animés.", seconds: "sec",
     mediaVolume: "Volume des médias", mediaVolumeHelp: "Appliqué aux vidéos, aux audios et aux messages lus.",
+    widgetSound: "Son du widget", widgetSoundHelp: "Joue le son des vidéos et des audios dans le widget Windows. Les sources OBS gardent leur propre son.",
     ttsCharacterLimit: "Limite de caractères TTS", ttsCharacterLimitHelp: "Utilisez 0 pour une longueur de message illimitée.", characters: "car.",
     ttsQueueLimit: "Capacité de la file TTS", ttsQueueLimitHelp: "Nombre maximal de messages en attente, de 1 à 50.", items: "éléments",
     ttsSpeech: "Voix TTS", ttsSpeechHelp: "Désactivée, les messages TTS deviennent des notifications silencieuses.",
@@ -134,6 +139,9 @@ const translations = {
     obsNotificationOutput: "Overlay de notifications TTS OBS", obsNotificationOutputHelp: "Source navigateur indépendante affichée uniquement dans OBS.",
     enableObsNotifications: "Activer l’overlay OBS", enableObsNotificationsHelp: "Ne modifie pas le widget Windows.",
     windowsNotificationWidget: "Widget de notifications TTS Windows", windowsNotificationWidgetHelp: "Fenêtre de bureau indépendante, positionnable sur n’importe quel écran.",
+    notificationSound: "Son de notification", notificationSoundHelp: "Joué par le widget Windows à chaque message. N’importe quel fichier audio de 10 secondes maximum.",
+    chooseNotificationSound: "Choisir un fichier audio", resetNotificationSound: "Retirer le son", noNotificationSound: "Aucun fichier sélectionné.",
+    notificationSoundObs: "Son de notification dans OBS", notificationSoundObsHelp: "L’overlay de notifications OBS joue le même son choisi, audible sur le stream.",
     showAuthor: "Afficher l’auteur", showAuthorHelp: "Affiche le nom Discord et l’avatar sur le média.",
     supportedFormats: "Images, GIF, MP4/WebM et formats audio courants sont acceptés.", savePlayback: "Enregistrer la lecture",
     overlayKicker: "Sortie programme", overlayTitle: "Ce qu’OBS reçoit.",
@@ -268,10 +276,14 @@ translations.es = {
   transportLabel: "Control en directo", transportReady: "Listo para el siguiente elemento", skip: "Omitir elemento actual",
   playbackTitle: "Ajustes de reproducción", imageDuration: "Duración de imágenes", gifDuration: "Duración de GIF", imageDurationHelp: "Solo para imágenes estáticas.", gifDurationHelp: "Los GIF animados se repiten durante este tiempo.", seconds: "s",
   mediaVolume: "Volumen de medios", mediaVolumeHelp: "Se aplica a vídeos, audio y mensajes hablados.",
+  widgetSound: "Sonido del widget", widgetSoundHelp: "Reproduce el sonido de vídeos y audios en el widget de Windows. Las fuentes de OBS conservan su propio audio.",
   ttsCharacterLimit: "Límite de caracteres TTS", ttsCharacterLimitHelp: "Usa 0 para una longitud ilimitada.", characters: "car.", ttsQueueLimit: "Capacidad de la cola TTS", ttsQueueLimitHelp: "Máximo de mensajes en espera, de 1 a 50.", items: "elementos",
   ttsSpeech: "Voz TTS", ttsSpeechHelp: "Desactivada, los mensajes TTS se muestran como notificaciones silenciosas.",
   obsNotifications: "Mostrar notificaciones TTS en OBS", obsNotificationsHelp: "Muestra el autor y el mensaje mientras habla el TTS.", obsNotificationOutput: "Overlay de notificaciones TTS de OBS", obsNotificationOutputHelp: "Fuente de navegador independiente visible solo en OBS.",
   enableObsNotifications: "Activar overlay de OBS", enableObsNotificationsHelp: "No modifica el widget de Windows.", windowsNotificationWidget: "Widget de notificaciones TTS de Windows", windowsNotificationWidgetHelp: "Ventana independiente que puede colocarse en cualquier pantalla.",
+  notificationSound: "Sonido de notificación", notificationSoundHelp: "Reproducido por el widget de Windows con cada mensaje. Cualquier archivo de audio de hasta 10 segundos.",
+  chooseNotificationSound: "Elegir archivo de audio", resetNotificationSound: "Quitar sonido", noNotificationSound: "Ningún archivo seleccionado.",
+  notificationSoundObs: "Sonido de notificación en OBS", notificationSoundObsHelp: "El overlay de notificaciones de OBS reproduce el mismo sonido elegido, audible en el stream.",
   showAuthor: "Mostrar autor", showAuthorHelp: "Muestra el nombre y avatar de Discord sobre el medio.", supportedFormats: "Se aceptan imágenes, GIF, MP4/WebM y formatos de audio habituales.", savePlayback: "Guardar reproducción",
   overlayKicker: "Salida del programa", overlayTitle: "Lo que recibe OBS.", overlayCopy: "El lienzo permanece transparente hasta que entra un medio en la cola.", livePreview: "Vista previa en directo", transparentCanvas: "Lienzo transparente", browserSource: "Fuentes de navegador de OBS", browserSourceHelp: "Añade cada URL privada como una fuente de navegador independiente.",
   visualSource: "Medios visuales", ttsSource: "Audio TTS", notificationSource: "Notificaciones TTS", audioSource: "Audio, música y mensajes de voz", regenerateSecret: "Reconectar fuentes OBS",
@@ -303,8 +315,12 @@ translations.de = {
   routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
   mediaKicker: "Wiedergabewarteschlange", mediaTitle: "Medien nach deinen Regeln.", mediaCopy: "Bilder und GIFs verwenden getrennte Anzeigedauern. Videos und Audio laufen bis zum Ende.", transportLabel: "Live-Steuerung", transportReady: "Bereit für das nächste Element", skip: "Aktuelles Element überspringen",
   playbackTitle: "Wiedergabeeinstellungen", imageDuration: "Bilddauer", gifDuration: "GIF-Dauer", imageDurationHelp: "Nur für statische Bilder.", gifDurationHelp: "Animierte GIFs wiederholen sich für diese Dauer.", seconds: "Sek.", mediaVolume: "Medienlautstärke", mediaVolumeHelp: "Gilt für Video, Audio und gesprochene Nachrichten.", ttsCharacterLimit: "TTS-Zeichenlimit", ttsCharacterLimitHelp: "0 bedeutet unbegrenzte Nachrichtenlänge.", characters: "Zeichen", ttsQueueLimit: "TTS-Warteschlangengröße", ttsQueueLimitHelp: "Maximal 1 bis 50 wartende Nachrichten.", items: "Elemente",
+  widgetSound: "Widget-Ton", widgetSoundHelp: "Gibt den Ton von Videos und Audio im Windows-Widget wieder. OBS-Quellen behalten ihren eigenen Ton.",
   ttsSpeech: "TTS-Stimme", ttsSpeechHelp: "Deaktiviert erscheinen TTS-Nachrichten als stille Benachrichtigungen.",
   obsNotifications: "TTS-Benachrichtigungen in OBS anzeigen", obsNotificationsHelp: "Zeigt Autor und Nachricht während der TTS-Ausgabe.", obsNotificationOutput: "OBS-TTS-Benachrichtigungs-Overlay", obsNotificationOutputHelp: "Unabhängige Browserquelle, die nur in OBS angezeigt wird.", enableObsNotifications: "OBS-Overlay aktivieren", enableObsNotificationsHelp: "Ändert das Windows-Widget nicht.", windowsNotificationWidget: "Windows-TTS-Benachrichtigungswidget", windowsNotificationWidgetHelp: "Unabhängiges Fenster, das auf jedem Bildschirm platziert werden kann.",
+  notificationSound: "Benachrichtigungston", notificationSoundHelp: "Wird vom Windows-Widget bei jeder Nachricht abgespielt. Beliebige Audiodatei mit maximal 10 Sekunden.",
+  chooseNotificationSound: "Audiodatei auswählen", resetNotificationSound: "Ton entfernen", noNotificationSound: "Keine Datei ausgewählt.",
+  notificationSoundObs: "Benachrichtigungston in OBS", notificationSoundObsHelp: "Das OBS-Benachrichtigungs-Overlay spielt denselben gewählten Ton, hörbar im Stream.",
   showAuthor: "Autor anzeigen", showAuthorHelp: "Zeigt Discord-Name und Avatar über dem Medium.", supportedFormats: "Bilder, GIFs, MP4/WebM und gängige Audioformate werden unterstützt.", savePlayback: "Wiedergabe speichern",
   overlayKicker: "Programmausgabe", overlayTitle: "Was OBS empfängt.", overlayCopy: "Die Fläche bleibt transparent, bis ein Medium die Warteschlange erreicht.", livePreview: "Live-Vorschau", transparentCanvas: "Transparente Fläche", browserSource: "OBS-Browserquellen", browserSourceHelp: "Füge jede private URL als separate OBS-Browserquelle hinzu.", visualSource: "Visuelle Medien", ttsSource: "TTS-Audio", notificationSource: "TTS-Benachrichtigungen", audioSource: "Audio, Musik und Sprachnachrichten", regenerateSecret: "OBS-Quellen neu verbinden",
   floatingWidget: "Schwebendes Medien-Widget", widgetHelp: "Entsperre es, platziere es auf einem Bildschirm und sperre es, damit Klicks hindurchgehen.", notificationWidget: "TTS-Benachrichtigungswidget", notificationWidgetHelp: "Zeige es unter Windows, verschiebe und sperre es, damit Klicks hindurchgehen.", showNotificationWidget: "Unter Windows anzeigen",
@@ -407,6 +423,10 @@ const routingForm = $("#routing-form");
 const mediaForm = $("#media-form");
 const moderationForm = $("#moderation-form");
 const commandsForm = $("#commands-form");
+const dirtyForms = new Set();
+for (const form of [routingForm, mediaForm, moderationForm, commandsForm]) {
+  form.addEventListener("input", () => dirtyForms.add(form));
+}
 const commandsSaveStateElement = $("#commands-save-state");
 const channelLockStateElement = $("#channel-lock-state");
 const commandInputs = {
@@ -429,6 +449,7 @@ const stickerDurationElement = $("#sticker-duration");
 const portElement = $("#port");
 const mediaVolumeElement = $("#media-volume");
 const mediaVolumeValueElement = $("#media-volume-value");
+const widgetSoundEnabledElement = $("#widget-sound-enabled");
 const ttsCharacterLimitElement = $("#tts-character-limit");
 const ttsQueueLimitElement = $("#tts-queue-limit");
 const notificationDurationElement = $("#notification-duration");
@@ -465,6 +486,11 @@ const lockWidgetButton = $("#lock-widget");
 const notificationWidgetStateElement = $("#notification-widget-state");
 const notificationWidgetEnabledElement = $("#notification-widget-enabled");
 const lockNotificationWidgetButton = $("#lock-notification-widget");
+const notificationSoundEnabledElement = $("#notification-sound-enabled");
+const notificationSoundObsElement = $("#notification-sound-obs");
+const pickNotificationSoundButton = $("#pick-notification-sound");
+const clearNotificationSoundButton = $("#clear-notification-sound");
+const notificationSoundStateElement = $("#notification-sound-state");
 const previewElement = $("#preview");
 const interfaceLanguageElement = $("#interface-language");
 const interfaceThemeElement = $("#interface-theme");
@@ -661,6 +687,8 @@ function applyConfig(config) {
   ttsCharacterLimitElement.value = String(config.ttsCharacterLimit ?? 0);
   ttsQueueLimitElement.value = String(config.ttsQueueLimit ?? 50);
   notificationDurationElement.value = String((config.notificationDurationMs ?? 8000) / 1000);
+  widgetSoundEnabledElement.checked = Boolean(config.widgetSoundEnabled);
+  applyNotificationSoundConfig(config);
   ttsSpeechEnabledElement.checked = config.ttsSpeechEnabled !== false;
   ttsNotificationsObsElement.checked = Boolean(config.ttsNotificationsObsEnabled);
   showAuthorElement.checked = config.showAuthor;
@@ -669,7 +697,13 @@ function applyConfig(config) {
   moderationAllowVideosElement.checked = config.moderationAllowVideos !== false;
   moderationAllowAudioElement.checked = config.moderationAllowAudio !== false;
   channelElement.value = config.watchedChannelId;
+  if (channelElement.value !== config.watchedChannelId) {
+    populateChannels(channelElement, bootstrap?.channels || [], config.watchedChannelId, t("selectChannel"));
+  }
   ttsChannelElement.value = config.ttsChannelId || "";
+  if (ttsChannelElement.value !== (config.ttsChannelId || "")) {
+    populateChannels(ttsChannelElement, bootstrap?.channels || [], config.ttsChannelId, t("ttsDisabled"));
+  }
   commandInputs.channel.checked = config.commandChannelEnabled !== false;
   commandInputs.url.checked = config.commandUrlEnabled !== false;
   commandInputs.show.checked = config.commandShowEnabled !== false;
@@ -865,11 +899,13 @@ function handleServerMessage(event) {
   }
   if (message.type === "config") {
     bootstrap.config = message.payload;
-    applyConfig(message.payload);
+    if (dirtyForms.size === 0) {
+      applyConfig(message.payload);
+    }
   } else if (message.type === "history") {
     replaceHistory(message.payload);
   } else if (message.type === "media") {
-    rememberMedia(message.payload);
+    if (message.payload) rememberMedia(message.payload);
   } else if (message.type === "clear") {
     history.length = 0;
     renderHistory();
@@ -908,6 +944,7 @@ function connectPanelSocket() {
 
 function applyBootstrap(nextBootstrap, reconnect = false) {
   bootstrap = nextBootstrap;
+  dirtyForms.clear();
   setBotStatus(bootstrap.bot);
   setServerStatus(bootstrap.server);
   setCredentials(bootstrap.credentials);
@@ -925,7 +962,9 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   stickerUrlElement.value = bootstrap.stickerUrl;
   inviteRowElement.hidden = !bootstrap.inviteUrl;
   inviteUrlElement.value = bootstrap.inviteUrl || "";
-  previewElement.src = bootstrap.overlayUrl;
+  if (previewElement.src !== bootstrap.overlayUrl) {
+    previewElement.src = bootstrap.overlayUrl;
+  }
   if (reconnect) {
     connectPanelSocket();
   }
@@ -950,6 +989,7 @@ async function saveConfig(stateElement) {
         ttsNotificationsObsEnabled: ttsNotificationsObsElement.checked,
         port: Number(portElement.value),
         showAuthor: showAuthorElement.checked,
+        widgetSoundEnabled: widgetSoundEnabledElement.checked,
         moderationEnabled: moderationEnabledElement.checked,
         moderationAllowImages: moderationAllowImagesElement.checked,
         moderationAllowVideos: moderationAllowVideosElement.checked,
@@ -965,7 +1005,24 @@ async function saveConfig(stateElement) {
   }
 }
 
+let statusRefreshInFlight = false;
+let lastChannelsSignature;
+let lastPendingSignature;
+
+function applyNotificationSoundConfig(config) {
+  notificationSoundEnabledElement.checked = Boolean(config.notificationSoundEnabled);
+  notificationSoundObsElement.checked = Boolean(config.notificationSoundObsEnabled);
+  const soundPath = config.notificationSoundPath || "";
+  notificationSoundStateElement.textContent = soundPath
+    ? soundPath.split(/[\\/]/).pop()
+    : t("noNotificationSound");
+}
+
 async function refreshRuntimeStatus() {
+  if (statusRefreshInFlight) {
+    return;
+  }
+  statusRefreshInFlight = true;
   try {
     const status = await invoke("get_runtime_status");
     bootstrap.bot = status.bot;
@@ -978,11 +1035,24 @@ async function refreshRuntimeStatus() {
     setServerStatus(status.server);
     setWidgetState(status.widget);
     setNotificationWidgetState(status.notificationWidget);
-    renderModeration();
-    populateChannels(channelElement, status.channels, channelElement.value, t("selectChannel"));
-    populateChannels(ttsChannelElement, status.channels, ttsChannelElement.value, t("ttsDisabled"));
+    const pendingSignature = JSON.stringify(status.pendingMedia.map((item) => item.id));
+    if (pendingSignature !== lastPendingSignature) {
+      lastPendingSignature = pendingSignature;
+      renderModeration();
+    }
+    const channelsSignature = JSON.stringify(status.channels);
+    const selectingChannel = document.activeElement === channelElement
+      || document.activeElement === ttsChannelElement;
+    if (channelsSignature !== lastChannelsSignature && !selectingChannel) {
+      lastChannelsSignature = channelsSignature;
+      populateChannels(channelElement, status.channels, channelElement.value, t("selectChannel"));
+      populateChannels(ttsChannelElement, status.channels, ttsChannelElement.value, t("ttsDisabled"));
+    }
   } catch {
     setServerStatus({ connected: false, overlayClients: 0 });
+    setBotStatus({ connected: false });
+  } finally {
+    statusRefreshInFlight = false;
   }
 }
 
@@ -1114,6 +1184,7 @@ commandsForm.addEventListener("submit", async (event) => {
       settings: Object.fromEntries(Object.entries(commandInputs).map(([name, input]) => [name, input.checked])),
     });
     bootstrap.config = config;
+    dirtyForms.clear();
     applyConfig(config);
     commandsSaveStateElement.textContent = t("commandsSaved");
   } catch (error) {
@@ -1133,6 +1204,12 @@ clearPendingMediaButton.addEventListener("click", async () => {
 
 ttsNotificationsObsElement.addEventListener("change", async () => {
   const requestedState = ttsNotificationsObsElement.checked;
+  // saveConfig commits routing and media fields too; refuse invalid ones
+  // instead of bypassing the forms' HTML validation.
+  if (!routingForm.reportValidity() || !mediaForm.reportValidity()) {
+    ttsNotificationsObsElement.checked = !requestedState;
+    return;
+  }
   if (!await saveConfig(obsNotificationSaveStateElement)) {
     ttsNotificationsObsElement.checked = !requestedState;
   }
@@ -1200,12 +1277,73 @@ lockNotificationWidgetButton.addEventListener("click", async () => {
   }
 });
 
-skipMediaButton.addEventListener("click", async () => {
-  await invoke("skip_media");
-  mediaSaveStateElement.textContent = t("skipped");
+notificationSoundEnabledElement.addEventListener("change", async () => {
+  try {
+    const config = await invoke("set_notification_sound_enabled", {
+      enabled: notificationSoundEnabledElement.checked,
+    });
+    bootstrap.config = config;
+    applyNotificationSoundConfig(config);
+  } catch (error) {
+    notificationSoundEnabledElement.checked = !notificationSoundEnabledElement.checked;
+    notificationSoundStateElement.textContent = String(error);
+  }
 });
 
-clearOverlayButton.addEventListener("click", () => invoke("clear_overlay"));
+notificationSoundObsElement.addEventListener("change", async () => {
+  try {
+    const config = await invoke("set_notification_sound_obs_enabled", {
+      enabled: notificationSoundObsElement.checked,
+    });
+    bootstrap.config = config;
+    applyNotificationSoundConfig(config);
+  } catch (error) {
+    notificationSoundObsElement.checked = !notificationSoundObsElement.checked;
+    notificationSoundStateElement.textContent = String(error);
+  }
+});
+
+pickNotificationSoundButton.addEventListener("click", async () => {
+  pickNotificationSoundButton.disabled = true;
+  try {
+    const config = await invoke("pick_notification_sound");
+    if (config) {
+      bootstrap.config = config;
+      applyNotificationSoundConfig(config);
+    }
+  } catch (error) {
+    notificationSoundStateElement.textContent = String(error);
+  } finally {
+    pickNotificationSoundButton.disabled = false;
+  }
+});
+
+clearNotificationSoundButton.addEventListener("click", async () => {
+  try {
+    const config = await invoke("clear_notification_sound");
+    bootstrap.config = config;
+    applyNotificationSoundConfig(config);
+  } catch (error) {
+    notificationSoundStateElement.textContent = String(error);
+  }
+});
+
+skipMediaButton.addEventListener("click", async () => {
+  try {
+    await invoke("skip_media");
+    mediaSaveStateElement.textContent = t("skipped");
+  } catch (error) {
+    mediaSaveStateElement.textContent = String(error);
+  }
+});
+
+clearOverlayButton.addEventListener("click", async () => {
+  try {
+    await invoke("clear_overlay");
+  } catch (error) {
+    mediaSaveStateElement.textContent = String(error);
+  }
+});
 
 window.addEventListener("beforeunload", () => {
   isUnloading = true;

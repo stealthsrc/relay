@@ -59,7 +59,9 @@ impl EventHandler for Handler {
 
         if let Err(error) = Command::set_global_commands(&context.http, vec![relay_command()]).await
         {
-            set_bot_error(&self.core, format!("Command registration failed: {error}")).await;
+            // Non-fatal: the gateway stays connected, so keep the online status.
+            self.core.bot_status.write().await.error =
+                Some(format!("Command registration failed: {error}"));
         }
     }
 
@@ -275,7 +277,9 @@ impl EventHandler for Handler {
                 .ephemeral(true),
         );
         if let Err(error) = command.create_response(&context.http, response).await {
-            set_bot_error(&self.core, format!("Discord response failed: {error}")).await;
+            // Non-fatal: the gateway stays connected, so keep the online status.
+            self.core.bot_status.write().await.error =
+                Some(format!("Discord response failed: {error}"));
         }
     }
 }
@@ -395,18 +399,21 @@ fn is_unicode_emoji(character: char) -> bool {
 }
 
 pub async fn start_bot(core: Arc<AppCore>) -> Result<bool> {
-    stop_bot(&core).await;
     let Some((credentials, _source)) = load_discord_credentials()? else {
+        stop_bot(&core).await;
         *core.bot_status.write().await = BotStatus::default();
         return Ok(false);
     };
 
     let intents =
         GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
+    // Build the new client before stopping the running bot, so a build
+    // failure leaves the current connection untouched.
     let mut client = Client::builder(&credentials.token, intents)
         .event_handler(Handler { core: core.clone() })
         .await
         .context("failed to create the Discord client")?;
+    stop_bot(&core).await;
     let shard_manager = client.shard_manager.clone();
     let http = client.http.clone();
     let cache = client.cache.clone();
@@ -478,20 +485,22 @@ async fn discover_channels(
     channels
 }
 
+const MISSING_CHANNEL_WARNING: &str = "The selected media channel is private or inaccessible. Add Relay or its role to the channel permissions.";
+
 async fn warn_if_watched_channel_missing(core: &Arc<AppCore>) {
     let configured_channel = core.config.read().await.watched_channel_id.clone();
-    if !configured_channel.is_empty()
+    let missing = !configured_channel.is_empty()
         && !core
             .channels
             .read()
             .await
             .iter()
-            .any(|channel| channel.id == configured_channel)
-    {
-        core.bot_status.write().await.error = Some(
-            "The selected media channel is private or inaccessible. Add Relay or its role to the channel permissions."
-                .into(),
-        );
+            .any(|channel| channel.id == configured_channel);
+    let mut status = core.bot_status.write().await;
+    if missing {
+        status.error = Some(MISSING_CHANNEL_WARNING.into());
+    } else if status.error.as_deref() == Some(MISSING_CHANNEL_WARNING) {
+        status.error = None;
     }
 }
 
@@ -625,11 +634,8 @@ async fn handle_relay(
                     _ => None,
                 })
                 .context("a channel is required")?;
-            let config = AppConfig {
-                watched_channel_id: channel_id.clone(),
-                ..core.config.read().await.clone()
-            };
-            core.set_config(config).await?;
+            core.update_config(|config| config.watched_channel_id = channel_id.clone())
+                .await?;
             Ok(format!("Relay channel set to <#{channel_id}>."))
         }
         "url" => {
@@ -829,9 +835,7 @@ async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String>
     let config = core.config.read().await.clone();
     if let Some(snapshot) = config.channel_lock.clone() {
         restore_channel_permissions(http, &snapshot).await?;
-        let mut next = core.config.read().await.clone();
-        next.channel_lock = None;
-        core.set_config(next).await?;
+        core.update_config(|next| next.channel_lock = None).await?;
         return Ok(format!("<#{0}> is unlocked.", snapshot.channel_id));
     }
     if config.watched_channel_id.is_empty() {
@@ -862,9 +866,9 @@ async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String>
             .filter_map(|kind| snapshot_permission(&channel.permission_overwrites, *kind))
             .collect(),
     };
-    let mut next = config;
-    next.channel_lock = Some(snapshot.clone());
-    core.set_config(next).await?;
+    let lock_snapshot = snapshot.clone();
+    core.update_config(|next| next.channel_lock = Some(lock_snapshot))
+        .await?;
 
     for kind in targets {
         let existing = channel
@@ -885,9 +889,7 @@ async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String>
             .await
         {
             if restore_channel_permissions(http, &snapshot).await.is_ok() {
-                let mut rollback = core.config.read().await.clone();
-                rollback.channel_lock = None;
-                let _ = core.set_config(rollback).await;
+                let _ = core.update_config(|rollback| rollback.channel_lock = None).await;
             }
             bail!("Discord refused the channel lock: {error}");
         }

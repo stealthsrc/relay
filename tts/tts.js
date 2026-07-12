@@ -102,9 +102,10 @@ function handleMessage(event) {
       Number.isInteger(configuredPort)
       && configuredPort > 0
       && configuredPort <= 65535
-      && String(configuredPort) !== window.location.port
     ) {
-      pendingPort = configuredPort;
+      pendingPort = String(configuredPort) !== window.location.port
+        ? configuredPort
+        : undefined;
     }
     queue.length = Math.min(
       queue.length,
@@ -112,13 +113,16 @@ function handleMessage(event) {
     );
     audioElement.volume = Math.min(1, Math.max(0, config.mediaVolume / 100));
   } else if (message.type === "tts") {
-    enqueueTts(message.payload);
+    if (message.payload) enqueueTts(message.payload);
   } else if (message.type === "skip") {
     finishCurrentTts();
   } else if (message.type === "clear") {
     clearTts();
   } else if (message.type === "serverMove") {
-    pendingPort = message.payload.port;
+    const movedPort = Number(message.payload?.port);
+    if (Number.isInteger(movedPort) && movedPort > 0 && movedPort <= 65535) {
+      pendingPort = movedPort;
+    }
   }
 }
 
@@ -136,7 +140,22 @@ function scheduleReconnect() {
 function moveToPendingPort() {
   const nextUrl = new URL(window.location.href);
   nextUrl.port = String(pendingPort);
-  window.setTimeout(() => window.location.replace(nextUrl), 500);
+  // Probe the moved server before navigating: OBS browser sources never
+  // retry a failed page load, so a blind navigation can leave them dead.
+  const probe = new WebSocket(
+    `ws://${window.location.hostname}:${pendingPort}/ws?role=tts&secret=${encodeURIComponent(relaySecret)}`,
+  );
+  let ready = false;
+  probe.addEventListener("open", () => {
+    ready = true;
+    probe.close();
+    window.location.replace(nextUrl);
+  });
+  probe.addEventListener("close", () => {
+    if (!ready && !isUnloading) {
+      window.setTimeout(moveToPendingPort, 1000);
+    }
+  });
 }
 
 function connect() {
@@ -146,10 +165,15 @@ function connect() {
   );
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
+    playNextTts();
   });
   socket.addEventListener("message", handleMessage);
   socket.addEventListener("close", () => {
-    clearTts();
+    // Stop the current playback but keep the queue for after the reconnect.
+    if (currentTts) {
+      resetAudio();
+      currentTts = undefined;
+    }
     if (pendingPort) {
       moveToPendingPort();
       return;

@@ -91,10 +91,26 @@ function createHarness(target = "obs", language = "en") {
       return id;
     },
   };
+  const pings = [];
+  class MockAudio {
+    constructor() {
+      this.src = "";
+      this.volume = 1;
+      this.playCount = 0;
+      pings.push(this);
+    }
+
+    play() {
+      this.playCount += 1;
+      return Promise.resolve();
+    }
+  }
+
   const context = vm.createContext({
     URL,
     URLSearchParams,
     WebSocket: MockWebSocket,
+    Audio: MockAudio,
     document: {
       documentElement: {
         classList: classList(),
@@ -119,8 +135,46 @@ function createHarness(target = "obs", language = "en") {
   const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
   vm.runInContext(source, context);
 
-  return { elements, socket: sockets[0], timers, timerDelays };
+  return { elements, pings, socket: sockets[0], timers, timerDelays };
 }
+
+test("Windows widget plays the configured notification sound per message", () => {
+  const { pings, socket } = createHarness("widget");
+
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { notificationSoundEnabled: true, mediaVolume: 80 },
+  }));
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("1") }));
+
+  assert.equal(pings.length, 1);
+  assert.equal(pings[0].playCount, 1);
+  assert.equal(pings[0].volume, 0.8);
+  assert.match(pings[0].src, /^\/notification-sound\?secret=private$/);
+
+  const disabled = createHarness("widget");
+  disabled.socket.emit("message", JSON.stringify({ type: "tts", payload: notification("1") }));
+  assert.equal(disabled.pings.length, 0);
+});
+
+test("OBS notification page plays the sound only with its own toggle", () => {
+  const widgetOnly = createHarness("obs");
+  widgetOnly.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { ttsNotificationsObsEnabled: true, notificationSoundEnabled: true },
+  }));
+  widgetOnly.socket.emit("message", JSON.stringify({ type: "tts", payload: notification("1") }));
+  assert.equal(widgetOnly.pings.length, 0);
+
+  const obsEnabled = createHarness("obs");
+  obsEnabled.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { ttsNotificationsObsEnabled: true, notificationSoundObsEnabled: true },
+  }));
+  obsEnabled.socket.emit("message", JSON.stringify({ type: "tts", payload: notification("1") }));
+  assert.equal(obsEnabled.pings.length, 1);
+  assert.equal(obsEnabled.pings[0].playCount, 1);
+});
 
 test("notification widget move label follows the Relay language", () => {
   const english = createHarness("widget", "en");

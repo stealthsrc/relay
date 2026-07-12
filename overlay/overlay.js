@@ -32,6 +32,7 @@ let config = {
   gifDurationMs: 8000,
   mediaVolume: 50,
   showAuthor: true,
+  widgetSoundEnabled: false,
 };
 let currentMedia;
 let activeVisual;
@@ -180,6 +181,7 @@ function loadImage(media, generation) {
       return;
     }
     revealed = true;
+    window.clearTimeout(mediaWatchdog);
     fitVisualToViewport(imageElement, imageElement.naturalWidth, imageElement.naturalHeight);
     clear();
     revealMedia({ timed: true });
@@ -216,7 +218,7 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
   activePlayback = playbackElement;
   activeVisual = visualElement;
   const isTimedGif = media.kind === "gif";
-  const mustMute = isWidgetWindow || isTimedGif;
+  const mustMute = (isWidgetWindow && !config.widgetSoundEnabled) || isTimedGif;
   playbackElement.loop = isTimedGif;
   playbackElement.muted = mustMute;
   playbackElement.volume = mustMute
@@ -317,15 +319,27 @@ function clearOverlay() {
   finishCurrentMedia();
 }
 
+const MEDIA_QUEUE_LIMIT = 50;
+
 function enqueueMedia(mediaEvent) {
   if (
     (relayMode === "visual" && mediaEvent.kind === "audio")
     || (relayMode === "audio" && mediaEvent.kind !== "audio")
+    || queue.length >= MEDIA_QUEUE_LIMIT
   ) {
     return;
   }
   queue.push(mediaEvent);
   showNextMedia();
+}
+
+function interruptPlayback() {
+  if (!currentMedia) {
+    return;
+  }
+  playbackGeneration += 1;
+  resetElements();
+  currentMedia = undefined;
 }
 
 function handleMessage(event) {
@@ -343,29 +357,34 @@ function handleMessage(event) {
       Number.isInteger(configuredPort)
       && configuredPort > 0
       && configuredPort <= 65535
-      && String(configuredPort) !== window.location.port
     ) {
-      pendingPort = configuredPort;
+      pendingPort = String(configuredPort) !== window.location.port
+        ? configuredPort
+        : undefined;
     }
     const volume = Math.min(1, Math.max(0, config.mediaVolume / 100));
-    videoElement.muted = isWidgetWindow || currentMedia?.kind === "gif";
-    audioElement.muted = isWidgetWindow;
+    const widgetMuted = isWidgetWindow && !config.widgetSoundEnabled;
+    videoElement.muted = widgetMuted || currentMedia?.kind === "gif";
+    audioElement.muted = widgetMuted;
     videoElement.volume = videoElement.muted ? 0 : volume;
-    audioElement.volume = isWidgetWindow ? 0 : volume;
+    audioElement.volume = audioElement.muted ? 0 : volume;
     if (!config.showAuthor) {
       authorElement.classList.remove("is-visible");
       authorElement.hidden = true;
     }
   } else if (message.type === "media") {
-    enqueueMedia(message.payload);
+    if (message.payload) enqueueMedia(message.payload);
   } else if (message.type === "image") {
-    enqueueMedia({ kind: "image", ...message.payload });
+    if (message.payload) enqueueMedia({ kind: "image", ...message.payload });
   } else if (message.type === "skip") {
     skipCurrentMedia();
   } else if (message.type === "clear") {
     clearOverlay();
   } else if (message.type === "serverMove") {
-    pendingPort = message.payload.port;
+    const movedPort = Number(message.payload?.port);
+    if (Number.isInteger(movedPort) && movedPort > 0 && movedPort <= 65535) {
+      pendingPort = movedPort;
+    }
   } else if (message.type === "appearance") {
     applyAppearance(message.payload);
   }
@@ -398,7 +417,22 @@ function scheduleReconnect() {
 function moveToPendingPort() {
   const nextUrl = new URL(window.location.href);
   nextUrl.port = String(pendingPort);
-  window.setTimeout(() => window.location.replace(nextUrl), 500);
+  // Probe the moved server before navigating: OBS browser sources never
+  // retry a failed page load, so a blind navigation can leave them dead.
+  const probe = new WebSocket(
+    `ws://${window.location.hostname}:${pendingPort}/ws?role=overlay&secret=${encodeURIComponent(relaySecret)}`,
+  );
+  let ready = false;
+  probe.addEventListener("open", () => {
+    ready = true;
+    probe.close();
+    window.location.replace(nextUrl);
+  });
+  probe.addEventListener("close", () => {
+    if (!ready && !isUnloading) {
+      window.setTimeout(moveToPendingPort, 1000);
+    }
+  });
 }
 
 function connect() {
@@ -408,10 +442,13 @@ function connect() {
   );
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
+    showNextMedia();
   });
   socket.addEventListener("message", handleMessage);
   socket.addEventListener("close", () => {
-    clearOverlay();
+    // Stop the current playback but keep the queue: the server does not
+    // rebroadcast queued media after a transient reconnect.
+    interruptPlayback();
     if (pendingPort) {
       moveToPendingPort();
       return;

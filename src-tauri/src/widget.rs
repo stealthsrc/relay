@@ -62,12 +62,10 @@ pub async fn toggle(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> 
 }
 
 pub async fn set_locked(app: &AppHandle, core: Arc<AppCore>, locked: bool) -> Result<WidgetState> {
-    let mut config = core.config.read().await.clone();
-    config.widget_locked = locked;
-    core.set_config(config).await?;
+    core.update_config(|config| config.widget_locked = locked)
+        .await?;
     if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
         apply_lock(&window, locked)?;
-        window.navigate(widget_url(&core).await?.parse()?)?;
     }
     Ok(state(app, &core).await)
 }
@@ -79,9 +77,29 @@ pub async fn toggle_lock(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetSt
 
 pub async fn refresh(app: &AppHandle, core: &Arc<AppCore>) -> Result<()> {
     if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
-        window.navigate(widget_url(core).await?.parse()?)?;
+        let url: tauri::Url = widget_url(core).await?.parse()?;
+        if needs_navigation(&window, &url) {
+            window.navigate(url)?;
+        }
     }
     Ok(())
+}
+
+/// Reloading interrupts the media playing in the window, so only navigate
+/// when the connection itself changed (port or secret). Language and lock
+/// changes are already applied live through the WebSocket and apply_lock.
+pub fn needs_navigation(window: &WebviewWindow, target: &tauri::Url) -> bool {
+    let Ok(current) = window.url() else {
+        return true;
+    };
+    current.origin() != target.origin()
+        || query_param(&current, "secret") != query_param(target, "secret")
+}
+
+fn query_param(url: &tauri::Url, name: &str) -> Option<String> {
+    url.query_pairs()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.into_owned())
 }
 
 async fn ensure_window(app: &AppHandle, core: Arc<AppCore>) -> Result<WebviewWindow> {
@@ -136,10 +154,12 @@ fn watch_position(window: &WebviewWindow, core: Arc<AppCore>) {
             if core.widget_move_generation.load(Ordering::Relaxed) != generation {
                 return;
             }
-            let mut config = core.config.read().await.clone();
-            config.widget_x = Some(position.x);
-            config.widget_y = Some(position.y);
-            let _ = core.set_config(config).await;
+            let _ = core
+                .update_config(|config| {
+                    config.widget_x = Some(position.x);
+                    config.widget_y = Some(position.y);
+                })
+                .await;
         });
     });
 }
@@ -173,9 +193,9 @@ fn resolved_position(app: &AppHandle, saved: Option<(i32, i32)>) -> Result<Physi
 }
 
 async fn update_visibility(core: &Arc<AppCore>, visible: bool) -> Result<()> {
-    let mut config = core.config.read().await.clone();
-    config.widget_visible = visible;
-    core.set_config(config).await
+    core.update_config(|config| config.widget_visible = visible)
+        .await
+        .map(|_| ())
 }
 
 async fn widget_url(core: &Arc<AppCore>) -> Result<String> {

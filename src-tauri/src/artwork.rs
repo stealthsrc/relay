@@ -1,4 +1,4 @@
-use std::{io::Cursor, time::Duration};
+use std::{io::Cursor, sync::OnceLock, time::Duration};
 
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
@@ -7,6 +7,51 @@ use lofty::{file::TaggedFileExt, picture::PictureType, prelude::Accessor, probe:
 pub const MAX_AUDIO_BYTES: usize = 50 * 1024 * 1024;
 pub const MAX_ARTWORK_BYTES: usize = 2 * 1024 * 1024;
 pub const MAX_EMBED_MEDIA_BYTES: usize = 20 * 1024 * 1024;
+
+/// CDNs Discord serves media and embeds from. Downloads (including every
+/// redirect hop) are restricted to these hosts to keep user-posted URLs from
+/// steering requests at local or internal services.
+const ALLOWED_HOST_SUFFIXES: &[&str] = &[
+    "discordapp.com",
+    "discordapp.net",
+    "discord.com",
+    "tenor.com",
+    "tenor.co",
+    "giphy.com",
+    "imgur.com",
+    "klipy.com",
+];
+
+fn url_allowed(url: &reqwest::Url) -> bool {
+    if url.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    ALLOWED_HOST_SUFFIXES
+        .iter()
+        .any(|suffix| host == *suffix || host.ends_with(&format!(".{suffix}")))
+}
+
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(12))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 5 {
+                    attempt.error("too many redirects")
+                } else if url_allowed(attempt.url()) {
+                    attempt.follow()
+                } else {
+                    attempt.error("redirect outside the allowed media hosts")
+                }
+            }))
+            .build()
+            .expect("valid HTTP client configuration")
+    })
+}
 
 pub struct EmbeddedArtwork {
     pub content_type: String,
@@ -30,10 +75,11 @@ pub async fn extract(url: &str) -> Result<AudioMetadata> {
 }
 
 pub async fn download_bounded(url: &str, maximum_bytes: usize) -> Result<Vec<u8>> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()?;
-    let response = client.get(url).send().await?.error_for_status()?;
+    let parsed = reqwest::Url::parse(url).context("invalid media URL")?;
+    if !url_allowed(&parsed) {
+        anyhow::bail!("the media URL host is not allowed");
+    }
+    let response = http_client().get(parsed).send().await?.error_for_status()?;
     if response
         .content_length()
         .is_some_and(|length| length > maximum_bytes as u64)

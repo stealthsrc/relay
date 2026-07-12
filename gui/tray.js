@@ -63,6 +63,8 @@ async function runAction(button, command) {
   try {
     await invoke(command);
     await refreshTray();
+  } catch {
+    await refreshTray();
   } finally {
     button.disabled = false;
   }

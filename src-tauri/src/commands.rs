@@ -76,6 +76,7 @@ pub struct PanelConfig {
     tts_speech_enabled: bool,
     tts_notifications_obs_enabled: bool,
     show_author: bool,
+    widget_sound_enabled: bool,
     moderation_enabled: bool,
     moderation_allow_images: bool,
     moderation_allow_videos: bool,
@@ -186,32 +187,37 @@ pub async fn apply_config(
     config: PanelConfig,
 ) -> Result<Bootstrap, String> {
     let previous = core.config.read().await.clone();
-    let next = AppConfig {
-        watched_channel_id: config.watched_channel_id,
-        tts_channel_id: config.tts_channel_id,
-        port: config.port,
-        display_duration_ms: config.display_duration_ms,
-        gif_duration_ms: config.gif_duration_ms,
-        sticker_duration_ms: config.sticker_duration_ms,
-        notification_duration_ms: config.notification_duration_ms,
-        media_volume: config.media_volume,
-        tts_character_limit: config.tts_character_limit,
-        tts_queue_limit: config.tts_queue_limit,
-        tts_speech_enabled: config.tts_speech_enabled,
-        tts_notifications_obs_enabled: config.tts_notifications_obs_enabled,
-        show_author: config.show_author,
-        moderation_enabled: config.moderation_enabled,
-        moderation_allow_images: config.moderation_allow_images,
-        moderation_allow_videos: config.moderation_allow_videos,
-        moderation_allow_audio: config.moderation_allow_audio,
-        ..previous.clone()
-    };
+    let next = core
+        .update_config(|current| {
+            current.watched_channel_id = config.watched_channel_id;
+            current.tts_channel_id = config.tts_channel_id;
+            current.port = config.port;
+            current.display_duration_ms = config.display_duration_ms;
+            current.gif_duration_ms = config.gif_duration_ms;
+            current.sticker_duration_ms = config.sticker_duration_ms;
+            current.notification_duration_ms = config.notification_duration_ms;
+            current.media_volume = config.media_volume;
+            current.tts_character_limit = config.tts_character_limit;
+            current.tts_queue_limit = config.tts_queue_limit;
+            current.tts_speech_enabled = config.tts_speech_enabled;
+            current.tts_notifications_obs_enabled = config.tts_notifications_obs_enabled;
+            current.show_author = config.show_author;
+            current.widget_sound_enabled = config.widget_sound_enabled;
+            current.moderation_enabled = config.moderation_enabled;
+            current.moderation_allow_images = config.moderation_allow_images;
+            current.moderation_allow_videos = config.moderation_allow_videos;
+            current.moderation_allow_audio = config.moderation_allow_audio;
+        })
+        .await
+        .map_err(display_error)?;
     let port_changed = previous.port != next.port;
-    core.set_config(next).await.map_err(display_error)?;
+    let server_down = !core.server_status.read().await.connected;
 
-    if port_changed && let Err(error) = start_server(core.inner().clone()).await {
+    if (port_changed || server_down) && let Err(error) = start_server(core.inner().clone()).await {
         let _ = core.set_config(previous).await;
-        let _ = start_server(core.inner().clone()).await;
+        if let Err(rollback_error) = start_server(core.inner().clone()).await {
+            core.server_status.write().await.error = Some(rollback_error.to_string());
+        }
         return Err(format!("Unable to use the requested local port: {error}"));
     }
     widget::refresh(&app, &core).await.map_err(display_error)?;
@@ -232,16 +238,17 @@ pub async fn save_command_settings(
     core: State<'_, Arc<AppCore>>,
     settings: CommandSettings,
 ) -> Result<AppConfig, String> {
-    let mut config = core.config.read().await.clone();
-    config.command_channel_enabled = settings.channel;
-    config.command_url_enabled = settings.url;
-    config.command_show_enabled = settings.show;
-    config.command_regenerate_enabled = settings.regenerate;
-    config.command_clear_enabled = settings.clear;
-    config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
-    config.command_changelog_enabled = settings.changelog;
-    core.set_config(config.clone()).await.map_err(display_error)?;
-    Ok(config)
+    core.update_config(|config| {
+        config.command_channel_enabled = settings.channel;
+        config.command_url_enabled = settings.url;
+        config.command_show_enabled = settings.show;
+        config.command_regenerate_enabled = settings.regenerate;
+        config.command_clear_enabled = settings.clear;
+        config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
+        config.command_changelog_enabled = settings.changelog;
+    })
+    .await
+    .map_err(display_error)
 }
 
 #[tauri::command]
@@ -362,6 +369,84 @@ pub async fn set_notification_widget_visible(
     notification_widget::set_visible(&app, core.inner().clone(), visible)
         .await
         .map_err(display_error)
+}
+
+pub const NOTIFICATION_SOUND_MAX_SECONDS: u64 = 10;
+pub const NOTIFICATION_SOUND_MAX_BYTES: u64 = 15 * 1024 * 1024;
+
+#[tauri::command]
+pub async fn set_notification_sound_enabled(
+    core: State<'_, Arc<AppCore>>,
+    enabled: bool,
+) -> Result<AppConfig, String> {
+    core.update_config(|config| config.notification_sound_enabled = enabled)
+        .await
+        .map_err(display_error)
+}
+
+#[tauri::command]
+pub async fn set_notification_sound_obs_enabled(
+    core: State<'_, Arc<AppCore>>,
+    enabled: bool,
+) -> Result<AppConfig, String> {
+    core.update_config(|config| config.notification_sound_obs_enabled = enabled)
+        .await
+        .map_err(display_error)
+}
+
+#[tauri::command]
+pub async fn pick_notification_sound(
+    core: State<'_, Arc<AppCore>>,
+) -> Result<Option<AppConfig>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter(
+            "Audio",
+            &["mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba"],
+        )
+        .pick_file()
+        .await;
+    let Some(file) = file else {
+        return Ok(None);
+    };
+    let path = file.path().to_path_buf();
+    validate_notification_sound(path.clone())
+        .await
+        .map_err(display_error)?;
+    let path_string = path.to_string_lossy().into_owned();
+    let config = core
+        .update_config(|config| config.notification_sound_path = Some(path_string))
+        .await
+        .map_err(display_error)?;
+    Ok(Some(config))
+}
+
+#[tauri::command]
+pub async fn clear_notification_sound(
+    core: State<'_, Arc<AppCore>>,
+) -> Result<AppConfig, String> {
+    core.update_config(|config| config.notification_sound_path = None)
+        .await
+        .map_err(display_error)
+}
+
+async fn validate_notification_sound(path: std::path::PathBuf) -> anyhow::Result<()> {
+    use lofty::prelude::AudioFile;
+
+    let metadata = std::fs::metadata(&path)?;
+    if metadata.len() > NOTIFICATION_SOUND_MAX_BYTES {
+        anyhow::bail!("The notification sound must stay under 15 MB.");
+    }
+    let duration = tokio::task::spawn_blocking(move || -> anyhow::Result<std::time::Duration> {
+        let tagged = lofty::probe::Probe::open(&path)?.read()?;
+        Ok(tagged.properties().duration())
+    })
+    .await??;
+    if duration > std::time::Duration::from_secs(NOTIFICATION_SOUND_MAX_SECONDS) {
+        anyhow::bail!(
+            "The notification sound must last {NOTIFICATION_SOUND_MAX_SECONDS} seconds or less."
+        );
+    }
+    Ok(())
 }
 
 #[tauri::command]

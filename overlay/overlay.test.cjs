@@ -113,6 +113,7 @@ function createHarness(search = "?secret=private", mode = "all") {
     runNextTimer: () => timers.shift()?.callback(),
     timerDelays: () => timers.map((timer) => timer.delay),
     socket: sockets[0],
+    sockets,
   };
 }
 
@@ -152,16 +153,19 @@ test("media overlay reads the camelCase Discord avatar and falls back locally", 
   assert.equal(avatar.onerror, null);
 });
 
-test("media overlay follows a configured server port after restart", () => {
-  const { location, runNextTimer, socket } = createHarness();
+test("media overlay follows a configured server port once it responds", () => {
+  const { location, sockets, socket } = createHarness();
 
   socket.emit("message", JSON.stringify({
     type: "config",
     payload: { port: 4600 },
   }));
   socket.emit("close");
-  runNextTimer();
 
+  const probe = sockets[1];
+  assert.ok(probe.url.includes(":4600/ws"));
+  assert.equal(location.replaced, "");
+  probe.emit("open");
   assert.equal(location.replaced, "http://127.0.0.1:4600/overlay?secret=private");
 });
 
@@ -199,6 +203,29 @@ test("desktop media widget stays muted to avoid duplicate OBS audio", () => {
     payload: { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" },
   }));
 
+  assert.equal(elements["#audio"].muted, true);
+  assert.equal(elements["#audio"].volume, 0);
+});
+
+test("desktop media widget plays sound locally when widget sound is enabled", () => {
+  const { elements, socket } = createHarness("?secret=private&widget=1");
+
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: true, mediaVolume: 80 },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" },
+  }));
+
+  assert.equal(elements["#audio"].muted, false);
+  assert.equal(elements["#audio"].volume, 0.8);
+
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: false, mediaVolume: 80 },
+  }));
   assert.equal(elements["#audio"].muted, true);
   assert.equal(elements["#audio"].volume, 0);
 });

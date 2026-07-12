@@ -64,10 +64,14 @@ pub struct AppConfig {
     pub widget_y: Option<i32>,
     pub widget_visible: bool,
     pub widget_locked: bool,
+    pub widget_sound_enabled: bool,
     pub notification_widget_x: Option<i32>,
     pub notification_widget_y: Option<i32>,
     pub notification_widget_visible: bool,
     pub notification_widget_locked: bool,
+    pub notification_sound_enabled: bool,
+    pub notification_sound_obs_enabled: bool,
+    pub notification_sound_path: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -102,10 +106,14 @@ impl Default for AppConfig {
             widget_y: None,
             widget_visible: false,
             widget_locked: false,
+            widget_sound_enabled: false,
             notification_widget_x: None,
             notification_widget_y: None,
             notification_widget_visible: false,
             notification_widget_locked: false,
+            notification_sound_enabled: false,
+            notification_sound_obs_enabled: false,
+            notification_sound_path: None,
         }
     }
 }
@@ -190,7 +198,7 @@ pub fn migrate_legacy_config(config_directory: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConfigStore {
     path: PathBuf,
 }
@@ -310,10 +318,14 @@ mod tests {
             widget_y: Some(120),
             widget_visible: true,
             widget_locked: true,
+            widget_sound_enabled: true,
             notification_widget_x: Some(900),
             notification_widget_y: Some(40),
             notification_widget_visible: true,
             notification_widget_locked: true,
+            notification_sound_enabled: true,
+            notification_sound_obs_enabled: true,
+            notification_sound_path: Some("C:/sounds/ping.mp3".into()),
         };
         store.save(&updated).unwrap();
         assert_eq!(store.load().unwrap(), updated);

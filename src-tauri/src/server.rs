@@ -26,10 +26,52 @@ use tokio::{net::TcpListener, sync::oneshot};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::{
+    config::AppConfig,
     credentials::load_or_create_relay_secret,
-    model::ServerStatus,
+    model::{RelayEvent, ServerStatus},
     state::{AppCore, ServerRuntime},
 };
+
+/// Display-only settings sent to overlay/tts/notification/sticker clients.
+/// The full AppConfig (channel IDs, lock snapshots, widget positions) is
+/// reserved for the panel role.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OverlayConfig {
+    port: u16,
+    display_duration_ms: u64,
+    gif_duration_ms: u64,
+    sticker_duration_ms: u64,
+    notification_duration_ms: u64,
+    media_volume: u8,
+    tts_queue_limit: u8,
+    tts_speech_enabled: bool,
+    tts_notifications_obs_enabled: bool,
+    show_author: bool,
+    widget_sound_enabled: bool,
+    notification_sound_enabled: bool,
+    notification_sound_obs_enabled: bool,
+}
+
+impl From<&AppConfig> for OverlayConfig {
+    fn from(config: &AppConfig) -> Self {
+        Self {
+            port: config.port,
+            display_duration_ms: config.display_duration_ms,
+            gif_duration_ms: config.gif_duration_ms,
+            sticker_duration_ms: config.sticker_duration_ms,
+            notification_duration_ms: config.notification_duration_ms,
+            media_volume: config.media_volume,
+            tts_queue_limit: config.tts_queue_limit,
+            tts_speech_enabled: config.tts_speech_enabled,
+            tts_notifications_obs_enabled: config.tts_notifications_obs_enabled,
+            show_author: config.show_author,
+            widget_sound_enabled: config.widget_sound_enabled,
+            notification_sound_enabled: config.notification_sound_enabled,
+            notification_sound_obs_enabled: config.notification_sound_obs_enabled,
+        }
+    }
+}
 
 const HOST: &str = "127.0.0.1";
 const OVERLAY_HTML: &str = include_str!("../../overlay/index.html");
@@ -62,11 +104,27 @@ struct AccessQuery {
 }
 
 pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
-    stop_server(&core).await;
     let port = core.config.read().await.port;
-    let listener = TcpListener::bind((HOST, port))
+    let running_port = core
+        .server_runtime
+        .lock()
         .await
-        .with_context(|| format!("failed to bind {HOST}:{port}"))?;
+        .as_ref()
+        .map(|runtime| runtime.port);
+    // When moving to a different port, bind it before stopping the running
+    // server so a failed bind leaves the current server (and its clients) intact.
+    let listener = if running_port == Some(port) {
+        stop_server(&core).await;
+        TcpListener::bind((HOST, port))
+            .await
+            .with_context(|| format!("failed to bind {HOST}:{port}"))?
+    } else {
+        let listener = TcpListener::bind((HOST, port))
+            .await
+            .with_context(|| format!("failed to bind {HOST}:{port}"))?;
+        stop_server(&core).await;
+        listener
+    };
     let (client_shutdown, _) = tokio::sync::broadcast::channel(1);
     let state = RelayServerState {
         core: core.clone(),
@@ -91,6 +149,7 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         .route("/media-audio/{id}", get(media_audio))
         .route("/media-cache/{id}", get(cached_media))
         .route("/notifications", get(notifications_page))
+        .route("/notification-sound", get(notification_sound))
         .route("/stickers", get(stickers_page))
         .route("/sticker-assets/stickers.css", get(stickers_css))
         .route("/sticker-assets/stickers.js", get(stickers_js))
@@ -140,6 +199,7 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         shutdown: shutdown_tx,
         client_shutdown,
         task,
+        port,
     });
     Ok(())
 }
@@ -163,10 +223,9 @@ async fn root() -> impl IntoResponse {
     (StatusCode::FOUND, [(header::LOCATION, "/overlay")])
 }
 
-async fn health(State(state): State<RelayServerState>) -> impl IntoResponse {
+async fn health() -> impl IntoResponse {
     axum::Json(json!({
         "status": "ok",
-        "overlayClients": state.overlay_clients.load(Ordering::Relaxed),
     }))
 }
 
@@ -196,6 +255,12 @@ fn short_overlay(state: &RelayServerState, mode: &str) -> Response {
     short_page(state, html)
 }
 
+/// Deliberate trade-off: the short URLs (/medias, /audios, /tts, ...) are
+/// meant to be pasted into OBS without any secret, so this response hands the
+/// relay secret to any local caller via Set-Cookie. The server only binds
+/// 127.0.0.1, so the boundary is "this machine", not "this user": any local
+/// process can obtain the secret. Requiring the secret here would break the
+/// paste-and-go OBS setup.
 fn short_page(state: &RelayServerState, html: impl Into<Body>) -> Response {
     Response::builder()
         .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
@@ -208,6 +273,51 @@ fn short_page(state: &RelayServerState, html: impl Into<Body>) -> Response {
         )
         .body(html.into())
         .expect("valid short overlay response")
+}
+
+async fn notification_sound(
+    State(state): State<RelayServerState>,
+    Query(query): Query<AccessQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !request_secret_matches(query.secret.as_deref(), &headers, &state.relay_secret) {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let Some(path) = state.core.config.read().await.notification_sound_path.clone() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let bytes = tokio::task::spawn_blocking(move || -> anyhow::Result<(Vec<u8>, String)> {
+        let metadata = std::fs::metadata(&path)?;
+        if metadata.len() > crate::commands::NOTIFICATION_SOUND_MAX_BYTES {
+            anyhow::bail!("notification sound exceeds the size limit");
+        }
+        let bytes = std::fs::read(&path)?;
+        let extension = std::path::Path::new(&path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        let content_type = match extension.as_str() {
+            "mp3" => "audio/mpeg",
+            "flac" => "audio/flac",
+            "wav" => "audio/wav",
+            "ogg" | "oga" | "opus" => "audio/ogg",
+            "m4a" => "audio/mp4",
+            "aac" => "audio/aac",
+            "webm" | "weba" => "audio/webm",
+            _ => "application/octet-stream",
+        };
+        Ok((bytes, content_type.to_owned()))
+    })
+    .await;
+    let Ok(Ok((bytes, content_type))) = bytes else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    Response::builder()
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CACHE_CONTROL, "private, no-store")
+        .body(Body::from(bytes))
+        .expect("valid notification sound response")
 }
 
 async fn overlay_css() -> impl IntoResponse {
@@ -490,7 +600,12 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
     }
     let (mut sender, mut receiver) = socket.split();
     let config = state.core.config.read().await.clone();
-    if send_json(&mut sender, &json!({ "type": "config", "payload": config }))
+    let config_payload = if is_output {
+        json!(OverlayConfig::from(&config))
+    } else {
+        json!(config)
+    };
+    if send_json(&mut sender, &json!({ "type": "config", "payload": config_payload }))
         .await
         .is_err()
     {
@@ -530,8 +645,19 @@ async fn handle_socket(socket: WebSocket, state: RelayServerState, is_output: bo
                 break;
             }
             event = relay_rx.recv() => {
-                let Ok(event) = event else { break };
-                if send_json(&mut sender, &event).await.is_err() { break; }
+                match event {
+                    Ok(RelayEvent::Config(config)) if is_output => {
+                        let payload = json!({ "type": "config", "payload": OverlayConfig::from(&config) });
+                        if send_json(&mut sender, &payload).await.is_err() { break; }
+                    }
+                    Ok(event) => {
+                        if send_json(&mut sender, &event).await.is_err() { break; }
+                    }
+                    // A lagging client only misses events; keep the socket
+                    // alive instead of interrupting the media it displays.
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
             }
             incoming = receiver.next() => {
                 match incoming {

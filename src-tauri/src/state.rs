@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -30,6 +30,7 @@ pub const HISTORY_LIMIT: usize = 50;
 pub const MODERATION_QUEUE_LIMIT: usize = 50;
 pub const ARTWORK_CACHE_LIMIT: usize = 50;
 pub const MEDIA_AUDIO_CACHE_LIMIT: usize = 50;
+pub const MEDIA_AUDIO_CACHE_BYTE_LIMIT: usize = 200 * 1024 * 1024;
 pub const TTS_CACHE_LIMIT: usize = 50;
 pub const PROCESSED_EMBED_LIMIT: usize = 500;
 pub const MEDIA_CACHE_ITEM_LIMIT: usize = 30;
@@ -75,11 +76,14 @@ pub struct ServerRuntime {
     pub shutdown: tokio::sync::oneshot::Sender<()>,
     pub client_shutdown: broadcast::Sender<()>,
     pub task: JoinHandle<()>,
+    pub port: u16,
 }
 
 pub struct AppCore {
     pub config: RwLock<AppConfig>,
     pub config_store: ConfigStore,
+    config_mutation: Mutex<()>,
+    tts_pending_count: AtomicUsize,
     pub bot_status: RwLock<BotStatus>,
     pub server_status: RwLock<ServerStatus>,
     pub channels: RwLock<Vec<ChannelSummary>>,
@@ -109,6 +113,8 @@ impl AppCore {
         Ok(Arc::new(Self {
             config: RwLock::new(config),
             config_store,
+            config_mutation: Mutex::new(()),
+            tts_pending_count: AtomicUsize::new(0),
             bot_status: RwLock::new(BotStatus::default()),
             server_status: RwLock::new(ServerStatus::default()),
             channels: RwLock::new(Vec::new()),
@@ -132,8 +138,28 @@ impl AppCore {
     }
 
     pub async fn set_config(&self, config: AppConfig) -> Result<()> {
+        let _mutation = self.config_mutation.lock().await;
+        self.persist_config(config).await
+    }
+
+    /// Applies a partial mutation while holding the mutation lock across the
+    /// read-modify-save cycle, so concurrent writers cannot lose updates.
+    pub async fn update_config<F>(&self, mutate: F) -> Result<AppConfig>
+    where
+        F: FnOnce(&mut AppConfig),
+    {
+        let _mutation = self.config_mutation.lock().await;
+        let mut config = self.config.read().await.clone();
+        mutate(&mut config);
+        self.persist_config(config.clone()).await?;
+        Ok(config)
+    }
+
+    async fn persist_config(&self, config: AppConfig) -> Result<()> {
         config.validate()?;
-        self.config_store.save(&config)?;
+        let store = self.config_store.clone();
+        let to_save = config.clone();
+        tokio::task::spawn_blocking(move || store.save(&to_save)).await??;
         *self.config.write().await = config.clone();
         let mut pending = self.pending_media.write().await;
         if config.moderation_enabled {
@@ -157,8 +183,9 @@ impl AppCore {
             return;
         }
         let mut pending = self.pending_media.write().await;
+        // Evict the oldest unreviewed item instead of silently dropping new media.
         if pending.len() >= MODERATION_QUEUE_LIMIT {
-            return;
+            pending.pop_front();
         }
         pending.push_back(PendingMedia {
             id: self.next_moderation_id.fetch_add(1, Ordering::Relaxed),
@@ -214,7 +241,12 @@ impl AppCore {
             content_type,
             bytes: Bytes::from(bytes),
         });
-        cache.truncate(MEDIA_AUDIO_CACHE_LIMIT);
+        while cache.len() > MEDIA_AUDIO_CACHE_LIMIT
+            || cache.iter().map(|item| item.bytes.len()).sum::<usize>()
+                > MEDIA_AUDIO_CACHE_BYTE_LIMIT
+        {
+            cache.pop_back();
+        }
     }
 
     pub async fn claim_embed(&self, id: String) -> bool {
@@ -256,6 +288,18 @@ impl AppCore {
     }
 
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
+        struct PendingGuard<'a>(&'a AtomicUsize);
+        impl Drop for PendingGuard<'_> {
+            fn drop(&mut self) {
+                self.0.fetch_sub(1, Ordering::SeqCst);
+            }
+        }
+        let limit = self.config.read().await.tts_queue_limit as usize;
+        let waiting = self.tts_pending_count.fetch_add(1, Ordering::SeqCst);
+        let _pending = PendingGuard(&self.tts_pending_count);
+        if waiting >= limit {
+            anyhow::bail!("the TTS queue is full");
+        }
         let _synthesis = self.tts_synthesis_lock.lock().await;
         let speech = tokio::time::timeout(
             TTS_SYNTHESIS_TIMEOUT,

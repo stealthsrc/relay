@@ -270,6 +270,16 @@
                         <output id="media-volume-value">50%</output>
                       </span>
                     </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="widgetSound">Widget sound</strong>
+                        <small data-i18n="widgetSoundHelp">Play video and audio sound in the Windows widget. OBS sources keep their own audio.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="widget-sound-enabled" name="widgetSoundEnabled" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
                     <label class="setting-row">
                       <span>
                         <strong data-i18n="ttsCharacterLimit">TTS character limit</strong>
@@ -431,6 +441,16 @@
                     <span class="switch__track" aria-hidden="true"></span>
                   </span>
                 </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="notificationSoundObs">Notification sound in OBS</strong>
+                    <small data-i18n="notificationSoundObsHelp">The OBS notification overlay plays the same chosen sound, audible on stream.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="notification-sound-obs" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
               </section>
 
               <section class="panel-section panel-section--wide notification-output-card" data-output="windows">
@@ -452,6 +472,21 @@
                   </label>
                   <button id="lock-notification-widget" class="button button--quiet" type="button">Unlock to move</button>
                 </div>
+                <div class="notification-output-actions">
+                  <label class="inline-switch">
+                    <span data-i18n="notificationSound">Notification sound</span>
+                    <span class="switch">
+                      <input id="notification-sound-enabled" type="checkbox">
+                      <span class="switch__track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <button id="pick-notification-sound" class="button button--quiet" type="button" data-i18n="chooseNotificationSound">Choose audio file</button>
+                  <button id="clear-notification-sound" class="button button--quiet" type="button" data-i18n="resetNotificationSound">Remove sound</button>
+                </div>
+                <p class="fine-print notification-output-copy">
+                  <span data-i18n="notificationSoundHelp">Played by the Windows widget for each message. Any audio file up to 10 seconds.</span>
+                  <span id="notification-sound-state"></span>
+                </p>
               </section>
             </div>
           </section>

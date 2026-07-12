@@ -12,7 +12,15 @@ const moveLabels = { en: "Move notification", fr: "Déplacer la notification", e
 const fallbackAvatar = "/overlay-assets/relay-radar.png";
 const queue = [];
 
-let config = { ttsNotificationsObsEnabled: false, ttsQueueLimit: 50, notificationDurationMs: 8000 };
+let config = {
+  ttsNotificationsObsEnabled: false,
+  ttsQueueLimit: 50,
+  notificationDurationMs: 8000,
+  notificationSoundEnabled: false,
+  notificationSoundObsEnabled: false,
+  mediaVolume: 50,
+};
+let pingElement;
 let currentNotification;
 let socket;
 let reconnectTimer;
@@ -73,6 +81,24 @@ function showCard() {
   cardElement.setAttribute("aria-hidden", "false");
 }
 
+function playNotificationPing() {
+  const enabled = target === "widget"
+    ? Boolean(config.notificationSoundEnabled)
+    : Boolean(config.notificationSoundObsEnabled);
+  if (!enabled) {
+    return;
+  }
+  if (!pingElement) {
+    if (typeof Audio !== "function") {
+      return;
+    }
+    pingElement = new Audio();
+  }
+  pingElement.volume = Math.min(1, Math.max(0, (Number(config.mediaVolume) || 50) / 100));
+  pingElement.src = `/notification-sound?secret=${encodeURIComponent(relaySecret)}`;
+  pingElement.play().catch(() => {});
+}
+
 function hideCard() {
   cardElement.classList.remove("is-visible");
   cardElement.setAttribute("aria-hidden", "true");
@@ -115,6 +141,7 @@ function playNext() {
   const generation = playbackGeneration;
   setCardContent(currentNotification);
   showCard();
+  playNotificationPing();
   if (currentNotification.visualOnly) {
     visualTimer = window.setTimeout(() => finishCurrent(generation), displayDuration());
     return;
@@ -154,6 +181,9 @@ function enqueue(notification) {
     currentNotification = undefined;
     hideCard();
     queue.unshift(notification);
+    if (queue.length > queueLimit()) {
+      queue.length = queueLimit();
+    }
     playNext();
     return;
   }
@@ -187,22 +217,26 @@ function handleMessage(event) {
       Number.isInteger(configuredPort)
       && configuredPort > 0
       && configuredPort <= 65535
-      && String(configuredPort) !== window.location.port
     ) {
-      pendingPort = configuredPort;
+      pendingPort = String(configuredPort) !== window.location.port
+        ? configuredPort
+        : undefined;
     }
     queue.length = Math.min(queue.length, queueLimit());
     if (!isEnabled()) {
       clearNotifications();
     }
   } else if (message.type === "tts") {
-    enqueue(message.payload);
+    if (message.payload) enqueue(message.payload);
   } else if (message.type === "skip") {
     finishCurrent();
   } else if (message.type === "clear") {
     clearNotifications();
   } else if (message.type === "serverMove") {
-    pendingPort = message.payload.port;
+    const movedPort = Number(message.payload?.port);
+    if (Number.isInteger(movedPort) && movedPort > 0 && movedPort <= 65535) {
+      pendingPort = movedPort;
+    }
   } else if (message.type === "appearance") {
     applyAppearance(message.payload);
   }
@@ -235,7 +269,22 @@ function scheduleReconnect() {
 function moveToPendingPort() {
   const nextUrl = new URL(window.location.href);
   nextUrl.port = String(pendingPort);
-  window.setTimeout(() => window.location.replace(nextUrl), 500);
+  // Probe the moved server before navigating: OBS browser sources never
+  // retry a failed page load, so a blind navigation can leave them dead.
+  const probe = new WebSocket(
+    `ws://${window.location.hostname}:${pendingPort}/ws?role=notification&secret=${encodeURIComponent(relaySecret)}`,
+  );
+  let ready = false;
+  probe.addEventListener("open", () => {
+    ready = true;
+    probe.close();
+    window.location.replace(nextUrl);
+  });
+  probe.addEventListener("close", () => {
+    if (!ready && !isUnloading) {
+      window.setTimeout(moveToPendingPort, 1000);
+    }
+  });
 }
 
 function connect() {
@@ -245,10 +294,16 @@ function connect() {
   );
   socket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
+    playNext();
   });
   socket.addEventListener("message", handleMessage);
   socket.addEventListener("close", () => {
-    clearNotifications();
+    // Stop the current notification but keep the queue for after the reconnect.
+    if (currentNotification) {
+      resetAudio();
+      currentNotification = undefined;
+    }
+    hideCard();
     if (pendingPort) {
       moveToPendingPort();
       return;

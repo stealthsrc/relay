@@ -63,19 +63,20 @@ pub async fn set_locked(
     core: Arc<AppCore>,
     locked: bool,
 ) -> Result<NotificationWidgetState> {
-    let mut config = core.config.read().await.clone();
-    config.notification_widget_locked = locked;
-    core.set_config(config).await?;
+    core.update_config(|config| config.notification_widget_locked = locked)
+        .await?;
     if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
         apply_lock(&window, locked)?;
-        window.navigate(widget_url(&core).await?.parse()?)?;
     }
     Ok(state(app, &core).await)
 }
 
 pub async fn refresh(app: &AppHandle, core: &Arc<AppCore>) -> Result<()> {
     if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-        window.navigate(widget_url(core).await?.parse()?)?;
+        let url: tauri::Url = widget_url(core).await?.parse()?;
+        if crate::widget::needs_navigation(&window, &url) {
+            window.navigate(url)?;
+        }
     }
     Ok(())
 }
@@ -144,10 +145,12 @@ fn watch_position(window: &WebviewWindow, core: Arc<AppCore>) {
             {
                 return;
             }
-            let mut config = core.config.read().await.clone();
-            config.notification_widget_x = Some(position.x);
-            config.notification_widget_y = Some(position.y);
-            let _ = core.set_config(config).await;
+            let _ = core
+                .update_config(|config| {
+                    config.notification_widget_x = Some(position.x);
+                    config.notification_widget_y = Some(position.y);
+                })
+                .await;
         });
     });
 }
@@ -180,9 +183,9 @@ fn resolved_position(app: &AppHandle, saved: Option<(i32, i32)>) -> Result<Physi
 }
 
 async fn update_visibility(core: &Arc<AppCore>, visible: bool) -> Result<()> {
-    let mut config = core.config.read().await.clone();
-    config.notification_widget_visible = visible;
-    core.set_config(config).await
+    core.update_config(|config| config.notification_widget_visible = visible)
+        .await
+        .map(|_| ())
 }
 
 async fn widget_url(core: &Arc<AppCore>) -> Result<String> {
