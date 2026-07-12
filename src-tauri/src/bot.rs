@@ -9,8 +9,8 @@ use serenity::{
         Channel, ChannelId, ChannelType, Command, CommandDataOptionValue, CommandInteraction,
         CommandOptionType, Context, CreateCommand, CreateCommandOption,
         CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
-        GuildId, Interaction, Message, MessageUpdateEvent, PermissionOverwrite,
-        PermissionOverwriteType, Permissions, Ready, UserId,
+        GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent,
+        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, UserId,
     },
     async_trait,
     cache::Cache,
@@ -335,7 +335,10 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
 
 pub fn invite_url(client_id: &str) -> String {
     let permissions =
-        (Permissions::VIEW_CHANNEL | Permissions::READ_MESSAGE_HISTORY | Permissions::MANAGE_ROLES)
+        (Permissions::VIEW_CHANNEL
+            | Permissions::READ_MESSAGE_HISTORY
+            | Permissions::MANAGE_ROLES
+            | Permissions::MANAGE_MESSAGES)
             .bits();
     format!(
         "https://discord.com/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands"
@@ -376,7 +379,7 @@ fn relay_command() -> CreateCommand {
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
             "clear",
-            "Clear Relay outputs, waiting media, and local history",
+            "Delete messages from the configured media and TTS channels",
         ))
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
@@ -448,12 +451,87 @@ async fn handle_relay(
             ))
         }
         "clear" => {
-            core.clear_outputs_and_history().await;
-            Ok("Relay outputs, waiting media, and local history were cleared.".into())
+            clear_configured_channels(core, http).await
         }
         "lock" => toggle_channel_lock(core, http).await,
         _ => Ok("Unknown Relay subcommand.".into()),
     }
+}
+
+async fn clear_configured_channels(core: &Arc<AppCore>, http: &Http) -> Result<String> {
+    let config = core.config.read().await.clone();
+    let channels = [
+        ("Media", config.watched_channel_id),
+        ("TTS", config.tts_channel_id),
+    ]
+    .into_iter()
+    .filter(|(_, channel_id)| !channel_id.is_empty())
+    .collect::<Vec<_>>();
+    if channels.is_empty() {
+        bail!("configure a media or TTS channel before clearing Discord messages");
+    }
+
+    let mut cleared = Vec::new();
+    let mut failures = Vec::new();
+    for (label, channel_id) in channels {
+        let id = ChannelId::new(channel_id.parse()?);
+        match clear_channel_messages(http, id).await {
+            Ok(count) => cleared.push(format!("{label} <#{channel_id}>: {count} messages")),
+            Err(error) => failures.push(format!("{label} <#{channel_id}>: {error}")),
+        }
+    }
+    if !failures.is_empty() {
+        let completed = if cleared.is_empty() {
+            "No channel was cleared.".into()
+        } else {
+            format!("Completed: {}.", cleared.join(", "))
+        };
+        bail!("Discord channel cleanup was partial. {completed} Failed: {}", failures.join(", "));
+    }
+    Ok(format!("Discord channels cleared: {}.", cleared.join(", ")))
+}
+
+async fn clear_channel_messages(http: &Http, channel_id: ChannelId) -> Result<usize> {
+    let mut before = None;
+    let mut deleted = 0;
+    loop {
+        let mut request = GetMessages::new().limit(100);
+        if let Some(message_id) = before {
+            request = request.before(message_id);
+        }
+        let messages = channel_id.messages(http, request).await?;
+        if messages.is_empty() {
+            break;
+        }
+        before = messages.last().map(|message| message.id);
+        let now = current_timestamp_ms() / 1_000;
+        let (recent, old): (Vec<MessageId>, Vec<MessageId>) = messages
+            .iter()
+            .map(|message| message.id)
+            .partition(|message_id| is_bulk_deletable(*message_id, now));
+
+        if recent.len() >= 2 {
+            channel_id.delete_messages(http, &recent).await?;
+            deleted += recent.len();
+        } else if let Some(message_id) = recent.first() {
+            channel_id.delete_message(http, message_id).await?;
+            deleted += 1;
+        }
+        for message_id in old {
+            channel_id.delete_message(http, message_id).await?;
+            deleted += 1;
+        }
+        if messages.len() < 100 {
+            break;
+        }
+    }
+    Ok(deleted)
+}
+
+fn is_bulk_deletable(message_id: MessageId, now_seconds: u64) -> bool {
+    const SAFE_BULK_DELETE_AGE_SECONDS: u64 = 13 * 24 * 60 * 60 + 23 * 60 * 60;
+    let created = message_id.created_at().unix_timestamp().max(0) as u64;
+    now_seconds.saturating_sub(created) < SAFE_BULK_DELETE_AGE_SECONDS
 }
 
 fn command_enabled(config: &AppConfig, command: &str) -> bool {
@@ -921,7 +999,7 @@ mod tests {
     fn builds_invite_url_with_required_scopes_and_permissions() {
         assert_eq!(
             invite_url("123456789012345678"),
-            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268502016&scope=bot%20applications.commands"
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands"
         );
     }
 
@@ -945,6 +1023,15 @@ mod tests {
         assert!(!saved.existed);
         assert_eq!(saved.allow, 0);
         assert_eq!(saved.deny, 0);
+    }
+
+    #[test]
+    fn bulk_deletes_only_messages_safely_inside_discords_two_week_limit() {
+        let now = current_timestamp_ms() / 1_000;
+        let recent = MessageId::new(((now - 60) * 1_000 - 1_420_070_400_000) << 22);
+        let old = MessageId::new(((now - 14 * 24 * 60 * 60) * 1_000 - 1_420_070_400_000) << 22);
+        assert!(is_bulk_deletable(recent, now));
+        assert!(!is_bulk_deletable(old, now));
     }
 
     #[test]
