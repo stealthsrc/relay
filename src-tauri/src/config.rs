@@ -96,6 +96,9 @@ pub struct AppConfig {
     pub tts_queue_limit: u8,
     pub tts_speech_enabled: bool,
     pub tts_notifications_obs_enabled: bool,
+    pub bot_online_status: String,
+    pub bot_activity_type: String,
+    pub bot_activity_text: String,
     pub show_author: bool,
     pub moderation_enabled: bool,
     pub moderation_allow_images: bool,
@@ -147,6 +150,9 @@ impl Default for AppConfig {
             tts_queue_limit: 50,
             tts_speech_enabled: true,
             tts_notifications_obs_enabled: false,
+            bot_online_status: "online".into(),
+            bot_activity_type: "custom".into(),
+            bot_activity_text: String::new(),
             show_author: true,
             moderation_enabled: false,
             moderation_allow_images: true,
@@ -212,6 +218,23 @@ impl AppConfig {
         }
         if !(1..=50).contains(&self.tts_queue_limit) {
             bail!("The TTS queue limit must be between 1 and 50.");
+        }
+        if !matches!(
+            self.bot_online_status.as_str(),
+            "online" | "idle" | "dnd" | "invisible"
+        ) {
+            bail!("The Discord bot status is invalid.");
+        }
+        if !matches!(
+            self.bot_activity_type.as_str(),
+            "none" | "custom" | "playing" | "listening" | "watching" | "competing"
+        ) {
+            bail!("The Discord bot activity type is invalid.");
+        }
+        if self.bot_activity_text.chars().count() > 128
+            || self.bot_activity_text.chars().any(char::is_control)
+        {
+            bail!("The Discord bot activity must contain at most 128 printable characters.");
         }
         validate_widget_size(self.widget_width, self.widget_height)?;
         validate_widget_size(
@@ -388,6 +411,9 @@ mod tests {
             tts_queue_limit: 24,
             tts_speech_enabled: false,
             tts_notifications_obs_enabled: true,
+            bot_online_status: "idle".into(),
+            bot_activity_type: "watching".into(),
+            bot_activity_text: "the media queue".into(),
             show_author: false,
             moderation_enabled: true,
             moderation_allow_images: true,
@@ -482,6 +508,24 @@ mod tests {
             ..AppConfig::default()
         };
         assert!(invalid_size.validate().is_err());
+
+        let invalid_presence = AppConfig {
+            bot_online_status: "offline".into(),
+            ..AppConfig::default()
+        };
+        assert!(invalid_presence.validate().is_err());
+
+        let invalid_activity = AppConfig {
+            bot_activity_type: "streaming".into(),
+            ..AppConfig::default()
+        };
+        assert!(invalid_activity.validate().is_err());
+
+        let activity_too_long = AppConfig {
+            bot_activity_text: "x".repeat(129),
+            ..AppConfig::default()
+        };
+        assert!(activity_too_long.validate().is_err());
     }
 
     #[test]
