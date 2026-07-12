@@ -133,6 +133,46 @@
                     </span>
                   </label>
                 </div>
+                <details class="settings-disclosure">
+                  <summary>
+                    <span>
+                      <strong data-i18n="botPresence">Bot status</strong>
+                      <small data-i18n="botPresenceHelp">Choose how Relay appears in Discord.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <form id="bot-presence-form" class="settings-disclosure__content form-grid">
+                    <label class="field">
+                      <span data-i18n="onlineStatus">Online status</span>
+                      <select id="bot-online-status">
+                        <option value="online" data-i18n="statusOnline">Online</option>
+                        <option value="idle" data-i18n="statusIdle">Idle</option>
+                        <option value="dnd" data-i18n="statusDnd">Do not disturb</option>
+                        <option value="invisible" data-i18n="statusInvisible">Invisible</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="activityType">Activity type</span>
+                      <select id="bot-activity-type">
+                        <option value="none" data-i18n="activityNone">No activity</option>
+                        <option value="custom" data-i18n="activityCustom">Custom status</option>
+                        <option value="playing" data-i18n="activityPlaying">Playing</option>
+                        <option value="listening" data-i18n="activityListening">Listening</option>
+                        <option value="watching" data-i18n="activityWatching">Watching</option>
+                        <option value="competing" data-i18n="activityCompeting">Competing</option>
+                      </select>
+                    </label>
+                    <label class="field field--wide">
+                      <span data-i18n="activityText">Status text</span>
+                      <input id="bot-activity-text" maxlength="128" autocomplete="off">
+                      <small data-i18n="activityTextHelp">Shown on the bot profile and member list.</small>
+                    </label>
+                    <div class="settings-actions field--wide">
+                      <span id="bot-presence-save-state" class="save-state" role="status"></span>
+                      <button class="button button--quiet" type="submit" data-i18n="saveBotPresence">Save bot status</button>
+                    </div>
+                  </form>
+                </details>
               </section>
 
               <section class="panel-section">

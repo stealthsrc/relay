@@ -422,6 +422,35 @@ Object.assign(translations.de, {
   outputWidth: "Breite", outputHeight: "Höhe", keepAspectRatio: "16:9-Verhältnis beibehalten", resetOutput: "Zurücksetzen", geometrySaved: "Gespeichert", geometryPreview: "Live-Vorschau",
 });
 
+Object.assign(translations.en, {
+  botPresence: "Bot status", botPresenceHelp: "Choose how Relay appears in Discord.", onlineStatus: "Online status",
+  statusOnline: "Online", statusIdle: "Idle", statusDnd: "Do not disturb", statusInvisible: "Invisible",
+  activityType: "Activity type", activityNone: "No activity", activityCustom: "Custom status", activityPlaying: "Playing",
+  activityListening: "Listening", activityWatching: "Watching", activityCompeting: "Competing", activityText: "Status text",
+  activityTextHelp: "Shown on the bot profile and member list.", saveBotPresence: "Save bot status", botPresenceSaved: "Bot status saved",
+});
+Object.assign(translations.fr, {
+  botPresence: "Statut du bot", botPresenceHelp: "Choisissez comment Relay apparaît dans Discord.", onlineStatus: "État de connexion",
+  statusOnline: "En ligne", statusIdle: "Inactif", statusDnd: "Ne pas déranger", statusInvisible: "Invisible",
+  activityType: "Type d’activité", activityNone: "Aucune activité", activityCustom: "Statut personnalisé", activityPlaying: "Joue à",
+  activityListening: "Écoute", activityWatching: "Regarde", activityCompeting: "Participe à", activityText: "Texte du statut",
+  activityTextHelp: "Affiché sur le profil du bot et dans la liste des membres.", saveBotPresence: "Enregistrer le statut", botPresenceSaved: "Statut du bot enregistré",
+});
+Object.assign(translations.es, {
+  botPresence: "Estado del bot", botPresenceHelp: "Elige cómo aparece Relay en Discord.", onlineStatus: "Estado de conexión",
+  statusOnline: "En línea", statusIdle: "Ausente", statusDnd: "No molestar", statusInvisible: "Invisible",
+  activityType: "Tipo de actividad", activityNone: "Sin actividad", activityCustom: "Estado personalizado", activityPlaying: "Jugando",
+  activityListening: "Escuchando", activityWatching: "Viendo", activityCompeting: "Compitiendo", activityText: "Texto del estado",
+  activityTextHelp: "Se muestra en el perfil del bot y en la lista de miembros.", saveBotPresence: "Guardar estado", botPresenceSaved: "Estado del bot guardado",
+});
+Object.assign(translations.de, {
+  botPresence: "Bot-Status", botPresenceHelp: "Lege fest, wie Relay in Discord erscheint.", onlineStatus: "Online-Status",
+  statusOnline: "Online", statusIdle: "Abwesend", statusDnd: "Nicht stören", statusInvisible: "Unsichtbar",
+  activityType: "Aktivitätstyp", activityNone: "Keine Aktivität", activityCustom: "Benutzerdefinierter Status", activityPlaying: "Spielt",
+  activityListening: "Hört", activityWatching: "Schaut", activityCompeting: "Tritt an", activityText: "Statustext",
+  activityTextHelp: "Wird im Bot-Profil und in der Mitgliederliste angezeigt.", saveBotPresence: "Bot-Status speichern", botPresenceSaved: "Bot-Status gespeichert",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -444,12 +473,13 @@ const serverStatusElement = $("#server-status");
 const serverLabelElement = $("#server-label");
 const clientCountElement = $("#client-count");
 const credentialForm = $("#credential-form");
+const botPresenceForm = $("#bot-presence-form");
 const routingForm = $("#routing-form");
 const mediaForm = $("#media-form");
 const moderationForm = $("#moderation-form");
 const commandsForm = $("#commands-form");
 const dirtyForms = new Set();
-for (const form of [routingForm, mediaForm, moderationForm, commandsForm]) {
+for (const form of [botPresenceForm, routingForm, mediaForm, moderationForm, commandsForm]) {
   form.addEventListener("input", () => dirtyForms.add(form));
 }
 const commandsSaveStateElement = $("#commands-save-state");
@@ -462,6 +492,10 @@ const commandInputs = {
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
 const credentialStateElement = $("#credential-state");
+const botOnlineStatusElement = $("#bot-online-status");
+const botActivityTypeElement = $("#bot-activity-type");
+const botActivityTextElement = $("#bot-activity-text");
+const botPresenceSaveStateElement = $("#bot-presence-save-state");
 const inviteRowElement = $("#invite-row");
 const inviteUrlElement = $("#invite-url");
 const copyInviteButton = $("#copy-invite");
@@ -900,6 +934,10 @@ function applyConfig(config) {
   applyNotificationSoundConfig(config);
   ttsSpeechEnabledElement.checked = config.ttsSpeechEnabled !== false;
   ttsNotificationsObsElement.checked = Boolean(config.ttsNotificationsObsEnabled);
+  botOnlineStatusElement.value = config.botOnlineStatus || "online";
+  botActivityTypeElement.value = config.botActivityType || "custom";
+  botActivityTextElement.value = config.botActivityText || "";
+  updateBotActivityAvailability();
   showAuthorElement.checked = config.showAuthor;
   moderationEnabledElement.checked = Boolean(config.moderationEnabled);
   moderationAllowImagesElement.checked = config.moderationAllowImages !== false;
@@ -932,6 +970,10 @@ function setCredentials(status) {
     : t("notConfigured");
   clientIdElement.value = status.clientId || "";
   tokenElement.value = "";
+}
+
+function updateBotActivityAvailability() {
+  botActivityTextElement.disabled = botActivityTypeElement.value === "none";
 }
 
 function setWidgetState(state) {
@@ -1198,6 +1240,9 @@ async function saveConfig(stateElement) {
         notificationDurationMs: Number(notificationDurationElement.value) * 1000,
         ttsSpeechEnabled: ttsSpeechEnabledElement.checked,
         ttsNotificationsObsEnabled: ttsNotificationsObsElement.checked,
+        botOnlineStatus: botOnlineStatusElement.value,
+        botActivityType: botActivityTypeElement.value,
+        botActivityText: botActivityTextElement.value,
         port: Number(portElement.value),
         showAuthor: showAuthorElement.checked,
         widgetSoundEnabled: widgetSoundEnabledElement.checked,
@@ -1353,6 +1398,15 @@ credentialForm.addEventListener("submit", async (event) => {
     credentialStateElement.textContent = String(error);
   } finally {
     tokenElement.value = "";
+  }
+});
+
+botActivityTypeElement.addEventListener("change", updateBotActivityAvailability);
+
+botPresenceForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (await saveConfig(botPresenceSaveStateElement)) {
+    botPresenceSaveStateElement.textContent = t("botPresenceSaved");
   }
 });
 
