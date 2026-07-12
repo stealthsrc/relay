@@ -25,6 +25,7 @@ function createHarness(target = "obs", language = "en") {
   const timers = new Map();
   const timerDelays = [];
   let nextTimerId = 1;
+  const cssProperties = {};
   const elements = {
     "#notification": {
       classList: classList(),
@@ -116,7 +117,7 @@ function createHarness(target = "obs", language = "en") {
         classList: classList(),
         dataset: {},
         lang: "en",
-        style: { setProperty() {} },
+        style: { setProperty(name, value) { cssProperties[name] = value; } },
       },
       querySelector: (selector) => elements[selector],
       createElement: (tagName) => ({
@@ -135,8 +136,37 @@ function createHarness(target = "obs", language = "en") {
   const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
   vm.runInContext(source, context);
 
-  return { elements, pings, socket: sockets[0], timers, timerDelays };
+  return { cssProperties, elements, pings, socket: sockets[0], timers, timerDelays };
 }
+
+test("notification output applies live crop and scale for OBS and widgets", () => {
+  const obs = createHarness("obs");
+  obs.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: {
+      notificationObsGeometry: {
+        cropTop: 3, cropRight: 6, cropBottom: 9, cropLeft: 12, contentScale: 150,
+      },
+    },
+  }));
+  assert.equal(obs.cssProperties["--crop-left"], "12%");
+  assert.equal(obs.cssProperties["--content-scale"], "1.5");
+
+  const widget = createHarness("widget");
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: {
+      notificationObsGeometry: { contentScale: 60 },
+      notificationWidgetGeometry: { cropBottom: 20, contentScale: 90 },
+    },
+  }));
+  assert.equal(widget.cssProperties["--crop-bottom"], "20%");
+  assert.equal(widget.cssProperties["--content-scale"], "0.9");
+
+  const css = fs.readFileSync(__dirname + "/notifications.css", "utf8");
+  assert.match(css, /clip-path: inset\(var\(--crop-top\)/);
+  assert.match(css, /\.notification-card[\s\S]*var\(--content-scale\)/);
+});
 
 test("Windows widget plays the configured notification sound per message", () => {
   const { pings, socket } = createHarness("widget");

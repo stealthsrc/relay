@@ -33,6 +33,8 @@ let config = {
   mediaVolume: 50,
   showAuthor: true,
   widgetSoundEnabled: false,
+  mediaObsGeometry: {},
+  mediaWidgetGeometry: {},
 };
 let currentMedia;
 let activeVisual;
@@ -89,6 +91,18 @@ function fitVisualToViewport(element, width, height) {
   const fitByWidth = width / height >= window.innerWidth / window.innerHeight;
   element.style.width = fitByWidth ? "100%" : "auto";
   element.style.height = fitByWidth ? "auto" : "100%";
+}
+
+function applyOutputGeometry() {
+  const geometry = isWidgetWindow ? config.mediaWidgetGeometry : config.mediaObsGeometry;
+  const crop = (value) => Math.min(40, Math.max(0, Number(value) || 0));
+  const scale = Math.min(200, Math.max(50, Number(geometry?.contentScale) || 100));
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty("--crop-top", `${crop(geometry?.cropTop)}%`);
+  rootStyle.setProperty("--crop-right", `${crop(geometry?.cropRight)}%`);
+  rootStyle.setProperty("--crop-bottom", `${crop(geometry?.cropBottom)}%`);
+  rootStyle.setProperty("--crop-left", `${crop(geometry?.cropLeft)}%`);
+  rootStyle.setProperty("--content-scale", String(scale / 100));
 }
 
 function resetElements() {
@@ -352,6 +366,7 @@ function handleMessage(event) {
 
   if (message.type === "config") {
     config = { ...config, ...message.payload };
+    applyOutputGeometry();
     const configuredPort = Number(message.payload?.port);
     if (
       Number.isInteger(configuredPort)
@@ -402,6 +417,7 @@ function applyAppearance(preferences = {}) {
 }
 
 applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 185, 137] });
+applyOutputGeometry();
 
 function scheduleReconnect() {
   if (isUnloading || reconnectTimer) {

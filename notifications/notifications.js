@@ -19,6 +19,8 @@ let config = {
   notificationSoundEnabled: false,
   notificationSoundObsEnabled: false,
   mediaVolume: 50,
+  notificationObsGeometry: {},
+  notificationWidgetGeometry: {},
 };
 let pingElement;
 let currentNotification;
@@ -44,6 +46,20 @@ function queueLimit() {
 
 function displayDuration() {
   return Math.min(60000, Math.max(1000, Number(config.notificationDurationMs) || 8000));
+}
+
+function applyOutputGeometry() {
+  const geometry = target === "widget"
+    ? config.notificationWidgetGeometry
+    : config.notificationObsGeometry;
+  const crop = (value) => Math.min(40, Math.max(0, Number(value) || 0));
+  const scale = Math.min(200, Math.max(50, Number(geometry?.contentScale) || 100));
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty("--crop-top", `${crop(geometry?.cropTop)}%`);
+  rootStyle.setProperty("--crop-right", `${crop(geometry?.cropRight)}%`);
+  rootStyle.setProperty("--crop-bottom", `${crop(geometry?.cropBottom)}%`);
+  rootStyle.setProperty("--crop-left", `${crop(geometry?.cropLeft)}%`);
+  rootStyle.setProperty("--content-scale", String(scale / 100));
 }
 
 function audioUrl(ttsEvent) {
@@ -212,6 +228,7 @@ function handleMessage(event) {
   }
   if (message.type === "config") {
     config = { ...config, ...message.payload };
+    applyOutputGeometry();
     const configuredPort = Number(message.payload?.port);
     if (
       Number.isInteger(configuredPort)
@@ -254,6 +271,7 @@ function applyAppearance(preferences = {}) {
 }
 
 applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 185, 137] });
+applyOutputGeometry();
 
 function scheduleReconnect() {
   if (isUnloading || reconnectTimer) {

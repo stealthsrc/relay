@@ -1,6 +1,11 @@
 :root {
   --accent: rgb(88 185 137);
   --font-scale: 1;
+  --content-scale: 1;
+  --crop-top: 0%;
+  --crop-right: 0%;
+  --crop-bottom: 0%;
+  --crop-left: 0%;
   color-scheme: dark;
   font-family: Bahnschrift, "Arial Narrow", sans-serif;
 }
@@ -62,6 +67,7 @@ html.widget-edit .widget-move-layer {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  clip-path: inset(var(--crop-top) var(--crop-right) var(--crop-bottom) var(--crop-left));
   place-items: center;
 }
 
@@ -79,7 +85,7 @@ html.widget-edit .widget-move-layer {
   opacity: 0;
   object-fit: contain;
   object-position: center;
-  transform: translate(-50%, -50%) scale(0.985);
+  transform: translate(-50%, -50%) scale(calc(var(--content-scale) * 0.985));
   transition: opacity 320ms ease, transform 320ms ease;
   will-change: opacity, transform;
 }
@@ -87,7 +93,7 @@ html.widget-edit .widget-move-layer {
 .overlay__media.is-visible {
   visibility: visible;
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translate(-50%, -50%) scale(var(--content-scale));
 }
 
 .overlay__media.is-hiding {
@@ -112,7 +118,8 @@ html.widget-edit .widget-move-layer {
   background: rgb(8 8 8 / 94%);
   visibility: hidden;
   opacity: 0;
-  transform: translateY(8px) scale(0.985);
+  transform: translateY(8px) scale(calc(var(--content-scale) * 0.985));
+  transform-origin: center;
   transition: opacity 260ms ease, transform 260ms ease;
 }
 
@@ -123,7 +130,7 @@ html.widget-edit .widget-move-layer {
 
 .audio-card.is-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0) scale(var(--content-scale));
 }
 
 .audio-card[hidden] {
@@ -215,13 +222,14 @@ html.widget-edit .widget-move-layer {
   opacity: 0;
   font-size: 1rem;
   font-weight: 600;
-  transform: translateY(8px);
+  transform: translateY(8px) scale(var(--content-scale));
+  transform-origin: right bottom;
   transition: opacity 240ms ease 80ms, transform 240ms ease 80ms;
 }
 
 .overlay__author.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(var(--content-scale));
 }
 
 .overlay__author[hidden] {

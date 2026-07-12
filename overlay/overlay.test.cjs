@@ -57,6 +57,7 @@ function createHarness(search = "?secret=private", mode = "all") {
   const elements = Object.fromEntries(selectors.map((selector) => [selector, element()]));
   const sockets = [];
   const timers = [];
+  const cssProperties = {};
 
   class MockWebSocket {
     constructor(url) {
@@ -95,7 +96,7 @@ function createHarness(search = "?secret=private", mode = "all") {
         classList: classList(),
         dataset: {},
         lang: "en",
-        style: { setProperty() {} },
+        style: { setProperty(name, value) { cssProperties[name] = value; } },
       },
       querySelector: (selector) => selector === 'meta[name="relay-mode"]'
         ? { content: mode }
@@ -107,6 +108,7 @@ function createHarness(search = "?secret=private", mode = "all") {
   vm.runInContext(fs.readFileSync(__dirname + "/overlay.js", "utf8"), context);
   return {
     context,
+    cssProperties,
     elements,
     location,
     queuedAuthors: () => vm.runInContext("queue.map((media) => media.author.username)", context),
@@ -116,6 +118,39 @@ function createHarness(search = "?secret=private", mode = "all") {
     sockets,
   };
 }
+
+test("media output applies live crop and scale for OBS and widgets", () => {
+  const obs = createHarness();
+  obs.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: {
+      mediaObsGeometry: {
+        cropTop: 4, cropRight: 8, cropBottom: 12, cropLeft: 16, contentScale: 125,
+      },
+    },
+  }));
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(obs.cssProperties).filter(([name]) => name.startsWith("--crop"))),
+    { "--crop-top": "4%", "--crop-right": "8%", "--crop-bottom": "12%", "--crop-left": "16%" },
+  );
+  assert.equal(obs.cssProperties["--content-scale"], "1.25");
+
+  const widget = createHarness("?secret=private&widget=1");
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: {
+      mediaObsGeometry: { contentScale: 75 },
+      mediaWidgetGeometry: { cropTop: 10, contentScale: 180 },
+    },
+  }));
+  assert.equal(widget.cssProperties["--crop-top"], "10%");
+  assert.equal(widget.cssProperties["--content-scale"], "1.8");
+
+  const css = fs.readFileSync(__dirname + "/overlay.css", "utf8");
+  assert.match(css, /clip-path: inset\(var\(--crop-top\)/);
+  assert.match(css, /\.audio-card[\s\S]*var\(--content-scale\)/);
+  assert.match(css, /\.overlay__author[\s\S]*var\(--content-scale\)/);
+});
 
 test("portrait GIF videos use their native aspect ratio without side letterboxing", () => {
   const { context, elements } = createHarness();
