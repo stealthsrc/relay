@@ -68,7 +68,39 @@
             <span data-i18n="appearance">Appearance</span>
             <strong id="theme-value">Light</strong>
           </button>
-          <span class="version">Windows · v1.1.21</span>
+          <div id="update-control" class="update-control">
+            <button
+              id="update-check"
+              class="version version--button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="update-menu"
+            >
+              <span>Windows · v<span data-app-version>1.1.22</span></span>
+              <span id="update-available-dot" class="update-available-dot" hidden></span>
+              <svg class="update-check__icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.3-2.1L20 11M4 13l2.6 4.1A7 7 0 0 0 17.9 15"/>
+              </svg>
+            </button>
+            <section id="update-menu" class="update-menu" role="dialog" aria-labelledby="update-menu-title" hidden>
+              <div class="update-menu__header">
+                <strong id="update-menu-title" data-i18n="updatesTitle">Relay updates</strong>
+                <button id="update-menu-close" class="update-menu__close" type="button">×</button>
+              </div>
+              <p id="update-status" role="status" aria-live="polite" data-i18n="checkUpdatesPrompt">
+                Check GitHub for a newer Relay release.
+              </p>
+              <div class="update-menu__actions">
+                <button id="install-update" class="button button--primary" type="button" data-i18n="downloadAndInstall" hidden>
+                  Download and install
+                </button>
+                <button class="button button--quiet" type="button" data-help-link="relay-releases" data-i18n="openReleases">
+                  View releases
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
       </aside>
 
@@ -972,7 +1004,7 @@
                 <div>
                   <span class="kicker">Relay</span>
                   <strong>Relay</strong>
-                  <small>Windows · v1.1.21</small>
+                  <small>Windows · v<span data-app-version>1.1.22</span></small>
                 </div>
               </div>
               <div class="about-card__statement">

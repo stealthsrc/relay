@@ -225,10 +225,122 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
+.update-control {
+  position: relative;
+  margin-top: 6px;
+}
+
 .version {
-  padding: 14px 10px 0;
   color: var(--faint);
   font-size: 10px;
+}
+
+.version--button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.version--button:hover,
+.version--button[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.update-available-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.update-check__icon {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.version--button.is-checking .update-check__icon {
+  animation: update-spin 800ms linear infinite;
+}
+
+.update-menu {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 264px;
+  padding: 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 16%);
+}
+
+.update-menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.update-menu__header strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.update-menu__close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.update-menu__close:hover {
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.update-menu p {
+  margin: 9px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.update-menu__actions {
+  display: grid;
+  gap: 7px;
+}
+
+.update-menu__actions .button {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 11px;
+}
+
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .workspace {
@@ -1964,6 +2076,10 @@ input[type="range"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .version--button.is-checking .update-check__icon {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

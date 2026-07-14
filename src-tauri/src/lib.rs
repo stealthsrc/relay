@@ -8,6 +8,7 @@ mod notification_widget;
 mod server;
 mod state;
 mod tts;
+mod updater;
 mod widget;
 
 use std::{env, path::PathBuf, process::Command, sync::Arc};
@@ -33,6 +34,7 @@ use crate::{
     notification_widget::restore as restore_notification_widget,
     server::start_server,
     state::AppCore,
+    updater::{check_for_updates, download_and_install_update, get_app_version},
     widget::restore as restore_widget,
 };
 
@@ -139,6 +141,9 @@ pub fn run() {
             tray_quit,
             set_window_theme,
             open_help_link,
+            get_app_version,
+            check_for_updates,
+            download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Relay");
@@ -280,6 +285,7 @@ fn open_help_link(link: String) -> Result<(), String> {
         "discord" => "https://discord.com/developers/applications",
         "obs" => "https://obsproject.com/kb/browser-source",
         "github" => "https://github.com/stealthsrc",
+        "relay-releases" => "https://github.com/stealthsrc/relay/releases/latest",
         "privacy-global" => {
             "https://unctad.org/page/data-protection-and-privacy-legislation-worldwide"
         }
