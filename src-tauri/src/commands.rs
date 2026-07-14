@@ -213,6 +213,7 @@ pub async fn set_output_geometry(
                 &app,
                 width.unwrap_or(current.notification_widget_width),
                 height.unwrap_or(current.notification_widget_height),
+                geometry.content_scale,
             )
             .map_err(display_error)?,
         )
@@ -245,7 +246,8 @@ pub async fn set_output_geometry(
         widget::apply_configured_size(&app, width, height).map_err(display_error)?;
     }
     if let Some((width, height)) = notification_size {
-        notification_widget::apply_configured_size(&app, width, height).map_err(display_error)?;
+        notification_widget::apply_configured_size(&app, width, height, geometry.content_scale)
+            .map_err(display_error)?;
     }
     Ok(next)
 }

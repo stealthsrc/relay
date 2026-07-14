@@ -501,6 +501,43 @@ Object.assign(translations.de, {
   outputTestNeedsLiveOutput: "Verbinde vor dem Test OBS oder ein Widget.",
 });
 
+Object.assign(translations.en, {
+  updatesTitle: "Relay updates", checkUpdates: "Check for updates",
+  checkUpdatesPrompt: "Check GitHub for a newer Relay release.",
+  checkingUpdates: "Checking the latest official release…",
+  updateAvailable: "Relay v{version} is available.", upToDate: "Relay v{version} is up to date.",
+  downloadAndInstall: "Download and install", downloadingUpdate: "Downloading and verifying v{version}…",
+  openReleases: "View releases", closeUpdateMenu: "Close update menu",
+  updateCheckFailed: "Update check failed:", updateInstallFailed: "Update failed:",
+});
+Object.assign(translations.fr, {
+  updatesTitle: "Mises à jour Relay", checkUpdates: "Rechercher des mises à jour",
+  checkUpdatesPrompt: "Vérifier si une version plus récente de Relay existe sur GitHub.",
+  checkingUpdates: "Vérification de la dernière version officielle…",
+  updateAvailable: "Relay v{version} est disponible.", upToDate: "Relay v{version} est à jour.",
+  downloadAndInstall: "Télécharger et installer", downloadingUpdate: "Téléchargement et vérification de v{version}…",
+  openReleases: "Voir les versions", closeUpdateMenu: "Fermer le menu des mises à jour",
+  updateCheckFailed: "Échec de la vérification :", updateInstallFailed: "Échec de la mise à jour :",
+});
+Object.assign(translations.es, {
+  updatesTitle: "Actualizaciones de Relay", checkUpdates: "Buscar actualizaciones",
+  checkUpdatesPrompt: "Comprueba en GitHub si existe una versión más reciente de Relay.",
+  checkingUpdates: "Comprobando la última versión oficial…",
+  updateAvailable: "Relay v{version} está disponible.", upToDate: "Relay v{version} está actualizado.",
+  downloadAndInstall: "Descargar e instalar", downloadingUpdate: "Descargando y verificando v{version}…",
+  openReleases: "Ver versiones", closeUpdateMenu: "Cerrar el menú de actualizaciones",
+  updateCheckFailed: "Error al buscar actualizaciones:", updateInstallFailed: "Error de actualización:",
+});
+Object.assign(translations.de, {
+  updatesTitle: "Relay-Updates", checkUpdates: "Nach Updates suchen",
+  checkUpdatesPrompt: "Auf GitHub nach einer neueren Relay-Version suchen.",
+  checkingUpdates: "Neueste offizielle Version wird geprüft…",
+  updateAvailable: "Relay v{version} ist verfügbar.", upToDate: "Relay v{version} ist aktuell.",
+  downloadAndInstall: "Herunterladen und installieren", downloadingUpdate: "v{version} wird geladen und geprüft…",
+  openReleases: "Versionen anzeigen", closeUpdateMenu: "Update-Menü schließen",
+  updateCheckFailed: "Update-Prüfung fehlgeschlagen:", updateInstallFailed: "Update fehlgeschlagen:",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -644,6 +681,13 @@ const toggleAudioButton = $("#toggle-audio");
 const skipAudioButton = $("#skip-audio");
 const pauseAudioIcon = $("#pause-audio-icon");
 const playAudioIcon = $("#play-audio-icon");
+const updateControlElement = $("#update-control");
+const updateCheckButton = $("#update-check");
+const updateAvailableDot = $("#update-available-dot");
+const updateMenuElement = $("#update-menu");
+const updateMenuCloseButton = $("#update-menu-close");
+const updateStatusElement = $("#update-status");
+const installUpdateButton = $("#install-update");
 
 const history = [];
 let bootstrap;
@@ -664,6 +708,9 @@ let personalizationTimer;
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
+let currentAppVersion = "1.1.22";
+let latestUpdate;
+let updateUiState = { kind: "idle" };
 
 function t(key) {
   return translations[language][key] || translations.en[key] || key;
@@ -675,11 +722,54 @@ function applyTranslations(root = document) {
   }
 }
 
+function formatTranslation(key, values = {}) {
+  return Object.entries(values).reduce(
+    (message, [name, value]) => message.replaceAll(`{${name}}`, value),
+    t(key),
+  );
+}
+
+function setAppVersion(version) {
+  const normalized = String(version).replace(/^v/, "");
+  if (!/^\d+\.\d+\.\d+$/.test(normalized)) return;
+  currentAppVersion = normalized;
+  for (const element of $$("[data-app-version]")) element.textContent = normalized;
+  updateCheckButton.setAttribute("aria-label", `${t("checkUpdates")}. Relay v${normalized}`);
+}
+
+function renderUpdateStatus() {
+  const version = updateUiState.version || currentAppVersion;
+  const messages = {
+    idle: () => t("checkUpdatesPrompt"),
+    checking: () => t("checkingUpdates"),
+    available: () => formatTranslation("updateAvailable", { version }),
+    current: () => formatTranslation("upToDate", { version }),
+    installing: () => formatTranslation("downloadingUpdate", { version }),
+    error: () => `${t(updateUiState.errorKey)} ${updateUiState.error}`,
+  };
+  updateStatusElement.textContent = (messages[updateUiState.kind] || messages.idle)();
+  const busy = updateUiState.kind === "checking" || updateUiState.kind === "installing";
+  updateCheckButton.classList.toggle("is-checking", busy);
+  updateCheckButton.disabled = busy;
+  installUpdateButton.disabled = busy;
+  installUpdateButton.hidden = !latestUpdate?.updateAvailable;
+  updateAvailableDot.hidden = !latestUpdate?.updateAvailable;
+}
+
+function setUpdateMenuOpen(open) {
+  updateMenuElement.hidden = !open;
+  updateCheckButton.setAttribute("aria-expanded", String(open));
+  if (open) window.requestAnimationFrame(() => updateMenuCloseButton.focus());
+}
+
 function applyLanguage() {
   document.documentElement.lang = language;
   localStorage.setItem("relay-language", language);
   languageValueElement.textContent = language.toUpperCase();
   applyTranslations();
+  updateCheckButton.setAttribute("aria-label", `${t("checkUpdates")}. Relay v${currentAppVersion}`);
+  updateMenuCloseButton.setAttribute("aria-label", t("closeUpdateMenu"));
+  renderUpdateStatus();
   updatePageHeading();
   renderNowPlaying();
   if (bootstrap) {
@@ -1560,6 +1650,53 @@ for (const button of $$("[data-help-link]")) {
   button.addEventListener("click", () => invoke("open_help_link", { link: button.dataset.helpLink }));
 }
 
+updateCheckButton.addEventListener("click", async () => {
+  setUpdateMenuOpen(true);
+  updateUiState = { kind: "checking" };
+  renderUpdateStatus();
+  try {
+    latestUpdate = await invoke("check_for_updates");
+    setAppVersion(latestUpdate.currentVersion);
+    updateUiState = {
+      kind: latestUpdate.updateAvailable ? "available" : "current",
+      version: latestUpdate.latestVersion,
+    };
+  } catch (error) {
+    latestUpdate = undefined;
+    updateUiState = { kind: "error", errorKey: "updateCheckFailed", error: String(error) };
+  }
+  renderUpdateStatus();
+});
+
+installUpdateButton.addEventListener("click", async () => {
+  updateUiState = { kind: "installing", version: latestUpdate.latestVersion };
+  renderUpdateStatus();
+  try {
+    await invoke("download_and_install_update");
+  } catch (error) {
+    updateUiState = { kind: "error", errorKey: "updateInstallFailed", error: String(error) };
+    renderUpdateStatus();
+  }
+});
+
+updateMenuCloseButton.addEventListener("click", () => {
+  setUpdateMenuOpen(false);
+  updateCheckButton.focus();
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (!updateMenuElement.hidden && !updateControlElement.contains(event.target)) {
+    setUpdateMenuOpen(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !updateMenuElement.hidden) {
+    setUpdateMenuOpen(false);
+    updateCheckButton.focus();
+  }
+});
+
 $("#privacy-reference").addEventListener("click", () => {
   showPage("help");
   const privacyDetails = $("#privacy-details");
@@ -1889,6 +2026,7 @@ applyPersonalization();
 showPage(currentPage);
 
 try {
+  invoke("get_app_version").then(setAppVersion).catch(() => {});
   applyBootstrap(await invoke("get_bootstrap"));
   connectPanelSocket();
   statusTimer = window.setInterval(refreshRuntimeStatus, 1500);
