@@ -18,7 +18,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
   <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
   <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.1.21" src="https://img.shields.io/badge/version-1.1.21-2F6FED" />
+  <img alt="Version 1.1.23" src="https://img.shields.io/badge/version-1.1.23-2F6FED" />
 </p>
 
 <p align="center">
@@ -233,16 +233,17 @@ The interface is static HTML, CSS, and JavaScript. There is no frontend bundling
 .\scripts\build-signed-release.ps1
 ```
 
-The script builds the NSIS installer, prompts for the local updater-key password, and verifies both a valid artifact and a tampered control against Relay's pinned public key. The private key must remain outside the repository and must be backed up securely.
+The script builds the NSIS installer and portable executable, prompts for the local updater-key password, and verifies both a valid installer and a tampered control against Relay's pinned public key. The private key must remain outside the repository and must be backed up securely.
 
 The release assets are written to:
 
 ```text
 src-tauri/target/release/bundle/nsis/Relay_<version>_x64-setup.exe
 src-tauri/target/release/bundle/nsis/Relay_<version>_x64-setup.exe.sig
+src-tauri/target/release/Relay_<version>_x64-portable.exe
 ```
 
-Attach both files to every GitHub release. The in-app updater refuses installers with a missing or invalid signature.
+Attach all three files to every GitHub release. The in-app updater refuses installers with a missing or invalid signature.
 
 ## Tests
 

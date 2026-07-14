@@ -708,7 +708,7 @@ let personalizationTimer;
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.1.22";
+let currentAppVersion = "1.1.23";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
 

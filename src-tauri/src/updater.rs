@@ -473,11 +473,11 @@ mod tests {
 
     #[test]
     fn compares_numeric_release_versions() {
-        assert!(is_newer_version("1.1.23", "1.1.22").unwrap());
+        assert!(is_newer_version("1.1.24", "1.1.23").unwrap());
         assert!(is_newer_version("1.2.0", "1.1.99").unwrap());
-        assert!(!is_newer_version("1.1.22", "1.1.22").unwrap());
-        assert!(!is_newer_version("1.1.21", "1.1.22").unwrap());
-        assert!(is_newer_version("1.1-beta", "1.1.22").is_err());
+        assert!(!is_newer_version("1.1.23", "1.1.23").unwrap());
+        assert!(!is_newer_version("1.1.22", "1.1.23").unwrap());
+        assert!(is_newer_version("1.1-beta", "1.1.23").is_err());
     }
 
     #[test]

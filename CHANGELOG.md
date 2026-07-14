@@ -11,17 +11,29 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.1.23] - 2026-07-14
+
 ### English
+
+#### Added
+
+- Added an in-app update menu that can check for a new Relay release, then download and install it on confirmation.
 
 #### Fixed
 
+- Audio and video outputs now use an exclusive playback lease so music cannot start while a video is still playing.
 - Relay now verifies every downloaded updater installer with an independently stored, pinned signing key before execution.
 - Windows notification widgets now grow to the minimum height required by their content scale, preventing the card from disappearing at 135% and above.
 
 ### Français
 
+#### Ajouté
+
+- Ajout d’un menu de mise à jour intégré permettant de rechercher une nouvelle version de Relay, puis de la télécharger et de l’installer après confirmation.
+
 #### Corrigé
 
+- Les sorties audio et vidéo utilisent désormais un verrou de lecture exclusif afin que la musique ne démarre pas pendant qu’une vidéo est encore en cours.
 - Relay vérifie désormais chaque installateur téléchargé avec une clé de signature épinglée et stockée indépendamment avant toute exécution.
 - Les widgets de notifications Windows s’agrandissent désormais jusqu’à la hauteur minimale requise par leur échelle de contenu, ce qui empêche la carte de disparaître à partir de 135 %.
 
@@ -201,7 +213,9 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.21...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.23...HEAD
+[1.1.23]: https://github.com/stealthsrc/relay/compare/v1.1.22...v1.1.23
+[1.1.22]: https://github.com/stealthsrc/relay/compare/v1.1.21...v1.1.22
 [1.1.21]: https://github.com/stealthsrc/relay/releases/tag/v1.1.21
 [1.1.1]: https://github.com/stealthsrc/relay/releases/tag/v1.1.1
 [1.1.0]: https://github.com/stealthsrc/relay/releases/tag/v1.1.0

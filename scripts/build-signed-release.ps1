@@ -13,6 +13,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $tauriDir = Join-Path $repoRoot "src-tauri"
 $tauriConfig = Get-Content -Raw -LiteralPath (Join-Path $tauriDir "tauri.conf.json") | ConvertFrom-Json
 $version = [string]$tauriConfig.version
+$binary = Join-Path $tauriDir "target\release\relay.exe"
+$portable = Join-Path $tauriDir "target\release\Relay_${version}_x64-portable.exe"
 $installer = Join-Path $tauriDir "target\release\bundle\nsis\Relay_${version}_x64-setup.exe"
 $signature = "$installer.sig"
 $resolvedKeyPath = (Resolve-Path -LiteralPath $KeyPath).Path
@@ -30,6 +32,10 @@ try {
     if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
         throw "Relay installer not found at $installer"
     }
+    if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
+        throw "Relay release binary not found at $binary"
+    }
+    Copy-Item -LiteralPath $binary -Destination $portable -Force
 
     $securePassword = Read-Host "Relay updater key password" -AsSecureString
     $credential = [PSCredential]::new("relay-updater", $securePassword)
@@ -52,6 +58,7 @@ try {
     Write-Host "Signed Relay $version release verified:" -ForegroundColor Green
     Write-Host $installer
     Write-Host $signature
+    Write-Host $portable
 }
 finally {
     if ($locationPushed) {
