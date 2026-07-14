@@ -62,6 +62,7 @@ test("media outputs identify their source and local client context", () => {
 
 test("local visual tests reach matching outputs without affecting previews", () => {
   const visual = createHarness("?secret=private", "visual");
+  sendMediaClock(visual);
   visual.socket.emit("message", JSON.stringify({
     type: "testOutput",
     payload: {
@@ -193,10 +194,49 @@ function createHarness(search = "?secret=private", mode = "all") {
     location,
     queuedAuthors: () => vm.runInContext("queue.map((media) => media.author.username)", context),
     runNextTimer: () => timers.shift()?.callback(),
+    runTimerByDelay(delay) {
+      const index = timers.findIndex((timer) => timer.delay === delay);
+      if (index < 0) return false;
+      timers.splice(index, 1)[0].callback();
+      return true;
+    },
     timerDelays: () => timers.map((timer) => timer.delay),
     socket: sockets[0],
     sockets,
   };
+}
+
+function sendMediaClock(harness, payload = {}, socket = harness.sockets.at(-1)) {
+  socket.emit("message", JSON.stringify({
+    type: "mediaClock",
+    payload: {
+      videoBusy: false,
+      audioBusy: false,
+      ...payload,
+    },
+  }));
+}
+
+function sendMediaGrant(
+  harness,
+  granted,
+  clock = {},
+  socket = harness.sockets.at(-1),
+) {
+  socket.emit("message", JSON.stringify({
+    type: "mediaGrant",
+    payload: {
+      granted,
+      clock: { videoBusy: false, audioBusy: false, ...clock },
+    },
+  }));
+}
+
+function sendMedia(harnesses, media) {
+  const targets = Array.isArray(harnesses) ? harnesses : [harnesses];
+  for (const harness of targets) {
+    harness.socket.emit("message", JSON.stringify({ type: "media", payload: media }));
+  }
 }
 
 test("media output applies live crop and scale for OBS and widgets", () => {
@@ -363,11 +403,14 @@ test("OBS audio uses the unchanged bytes cached by Relay", () => {
 });
 
 test("audio playback reports live state and follows player controls", async () => {
-  const { elements, socket } = createHarness("?secret=private", "audio");
+  const harness = createHarness("?secret=private", "audio");
+  const { elements, socket } = harness;
+  sendMediaClock(harness);
   const media = {
     kind: "audio", url: "https://cdn.discordapp.com/track.mp3", filename: "track.mp3",
   };
   socket.emit("message", JSON.stringify({ type: "media", payload: media }));
+  sendMediaGrant(harness, true, { audioBusy: true });
   elements["#audio"].emit("loadeddata");
   elements["#audio"].emit("playing");
   assert.equal(socket.sent.at(-1).type, "audioPlayback");
@@ -398,20 +441,91 @@ test("overlay clears playback and visuals when Relay stops", () => {
   assert.ok(elements["#audio"].pauseCalls > 0);
 });
 
-test("short OBS sources keep visual and audio media separate", () => {
+test("audio waits for the active video lease before starting", () => {
   const visual = createHarness("", "visual");
-  visual.socket.emit("message", JSON.stringify({
-    type: "media",
-    payload: { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" },
-  }));
-  assert.equal(visual.elements["#audio"].src, "");
-
   const audio = createHarness("", "audio");
-  audio.socket.emit("message", JSON.stringify({
-    type: "media",
-    payload: { kind: "image", url: "https://cdn.discordapp.com/still.png" },
-  }));
-  assert.equal(audio.elements["#image"].src, "");
+  const video = { kind: "video", url: "https://cdn.discordapp.com/clip.mp4" };
+  const track = { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" };
+
+  sendMediaClock(visual);
+  sendMediaClock(audio);
+  sendMedia([visual, audio], video);
+  assert.equal(visual.elements["#video"].src, "");
+  assert.deepEqual(visual.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+
+  sendMediaGrant(visual, true, { videoBusy: true });
+  sendMediaClock(audio, { videoBusy: true });
+  sendMedia([visual, audio], track);
+  visual.elements["#video"].emit("loadeddata");
+  assert.equal(visual.elements["#video"].src, video.url);
+  assert.equal(audio.elements["#audio"].src, "");
+
+  visual.elements["#video"].emit("ended");
+  assert.equal(visual.runTimerByDelay(320), true);
+  assert.deepEqual(visual.socket.sent.at(-1), { type: "mediaClock", payload: { busy: false } });
+  sendMediaClock(audio, { videoBusy: false });
+  assert.deepEqual(audio.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+  assert.equal(audio.elements["#audio"].src, "");
+
+  sendMediaGrant(audio, true, { audioBusy: true });
+  assert.equal(audio.elements["#audio"].src, track.url);
+  assert.equal(visual.elements["#video"].src, "");
+});
+
+test("video waits for the active audio lease before starting", () => {
+  const visual = createHarness("", "visual");
+  const audio = createHarness("", "audio");
+  const track = { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" };
+  const video = { kind: "video", url: "https://cdn.discordapp.com/clip.mp4" };
+
+  sendMediaClock(visual);
+  sendMediaClock(audio);
+  sendMedia([visual, audio], track);
+  sendMediaGrant(audio, true, { audioBusy: true });
+  sendMediaClock(visual, { audioBusy: true });
+  sendMedia([visual, audio], video);
+
+  assert.equal(audio.elements["#audio"].src, track.url);
+  assert.equal(visual.elements["#video"].src, "");
+
+  audio.elements["#audio"].emit("ended");
+  assert.equal(audio.runTimerByDelay(320), true);
+  sendMediaClock(visual, { audioBusy: false });
+  assert.deepEqual(visual.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+
+  sendMediaGrant(visual, true, { videoBusy: true });
+  assert.equal(visual.elements["#video"].src, video.url);
+  assert.equal(audio.elements["#audio"].src, "");
+});
+
+test("reconnecting split outputs require one exclusive lease before resuming", () => {
+  const visual = createHarness("", "visual");
+  const audio = createHarness("", "audio");
+
+  sendMediaClock(visual);
+  sendMediaClock(audio);
+  sendMedia(visual, { kind: "video", url: "https://cdn.discordapp.com/lost.mp4" });
+  sendMedia(visual, { kind: "video", url: "https://cdn.discordapp.com/resume.mp4" });
+  sendMedia(audio, { kind: "audio", url: "https://cdn.discordapp.com/lost.mp3" });
+  sendMedia(audio, { kind: "audio", url: "https://cdn.discordapp.com/resume.mp3" });
+  visual.socket.emit("close");
+  audio.socket.emit("close");
+  assert.equal(visual.runTimerByDelay(1000), true);
+  assert.equal(audio.runTimerByDelay(1000), true);
+
+  const visualSocket = visual.sockets.at(-1);
+  const audioSocket = audio.sockets.at(-1);
+  visualSocket.emit("open");
+  audioSocket.emit("open");
+  sendMediaClock(visual, {}, visualSocket);
+  sendMediaClock(audio, {}, audioSocket);
+  assert.equal(visual.elements["#video"].src, "");
+  assert.equal(audio.elements["#audio"].src, "");
+
+  sendMediaGrant(visual, true, { videoBusy: true }, visualSocket);
+  sendMediaGrant(audio, false, { videoBusy: true }, audioSocket);
+  assert.equal(visual.elements["#video"].src, "https://cdn.discordapp.com/resume.mp4");
+  assert.equal(audio.elements["#audio"].src, "");
 });
 
 test("media widget move label follows the Relay language", () => {

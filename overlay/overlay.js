@@ -15,6 +15,8 @@ const isPreview = widgetParameters.get("preview") === "1";
 let interfaceLanguage = widgetParameters.get("lang") || "en";
 const relayMode = document.querySelector('meta[name="relay-mode"]')?.content || "all";
 const outputClient = isPreview ? "preview" : isWidgetWindow ? "widget" : "obs";
+const coordinatesSplitOutputs = outputClient === "obs"
+  && (relayMode === "visual" || relayMode === "audio");
 const moveLabelElement = document.querySelector("#widget-move-label");
 const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
 const previewLabels = { en: "Live preview", fr: "Aperçu en direct", es: "Vista previa", de: "Live-Vorschau" };
@@ -53,6 +55,12 @@ let socket;
 let pendingPort;
 let isUnloading = false;
 let lastAudioPlaybackReport = "";
+let mediaClockReady = !coordinatesSplitOutputs;
+let videoOutputBusy = false;
+let audioOutputBusy = false;
+let outputLeaseHeld = false;
+let outputLeasePending = false;
+let waitingForOutputLease = false;
 
 function outputSocketUrl(
   host,
@@ -71,6 +79,43 @@ function reportAudioPlayback(status, media = currentMedia) {
     payload: { status, target: isWidgetWindow ? "widget" : "obs", media },
   }));
   lastAudioPlaybackReport = reportKey;
+}
+
+function sendOutputLeaseState(busy) {
+  if (
+    !coordinatesSplitOutputs
+    || socket?.readyState !== 1
+  ) return;
+  socket.send(JSON.stringify({ type: "mediaClock", payload: { busy } }));
+}
+
+function isCoordinatedMedia(media) {
+  return (relayMode === "visual" && media?.kind === "video")
+    || (relayMode === "audio" && media?.kind === "audio");
+}
+
+function opposingOutputBusy() {
+  return relayMode === "visual" ? audioOutputBusy : videoOutputBusy;
+}
+
+function requestOutputLease() {
+  if (
+    !waitingForOutputLease
+    || outputLeaseHeld
+    || outputLeasePending
+    || !mediaClockReady
+    || opposingOutputBusy()
+    || socket?.readyState !== 1
+  ) return;
+  outputLeasePending = true;
+  sendOutputLeaseState(true);
+}
+
+function releaseOutputLease() {
+  const shouldNotifyServer = outputLeaseHeld || outputLeasePending;
+  outputLeaseHeld = false;
+  outputLeasePending = false;
+  if (shouldNotifyServer) sendOutputLeaseState(false);
 }
 
 function mediaSources(media) {
@@ -193,10 +238,17 @@ function revealMedia({ timed = false } = {}) {
 
 function finishCurrentMedia(expectedGeneration = playbackGeneration) {
   if (!currentMedia || expectedGeneration !== playbackGeneration) return;
-  reportAudioPlayback("idle");
+  const finishedMedia = currentMedia;
   resetElements();
   currentMedia = undefined;
+  waitingForOutputLease = false;
   showNextMedia();
+  if (isCoordinatedMedia(finishedMedia) && !isCoordinatedMedia(currentMedia)) {
+    releaseOutputLease();
+  }
+  if (finishedMedia.kind === "audio" && currentMedia?.kind !== "audio") {
+    reportAudioPlayback("idle", finishedMedia);
+  }
 }
 
 function hideCurrentMedia(expectedGeneration = playbackGeneration) {
@@ -345,14 +397,8 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
   trySource();
 }
 
-function showNextMedia() {
-  if (currentMedia || queue.length === 0) {
-    return;
-  }
-  currentMedia = queue.shift();
-  const generation = ++playbackGeneration;
-  setAuthor(currentMedia);
-
+function startCurrentMedia(generation = playbackGeneration) {
+  if (!currentMedia || generation !== playbackGeneration) return;
   if (
     currentMedia.kind === "video"
     || (currentMedia.kind === "gif" && currentMedia.contentType?.startsWith("video/"))
@@ -370,9 +416,24 @@ function showNextMedia() {
   }
 }
 
+function showNextMedia() {
+  if (currentMedia || queue.length === 0 || !mediaClockReady) return;
+  currentMedia = queue.shift();
+  const generation = ++playbackGeneration;
+  setAuthor(currentMedia);
+  if (isCoordinatedMedia(currentMedia) && !outputLeaseHeld) {
+    waitingForOutputLease = true;
+    requestOutputLease();
+    return;
+  }
+  startCurrentMedia(generation);
+}
+
 function clearOverlay() {
   queue.length = 0;
   finishCurrentMedia();
+  waitingForOutputLease = false;
+  releaseOutputLease();
 }
 
 const MEDIA_QUEUE_LIMIT = 50;
@@ -391,9 +452,14 @@ function enqueueMedia(mediaEvent) {
 
 function interruptPlayback() {
   if (!currentMedia) {
+    waitingForOutputLease = false;
+    releaseOutputLease();
     return;
   }
-  reportAudioPlayback("idle");
+  const interruptedMedia = currentMedia;
+  reportAudioPlayback("idle", interruptedMedia);
+  waitingForOutputLease = false;
+  if (isCoordinatedMedia(interruptedMedia)) releaseOutputLease();
   playbackGeneration += 1;
   resetElements();
   currentMedia = undefined;
@@ -401,9 +467,9 @@ function interruptPlayback() {
 
 function controlAudio(control = {}) {
   if (control.action === "previous" && control.media?.kind === "audio") {
-    if (currentMedia?.kind === "audio") interruptPlayback();
     queue.unshift(control.media);
-    showNextMedia();
+    if (currentMedia?.kind === "audio") finishCurrentMedia();
+    else showNextMedia();
     return;
   }
   if (currentMedia?.kind !== "audio") return;
@@ -416,6 +482,12 @@ function controlAudio(control = {}) {
   } else if (control.action === "skip") {
     finishCurrentMedia();
   }
+}
+
+function applyMediaClock(payload = {}) {
+  mediaClockReady = true;
+  videoOutputBusy = Boolean(payload.videoBusy);
+  audioOutputBusy = Boolean(payload.audioBusy);
 }
 
 function handleMessage(event) {
@@ -474,6 +546,23 @@ function handleMessage(event) {
   } else if (message.type === "clear") {
     if (isPreview) return;
     clearOverlay();
+  } else if (message.type === "mediaClock") {
+    applyMediaClock(message.payload);
+    showNextMedia();
+    requestOutputLease();
+  } else if (message.type === "mediaGrant") {
+    outputLeasePending = false;
+    if (message.payload?.clock) applyMediaClock(message.payload.clock);
+    if (message.payload?.granted && waitingForOutputLease && isCoordinatedMedia(currentMedia)) {
+      outputLeaseHeld = true;
+      waitingForOutputLease = false;
+      startCurrentMedia();
+    } else if (message.payload?.granted) {
+      outputLeaseHeld = true;
+      releaseOutputLease();
+    } else {
+      requestOutputLease();
+    }
   } else if (message.type === "serverMove") {
     const movedPort = Number(message.payload?.port);
     if (Number.isInteger(movedPort) && movedPort > 0 && movedPort <= 65535) {
@@ -542,6 +631,10 @@ function connect() {
     // Stop the current playback but keep the queue: the server does not
     // rebroadcast queued media after a transient reconnect.
     interruptPlayback();
+    outputLeaseHeld = false;
+    outputLeasePending = false;
+    waitingForOutputLease = false;
+    mediaClockReady = !coordinatesSplitOutputs;
     if (pendingPort) {
       moveToPendingPort();
       return;

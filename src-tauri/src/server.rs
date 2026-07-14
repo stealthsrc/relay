@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -101,6 +101,21 @@ struct RelayServerState {
     core: Arc<AppCore>,
     relay_secret: Arc<String>,
     client_shutdown: tokio::sync::broadcast::Sender<()>,
+    media_clock_tx: tokio::sync::watch::Sender<MediaClockState>,
+    media_clock_counts: Arc<Mutex<MediaClockCounts>>,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MediaClockState {
+    video_busy: bool,
+    audio_busy: bool,
+}
+
+#[derive(Default)]
+struct MediaClockCounts {
+    video_busy: usize,
+    audio_busy: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,7 +160,13 @@ impl OutputConnection {
 #[derive(Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 enum OutputClientMessage {
-    AudioPlayback(AudioPlaybackState),
+    AudioPlayback(Box<AudioPlaybackState>),
+    MediaClock(MediaClockReport),
+}
+
+#[derive(Deserialize)]
+struct MediaClockReport {
+    busy: bool,
 }
 
 pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
@@ -171,10 +192,13 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         listener
     };
     let (client_shutdown, _) = tokio::sync::broadcast::channel(1);
+    let (media_clock_tx, _) = tokio::sync::watch::channel(MediaClockState::default());
     let state = RelayServerState {
         core: core.clone(),
         relay_secret: Arc::new(load_or_create_relay_secret()?),
         client_shutdown: client_shutdown.clone(),
+        media_clock_tx,
+        media_clock_counts: Arc::new(Mutex::new(MediaClockCounts::default())),
     };
     let router = Router::new()
         .route("/", get(root))
@@ -664,6 +688,21 @@ async fn handle_socket(
     output: Option<OutputConnection>,
 ) {
     let is_output = output.is_some();
+    let tracked_clock_source = match output {
+        Some(OutputConnection {
+            source: OutputSource::Visual,
+            client: OutputClient::Obs,
+        }) => Some(OutputSource::Visual),
+        Some(OutputConnection {
+            source: OutputSource::Audio,
+            client: OutputClient::Obs,
+        }) => Some(OutputSource::Audio),
+        _ => None,
+    };
+    let receives_media_clock = tracked_clock_source.is_some();
+    let mut reported_busy = false;
+    let mut relay_rx = state.core.relay_tx.subscribe();
+    let mut media_clock_rx = state.media_clock_tx.subscribe();
     if let Some(output) = output {
         update_output_connection(&state, output, 1).await;
     }
@@ -706,9 +745,20 @@ async fn handle_socket(
             &json!({ "type": "history", "payload": history }),
         )
         .await;
+    } else if receives_media_clock
+        && send_json(
+            &mut sender,
+            &json!({ "type": "mediaClock", "payload": *media_clock_rx.borrow_and_update() }),
+        )
+        .await
+        .is_err()
+    {
+        if let Some(output) = output {
+            update_output_connection(&state, output, -1).await;
+        }
+        return;
     }
 
-    let mut relay_rx = state.core.relay_tx.subscribe();
     let mut shutdown_rx = state.client_shutdown.subscribe();
     loop {
         tokio::select! {
@@ -731,6 +781,11 @@ async fn handle_socket(
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
+            changed = media_clock_rx.changed(), if receives_media_clock => {
+                if changed.is_err() { break; }
+                let clock = *media_clock_rx.borrow_and_update();
+                if send_json(&mut sender, &json!({ "type": "mediaClock", "payload": clock })).await.is_err() { break; }
+            }
             incoming = receiver.next() => {
                 match incoming {
                     Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
@@ -738,17 +793,50 @@ async fn handle_socket(
                         if sender.send(Message::Pong(payload)).await.is_err() { break; }
                     }
                     Some(Ok(Message::Text(text))) if is_output => {
-                        let Ok(OutputClientMessage::AudioPlayback(playback)) = serde_json::from_str(text.as_str()) else {
+                        let Ok(message) = serde_json::from_str(text.as_str()) else {
                             let _ = sender.send(Message::Close(None)).await;
                             break;
                         };
-                        if !matches!(playback.media.kind, MediaKind::Audio)
-                            || !matches!(playback.target.as_str(), "obs" | "widget")
-                        {
-                            let _ = sender.send(Message::Close(None)).await;
-                            break;
+                        match message {
+                            OutputClientMessage::AudioPlayback(playback)
+                                if matches!(playback.media.kind, MediaKind::Audio)
+                                    && matches!(playback.target.as_str(), "obs" | "widget") =>
+                            {
+                                let _ = state
+                                    .core
+                                    .relay_tx
+                                    .send(RelayEvent::AudioPlayback(*playback));
+                            }
+                            OutputClientMessage::MediaClock(clock) if tracked_clock_source.is_some() => {
+                                let source = tracked_clock_source.expect("tracked clock source");
+                                if clock.busy {
+                                    let granted = try_acquire_output_lease(
+                                        &state,
+                                        source,
+                                        &mut reported_busy,
+                                    );
+                                    let clock = media_clock_state(&state);
+                                    if send_json(
+                                        &mut sender,
+                                        &json!({
+                                            "type": "mediaGrant",
+                                            "payload": { "granted": granted, "clock": clock },
+                                        }),
+                                    )
+                                    .await
+                                    .is_err()
+                                    {
+                                        break;
+                                    }
+                                } else {
+                                    release_output_lease(&state, source, &mut reported_busy);
+                                }
+                            }
+                            _ => {
+                                let _ = sender.send(Message::Close(None)).await;
+                                break;
+                            }
                         }
-                        let _ = state.core.relay_tx.send(RelayEvent::AudioPlayback(playback));
                     }
                     Some(Ok(_)) => {
                         let _ = sender.send(Message::Close(None)).await;
@@ -757,6 +845,9 @@ async fn handle_socket(
                 }
             }
         }
+    }
+    if let Some(source) = tracked_clock_source {
+        release_output_lease(&state, source, &mut reported_busy);
     }
     if let Some(output) = output {
         update_output_connection(&state, output, -1).await;
@@ -824,6 +915,75 @@ async fn update_output_connection(
             output.last_connected_at = Some(current_timestamp_ms());
         }
     }
+}
+
+fn try_acquire_output_lease(
+    state: &RelayServerState,
+    source: OutputSource,
+    reported_busy: &mut bool,
+) -> bool {
+    if *reported_busy {
+        return true;
+    }
+    let mut counts = state
+        .media_clock_counts
+        .lock()
+        .expect("media clock mutex poisoned");
+    let blocked = match source {
+        OutputSource::Visual => counts.audio_busy > 0,
+        OutputSource::Audio => counts.video_busy > 0,
+        _ => return false,
+    };
+    if blocked {
+        return false;
+    }
+    match source {
+        OutputSource::Visual => counts.video_busy = counts.video_busy.saturating_add(1),
+        OutputSource::Audio => counts.audio_busy = counts.audio_busy.saturating_add(1),
+        _ => unreachable!("only split media outputs can acquire a lease"),
+    }
+    *reported_busy = true;
+    drop(counts);
+    broadcast_media_clock(state);
+    true
+}
+
+fn release_output_lease(state: &RelayServerState, source: OutputSource, reported_busy: &mut bool) {
+    if !*reported_busy {
+        return;
+    }
+    let mut counts = state
+        .media_clock_counts
+        .lock()
+        .expect("media clock mutex poisoned");
+    match source {
+        OutputSource::Visual => adjust_count(&mut counts.video_busy, -1),
+        OutputSource::Audio => adjust_count(&mut counts.audio_busy, -1),
+        _ => return,
+    }
+    *reported_busy = false;
+    drop(counts);
+    broadcast_media_clock(state);
+}
+
+fn media_clock_state(state: &RelayServerState) -> MediaClockState {
+    let counts = state
+        .media_clock_counts
+        .lock()
+        .expect("media clock mutex poisoned");
+    MediaClockState {
+        video_busy: counts.video_busy > 0,
+        audio_busy: counts.audio_busy > 0,
+    }
+}
+
+fn broadcast_media_clock(state: &RelayServerState) {
+    let next = media_clock_state(state);
+    state.media_clock_tx.send_if_modified(|current| {
+        let changed = *current != next;
+        *current = next;
+        changed
+    });
 }
 
 fn output_sources(source: OutputSource) -> &'static [OutputSource] {
@@ -1063,6 +1223,8 @@ mod tests {
                     .unwrap()
                     .contains("\"type\":\"appearance\"")
             );
+            let clock = client.next().await.unwrap().unwrap();
+            assert!(clock.to_text().unwrap().contains("\"type\":\"mediaClock\""));
             clients.push(client);
         }
         let (mut preview_client, _) = tokio_tungstenite::connect_async(format!(
@@ -1180,6 +1342,141 @@ mod tests {
         }
         drop(clients);
         stop_server(&core).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn coordinates_split_video_and_audio_outputs() {
+        let port = free_local_port();
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            port,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        start_server(core.clone()).await.unwrap();
+        let secret = load_or_create_relay_secret().unwrap();
+
+        let mut audio = connect_test_output(port, &secret, "audio").await;
+        let initial_audio_clock = next_test_event(&mut audio, "mediaClock").await;
+        assert_eq!(initial_audio_clock["payload"]["videoBusy"], false);
+        assert_eq!(initial_audio_clock["payload"]["audioBusy"], false);
+
+        let mut visual = connect_test_output(port, &secret, "visual").await;
+        let initial_visual_clock = next_test_event(&mut visual, "mediaClock").await;
+        assert_eq!(initial_visual_clock["payload"]["videoBusy"], false);
+        assert_eq!(initial_visual_clock["payload"]["audioBusy"], false);
+
+        send_test_clock(&mut visual, true).await;
+        let visual_grant = next_test_event(&mut visual, "mediaGrant").await;
+        assert_eq!(visual_grant["payload"]["granted"], true);
+        let visual_busy = next_test_event(&mut visual, "mediaClock").await;
+        assert_eq!(visual_busy["payload"]["videoBusy"], true);
+        let visual_busy = next_test_event(&mut audio, "mediaClock").await;
+        assert_eq!(visual_busy["payload"]["videoBusy"], true);
+
+        send_test_clock(&mut audio, true).await;
+        let audio_grant = next_test_event(&mut audio, "mediaGrant").await;
+        assert_eq!(audio_grant["payload"]["granted"], false);
+
+        core.publish_media(test_media(MediaKind::Video, "video"))
+            .await;
+        let video_event = next_test_event(&mut audio, "media").await;
+        assert_eq!(video_event["payload"]["kind"], "video");
+        let video_event = next_test_event(&mut visual, "media").await;
+        assert_eq!(video_event["payload"]["kind"], "video");
+
+        core.publish_media(test_media(MediaKind::Audio, "audio"))
+            .await;
+        let audio_event = next_test_event(&mut visual, "media").await;
+        assert_eq!(audio_event["payload"]["kind"], "audio");
+        let audio_event = next_test_event(&mut audio, "media").await;
+        assert_eq!(audio_event["payload"]["kind"], "audio");
+
+        drop(visual);
+        let video_idle = next_test_event(&mut audio, "mediaClock").await;
+        assert_eq!(video_idle["payload"]["videoBusy"], false);
+
+        send_test_clock(&mut audio, true).await;
+        let audio_grant = next_test_event(&mut audio, "mediaGrant").await;
+        assert_eq!(audio_grant["payload"]["granted"], true);
+        let audio_busy = next_test_event(&mut audio, "mediaClock").await;
+        assert_eq!(audio_busy["payload"]["audioBusy"], true);
+
+        send_test_clock(&mut audio, false).await;
+        let audio_idle = next_test_event(&mut audio, "mediaClock").await;
+        assert_eq!(audio_idle["payload"]["audioBusy"], false);
+
+        stop_server(&core).await;
+    }
+
+    type TestWebSocket = tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >;
+
+    async fn connect_test_output(port: u16, secret: &str, source: &str) -> TestWebSocket {
+        let (mut client, _) = tokio_tungstenite::connect_async(format!(
+            "ws://127.0.0.1:{port}/ws?role=overlay&source={source}&client=obs&secret={secret}"
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            next_test_event(&mut client, "config").await["type"],
+            "config"
+        );
+        assert_eq!(
+            next_test_event(&mut client, "appearance").await["type"],
+            "appearance"
+        );
+        client
+    }
+
+    async fn next_test_event(client: &mut TestWebSocket, expected_type: &str) -> serde_json::Value {
+        loop {
+            let message = tokio::time::timeout(Duration::from_secs(5), client.next())
+                .await
+                .expect("websocket event timed out")
+                .expect("websocket closed")
+                .expect("websocket error");
+            let event: serde_json::Value =
+                serde_json::from_str(message.to_text().expect("text websocket event")).unwrap();
+            if event["type"] == expected_type {
+                return event;
+            }
+        }
+    }
+
+    async fn send_test_clock(client: &mut TestWebSocket, busy: bool) {
+        client
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "mediaClock", "payload": { "busy": busy } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+    }
+
+    fn test_media(kind: MediaKind, id: &str) -> MediaEvent {
+        MediaEvent {
+            kind,
+            url: format!("https://cdn.discordapp.com/{id}"),
+            proxy_url: format!("https://media.discordapp.net/{id}"),
+            filename: id.into(),
+            content_type: "application/octet-stream".into(),
+            artwork_id: None,
+            audio_id: None,
+            cached_media_id: None,
+            title: None,
+            artist: None,
+            author: AuthorIdentity {
+                username: "clock-test".into(),
+                display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
+            },
+            timestamp: 1,
+            message_id: id.into(),
+        }
     }
 
     fn free_local_port() -> u16 {
