@@ -1,15 +1,19 @@
 use std::{
     env,
+    fmt::Write as _,
     fs::{self, File, OpenOptions},
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
 
 use anyhow::{Context, bail};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use futures_util::StreamExt;
+use minisign_verify::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::AppHandle;
 
 #[cfg(target_os = "windows")]
@@ -19,6 +23,8 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LATEST_RELEASE_API: &str = "https://api.github.com/repos/stealthsrc/relay/releases/latest";
 const MAX_RELEASE_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_INSTALLER_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_SIGNATURE_BYTES: usize = 16 * 1024;
+const UPDATER_PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFCM0I0NDU0MDNEMTY2NDEKUldSQlp0RURWRVE3cTMrZ2t0MjlnVWUvMTA1bWpKT3Q0L0F5RDNRcTd2alMrS0lQM1Zyb1VrRmIK";
 
 struct VerifiedInstaller {
     path: PathBuf,
@@ -75,7 +81,10 @@ pub async fn download_and_install_update(app: AppHandle) -> Result<(), String> {
         return Err("Relay is already up to date.".into());
     }
 
-    let installer = download_installer(&release).await.map_err(display_error)?;
+    let signature = download_signature(&release).await.map_err(display_error)?;
+    let installer = download_installer(&release, &signature)
+        .await
+        .map_err(display_error)?;
     if let Err(error) = Command::new(&installer.path).spawn() {
         let path = installer.path.clone();
         drop(installer);
@@ -134,7 +143,43 @@ async fn read_limited_response(
     Ok(body)
 }
 
-async fn download_installer(release: &GitHubRelease) -> anyhow::Result<VerifiedInstaller> {
+async fn download_signature(release: &GitHubRelease) -> anyhow::Result<String> {
+    let version = release_version(&release.tag_name)?;
+    let asset = signature_asset(release, version)?;
+    if asset.size == 0 || asset.size > MAX_SIGNATURE_BYTES as u64 {
+        bail!("the updater signature size is outside the allowed range");
+    }
+    let expected_name = format!("Relay_{version}_x64-setup.exe.sig");
+    let download_url = validated_asset_url(release, asset, &expected_name)?;
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("Relay/", env!("CARGO_PKG_VERSION")))
+        .timeout(Duration::from_secs(30))
+        .build()
+        .context("unable to create the signature client")?;
+    let response = client
+        .get(download_url)
+        .send()
+        .await
+        .context("unable to download the Relay updater signature")?
+        .error_for_status()
+        .context("GitHub rejected the updater signature download")?;
+    let body = read_limited_response(response, MAX_SIGNATURE_BYTES)
+        .await
+        .context("unable to read the updater signature")?;
+    if body.len() as u64 != asset.size {
+        bail!("the updater signature download is incomplete");
+    }
+    let signature = String::from_utf8(body).context("the updater signature is not UTF-8")?;
+    if signature.trim().is_empty() {
+        bail!("the updater signature is empty");
+    }
+    Ok(signature.trim().to_owned())
+}
+
+async fn download_installer(
+    release: &GitHubRelease,
+    signature: &str,
+) -> anyhow::Result<VerifiedInstaller> {
     let version = release_version(&release.tag_name)?;
     let asset = installer_asset(release, version)?;
     let expected_digest = expected_digest(asset)?;
@@ -225,6 +270,11 @@ async fn download_installer(release: &GitHubRelease) -> anyhow::Result<VerifiedI
         let _ = fs::remove_file(&path);
         bail!("the installer SHA-256 does not match the GitHub release");
     }
+    if let Err(error) = verify_file_signature(&path, signature, &asset.name) {
+        drop(lock);
+        let _ = fs::remove_file(&path);
+        return Err(error);
+    }
     Ok(VerifiedInstaller { path, _lock: lock })
 }
 
@@ -240,12 +290,32 @@ fn installer_asset<'a>(
         .context("the latest release has no Windows x64 installer")
 }
 
+fn signature_asset<'a>(
+    release: &'a GitHubRelease,
+    version: &str,
+) -> anyhow::Result<&'a GitHubAsset> {
+    let expected_name = format!("Relay_{version}_x64-setup.exe.sig");
+    release
+        .assets
+        .iter()
+        .find(|asset| asset.name == expected_name)
+        .context("the latest release has no signed Windows x64 installer")
+}
+
 fn validated_download_url(
     release: &GitHubRelease,
     asset: &GitHubAsset,
     version: &str,
 ) -> anyhow::Result<reqwest::Url> {
     let expected_name = format!("Relay_{version}_x64-setup.exe");
+    validated_asset_url(release, asset, &expected_name)
+}
+
+fn validated_asset_url(
+    release: &GitHubRelease,
+    asset: &GitHubAsset,
+    expected_name: &str,
+) -> anyhow::Result<reqwest::Url> {
     let expected_path = format!(
         "/stealthsrc/relay/releases/download/{}/{}",
         release.tag_name, expected_name
@@ -262,6 +332,59 @@ fn validated_download_url(
     Ok(url)
 }
 
+fn decode_tauri_minisign(value: &str, label: &str) -> anyhow::Result<String> {
+    let decoded = BASE64_STANDARD
+        .decode(value.trim())
+        .with_context(|| format!("the {label} is not valid base64"))?;
+    String::from_utf8(decoded).with_context(|| format!("the {label} is not valid UTF-8"))
+}
+
+fn verify_file_signature(
+    path: &Path,
+    encoded_signature: &str,
+    expected_name: &str,
+) -> anyhow::Result<()> {
+    verify_file_signature_with_key(path, encoded_signature, UPDATER_PUBLIC_KEY, expected_name)
+}
+
+fn verify_file_signature_with_key(
+    path: &Path,
+    encoded_signature: &str,
+    encoded_public_key: &str,
+    expected_name: &str,
+) -> anyhow::Result<()> {
+    let public_key = decode_tauri_minisign(encoded_public_key, "updater public key")?;
+    let public_key = PublicKey::decode(&public_key).context("the updater public key is invalid")?;
+    let signature = decode_tauri_minisign(encoded_signature, "updater signature")?;
+    let signature = Signature::decode(&signature).context("the updater signature is invalid")?;
+    let signed_name = signature
+        .trusted_comment()
+        .split('\t')
+        .find_map(|field| field.strip_prefix("file:"))
+        .and_then(|value| value.rsplit(['/', '\\']).next())
+        .context("the updater signature does not bind an installer name")?;
+    if signed_name != expected_name {
+        bail!("the updater signature was created for a different installer");
+    }
+    let mut verifier = public_key
+        .verify_stream(&signature)
+        .context("the updater signature does not support streaming verification")?;
+    let mut file = File::open(path).context("unable to read the downloaded installer")?;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .context("unable to verify the downloaded installer")?;
+        if read == 0 {
+            break;
+        }
+        verifier.update(&buffer[..read]);
+    }
+    verifier
+        .finalize()
+        .context("the installer signature is not trusted")
+}
+
 fn expected_digest(asset: &GitHubAsset) -> anyhow::Result<&str> {
     let digest = asset
         .digest
@@ -275,28 +398,24 @@ fn expected_digest(asset: &GitHubAsset) -> anyhow::Result<&str> {
 }
 
 fn file_sha256(path: &Path) -> anyhow::Result<String> {
-    let system_root = env::var_os("SystemRoot").context("Windows system root is unavailable")?;
-    let system32 = fs::canonicalize(PathBuf::from(system_root).join("System32"))
-        .context("Windows system directory is unavailable")?;
-    let certutil = fs::canonicalize(system32.join("certutil.exe"))
-        .context("Windows certutil is unavailable")?;
-    if certutil.parent() != Some(system32.as_path()) {
-        bail!("Windows certutil resolved outside the system directory");
+    let mut file = File::open(path).context("unable to read the installer for SHA-256")?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .context("unable to calculate the installer SHA-256")?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
     }
-    let output = Command::new(certutil)
-        .arg("-hashfile")
-        .arg(path)
-        .arg("SHA256")
-        .output()
-        .context("unable to calculate the installer SHA-256")?;
-    if !output.status.success() {
-        bail!("Windows could not calculate the installer SHA-256");
+    let hash = hasher.finalize();
+    let mut encoded = String::with_capacity(64);
+    for byte in hash {
+        write!(&mut encoded, "{byte:02x}").expect("writing SHA-256 to a String cannot fail");
     }
-    String::from_utf8_lossy(&output.stdout)
-        .split_whitespace()
-        .find(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .map(str::to_owned)
-        .context("Windows returned an invalid installer SHA-256")
+    Ok(encoded)
 }
 
 fn release_version(tag: &str) -> anyhow::Result<&str> {
@@ -329,15 +448,26 @@ fn display_error(error: anyhow::Error) -> String {
 mod tests {
     use super::*;
 
+    const TEST_PUBLIC_KEY: &str = "untrusted comment: minisign public key E7620F1842B4E81F\nRWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3";
+    const TEST_SIGNATURE: &str = "untrusted comment: signature from minisign secret key\nRUQf6LRCGA9i559r3g7V1qNyJDApGip8MfqcadIgT9CuhV3EMhHoN1mGTkUidF/z7SrlQgXdy8ofjb7bNJJylDOocrCo8KLzZwo=\ntrusted comment: timestamp:1556193335\tfile:test\ny/rUw2y8/hOUYjZU71eHp/Wo1KZ40fGy2VJEDl34XMJM+TX48Ss/17u3IvIfbVR1FkZZSNCisQbuQY+bHwhEBg==";
+
     fn release(url: &str) -> GitHubRelease {
         GitHubRelease {
             tag_name: "v1.1.23".into(),
-            assets: vec![GitHubAsset {
-                name: "Relay_1.1.23_x64-setup.exe".into(),
-                browser_download_url: url.into(),
-                size: 7_472_679,
-                digest: Some(format!("sha256:{}", "a".repeat(64))),
-            }],
+            assets: vec![
+                GitHubAsset {
+                    name: "Relay_1.1.23_x64-setup.exe".into(),
+                    browser_download_url: url.into(),
+                    size: 7_472_679,
+                    digest: Some(format!("sha256:{}", "a".repeat(64))),
+                },
+                GitHubAsset {
+                    name: "Relay_1.1.23_x64-setup.exe.sig".into(),
+                    browser_download_url: format!("{url}.sig"),
+                    size: 300,
+                    digest: None,
+                },
+            ],
         }
     }
 
@@ -373,6 +503,74 @@ mod tests {
         assert!(expected_digest(&release.assets[0]).is_ok());
         release.assets[0].digest = None;
         assert!(expected_digest(&release.assets[0]).is_err());
+    }
+
+    #[test]
+    fn requires_the_expected_official_signature_asset() {
+        let mut release = release(
+            "https://github.com/stealthsrc/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
+        );
+        let asset = signature_asset(&release, "1.1.23").unwrap();
+        assert!(validated_asset_url(&release, asset, "Relay_1.1.23_x64-setup.exe.sig").is_ok());
+        release.assets.pop();
+        assert!(signature_asset(&release, "1.1.23").is_err());
+    }
+
+    #[test]
+    fn verifies_signed_payload_and_rejects_tampering_or_missing_signature() {
+        let directory = tempfile::tempdir().unwrap();
+        let payload = directory.path().join("update.bin");
+        let public_key = BASE64_STANDARD.encode(TEST_PUBLIC_KEY);
+        let signature = BASE64_STANDARD.encode(TEST_SIGNATURE);
+
+        fs::write(&payload, b"test").unwrap();
+        assert!(verify_file_signature_with_key(&payload, &signature, &public_key, "test").is_ok());
+
+        fs::write(&payload, b"Test").unwrap();
+        assert!(verify_file_signature_with_key(&payload, &signature, &public_key, "test").is_err());
+        assert!(verify_file_signature_with_key(&payload, "", &public_key, "test").is_err());
+
+        fs::write(&payload, b"test").unwrap();
+        assert!(
+            verify_file_signature_with_key(
+                &payload,
+                &signature,
+                &public_key,
+                "Relay_9.9.9_x64-setup.exe"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn pinned_updater_public_key_is_valid() {
+        let decoded = decode_tauri_minisign(UPDATER_PUBLIC_KEY, "updater public key").unwrap();
+        assert!(PublicKey::decode(&decoded).is_ok());
+    }
+
+    #[test]
+    #[ignore = "requires RELAY_SIGNED_INSTALLER from a signed release build"]
+    fn signed_release_artifact_matches_pinned_key_and_rejects_tampering() {
+        let installer = PathBuf::from(
+            env::var_os("RELAY_SIGNED_INSTALLER").expect("RELAY_SIGNED_INSTALLER is required"),
+        );
+        let mut signature_path = installer.as_os_str().to_owned();
+        signature_path.push(".sig");
+        let signature = fs::read_to_string(PathBuf::from(signature_path)).unwrap();
+
+        let expected_name = installer.file_name().unwrap().to_str().unwrap();
+        verify_file_signature(&installer, &signature, expected_name).unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let tampered = directory.path().join("tampered-update.exe");
+        fs::copy(&installer, &tampered).unwrap();
+        OpenOptions::new()
+            .append(true)
+            .open(&tampered)
+            .unwrap()
+            .write_all(b"tampered")
+            .unwrap();
+        assert!(verify_file_signature(&tampered, &signature, expected_name).is_err());
     }
 
     #[cfg(target_os = "windows")]

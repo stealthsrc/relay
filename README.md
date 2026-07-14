@@ -230,15 +230,19 @@ The interface is static HTML, CSS, and JavaScript. There is no frontend bundling
 ### Windows release build
 
 ```powershell
-cd src-tauri
-cargo tauri build --bundles nsis
+.\scripts\build-signed-release.ps1
 ```
 
-The NSIS installer is written to:
+The script builds the NSIS installer, prompts for the local updater-key password, and verifies both a valid artifact and a tampered control against Relay's pinned public key. The private key must remain outside the repository and must be backed up securely.
+
+The release assets are written to:
 
 ```text
 src-tauri/target/release/bundle/nsis/Relay_<version>_x64-setup.exe
+src-tauri/target/release/bundle/nsis/Relay_<version>_x64-setup.exe.sig
 ```
+
+Attach both files to every GitHub release. The in-app updater refuses installers with a missing or invalid signature.
 
 ## Tests
 
