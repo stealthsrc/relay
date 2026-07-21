@@ -9,6 +9,14 @@ pub struct AuthorIdentity {
     pub display_avatar_url: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuildTagIdentity {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub badge_url: Option<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MediaKind {
@@ -108,6 +116,8 @@ pub struct TtsEvent {
     pub id: String,
     pub text: String,
     pub author: AuthorIdentity,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guild_tag: Option<GuildTagIdentity>,
     pub content_type: String,
     pub timestamp: u64,
     pub visual_only: bool,
@@ -141,6 +151,7 @@ pub struct TtsRequest {
     pub id: String,
     pub text: String,
     pub author: AuthorIdentity,
+    pub guild_tag: Option<GuildTagIdentity>,
     pub timestamp: u64,
 }
 

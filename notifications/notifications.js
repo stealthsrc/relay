@@ -1,6 +1,9 @@
 const cardElement = document.querySelector("#notification");
 const avatarElement = document.querySelector("#notification-avatar");
 const authorElement = document.querySelector("#notification-author");
+const guildTagElement = document.querySelector("#notification-guild-tag");
+const guildTagBadgeElement = document.querySelector("#notification-guild-tag-badge");
+const guildTagNameElement = document.querySelector("#notification-guild-tag-name");
 const messageElement = document.querySelector("#notification-message");
 const audioElement = document.querySelector("#notification-clock");
 const parameters = new URLSearchParams(window.location.search);
@@ -84,8 +87,37 @@ function audioUrl(ttsEvent) {
   return `/tts-audio/${encodeURIComponent(ttsEvent.id)}?secret=${encodeURIComponent(relaySecret)}`;
 }
 
+function setGuildTag(guildTag) {
+  const name = typeof guildTag?.name === "string" ? guildTag.name.trim() : "";
+  if (!name) {
+    guildTagElement.hidden = true;
+    guildTagNameElement.textContent = "";
+    guildTagBadgeElement.hidden = true;
+    guildTagBadgeElement.onerror = null;
+    guildTagBadgeElement.removeAttribute("src");
+    return;
+  }
+
+  guildTagNameElement.textContent = name;
+  const badgeUrl = typeof guildTag.badgeUrl === "string" ? guildTag.badgeUrl : "";
+  if (badgeUrl) {
+    guildTagBadgeElement.onerror = () => {
+      guildTagBadgeElement.onerror = null;
+      guildTagBadgeElement.hidden = true;
+    };
+    guildTagBadgeElement.src = badgeUrl;
+    guildTagBadgeElement.hidden = false;
+  } else {
+    guildTagBadgeElement.hidden = true;
+    guildTagBadgeElement.onerror = null;
+    guildTagBadgeElement.removeAttribute("src");
+  }
+  guildTagElement.hidden = false;
+}
+
 function setCardContent(notification) {
   authorElement.textContent = notification.author?.username || "Discord";
+  setGuildTag(notification.guildTag);
   messageElement.replaceChildren();
   if (notification.visualOnly && Array.isArray(notification.segments)) {
     for (const segment of notification.segments) {

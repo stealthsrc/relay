@@ -34,6 +34,16 @@ function createHarness(target = "obs", language = "en", preview = false) {
     },
     "#notification-avatar": { src: "", onerror: null },
     "#notification-author": { textContent: "" },
+    "#notification-guild-tag": { hidden: true },
+    "#notification-guild-tag-badge": {
+      src: "",
+      hidden: true,
+      onerror: null,
+      removeAttribute(name) {
+        if (name === "src") this.src = "";
+      },
+    },
+    "#notification-guild-tag-name": { textContent: "" },
     "#notification-message": {
       textContent: "",
       children: [],
@@ -246,6 +256,35 @@ test("notification widget move label follows the Relay language", () => {
   const french = createHarness("widget", "fr");
   assert.equal(english.elements["#notification-move-label"].textContent, "Move notification");
   assert.equal(french.elements["#notification-move-label"].textContent, "Déplacer la notification");
+});
+
+test("notifications show enabled Discord guild tags without a timestamp", () => {
+  const { elements, socket } = createHarness("obs");
+  socket.emit("message", JSON.stringify({
+    type: "testOutput",
+    payload: {
+      target: "notification",
+      tts: {
+        text: "Tagged notification",
+        visualOnly: true,
+        author: { username: "Stealthy." },
+        guildTag: {
+          name: "RE",
+          badgeUrl: "https://cdn.discordapp.com/guild-tag-badges/1/badge.png",
+        },
+        segments: [{ kind: "text", value: "Tagged notification" }],
+      },
+    },
+  }));
+
+  assert.equal(elements["#notification-author"].textContent, "Stealthy.");
+  assert.equal(elements["#notification-guild-tag"].hidden, false);
+  assert.equal(elements["#notification-guild-tag-name"].textContent, "RE");
+  assert.equal(elements["#notification-guild-tag-badge"].hidden, false);
+  assert.match(elements["#notification-guild-tag-badge"].src, /guild-tag-badges/);
+
+  elements["#notification-guild-tag-badge"].onerror();
+  assert.equal(elements["#notification-guild-tag-badge"].hidden, true);
 });
 
 function notification(id, username = `User ${id}`) {

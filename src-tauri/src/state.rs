@@ -324,6 +324,7 @@ impl AppCore {
             id: request.id.clone(),
             text: request.text,
             author: request.author,
+            guild_tag: request.guild_tag,
             content_type: speech.content_type.clone(),
             timestamp: request.timestamp,
             visual_only: false,
@@ -340,6 +341,7 @@ impl AppCore {
         id: String,
         text: String,
         author: crate::model::AuthorIdentity,
+        guild_tag: Option<crate::model::GuildTagIdentity>,
         timestamp: u64,
         segments: Vec<VisualSegment>,
     ) {
@@ -347,6 +349,7 @@ impl AppCore {
             id,
             text,
             author,
+            guild_tag,
             content_type: String::new(),
             timestamp,
             visual_only: true,
@@ -436,6 +439,10 @@ mod tests {
                 username: "Queue tester".into(),
                 display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
             },
+            guild_tag: Some(crate::model::GuildTagIdentity {
+                name: "RE".into(),
+                badge_url: Some("https://cdn.discordapp.com/tag.png".into()),
+            }),
             timestamp: 42,
         })
         .await
@@ -448,6 +455,7 @@ mod tests {
         assert_eq!(event.id, "123456789012345678");
         assert_eq!(event.text, "Relay queue test");
         assert_eq!(event.author.username, "Queue tester");
+        assert_eq!(event.guild_tag.unwrap().name, "RE");
         assert_eq!(event.content_type, "audio/wav");
         let cache = core.tts_audio.read().await;
         assert_eq!(cache.len(), 1);
@@ -467,6 +475,10 @@ mod tests {
                 username: "Silent tester".into(),
                 display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
             },
+            Some(crate::model::GuildTagIdentity {
+                name: "RE".into(),
+                badge_url: None,
+            }),
             42,
             vec![VisualSegment {
                 kind: "text".into(),
@@ -481,6 +493,7 @@ mod tests {
         };
         assert!(event.visual_only);
         assert_eq!(event.text, "test");
+        assert_eq!(event.guild_tag.unwrap().name, "RE");
         assert_eq!(event.segments.len(), 1);
         assert!(core.tts_audio.read().await.is_empty());
     }

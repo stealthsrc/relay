@@ -110,21 +110,48 @@ body {
   gap: calc(2px * var(--content-scale));
 }
 
-.notification-card__eyebrow {
-  color: rgb(211 225 244 / 58%);
-  font-size: calc(9px * var(--font-scale) * var(--content-scale));
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+.notification-card__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: calc(6px * var(--content-scale));
 }
 
 .notification-card__author {
+  min-width: 0;
   overflow: hidden;
   font-size: calc(14px * var(--font-scale) * var(--content-scale));
   font-weight: 650;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.notification-card__tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(3px * var(--content-scale));
+  padding: calc(2px * var(--content-scale)) calc(5px * var(--content-scale));
+  border: 1px solid rgb(255 255 255 / 9%);
+  border-radius: calc(4px * var(--content-scale));
+  color: rgb(247 248 251 / 88%);
+  background: rgb(255 255 255 / 12%);
+  font-size: calc(10px * var(--font-scale) * var(--content-scale));
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.notification-card__tag[hidden],
+.notification-card__tag-badge[hidden] {
+  display: none;
+}
+
+.notification-card__tag-badge {
+  width: calc(12px * var(--content-scale));
+  height: calc(12px * var(--content-scale));
+  object-fit: contain;
 }
 
 .notification-card__message {

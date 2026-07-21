@@ -14,8 +14,13 @@
           <span class="notification-card__presence" aria-hidden="true"></span>
         </div>
         <div class="notification-card__copy">
-          <span class="notification-card__eyebrow">Relay</span>
-          <strong id="notification-author" class="notification-card__author"></strong>
+          <div class="notification-card__identity">
+            <strong id="notification-author" class="notification-card__author"></strong>
+            <span id="notification-guild-tag" class="notification-card__tag" hidden>
+              <img id="notification-guild-tag-badge" class="notification-card__tag-badge" alt="">
+              <span id="notification-guild-tag-name"></span>
+            </span>
+          </div>
           <p id="notification-message" class="notification-card__message"></p>
         </div>
         <span class="notification-card__signal" aria-hidden="true"></span>

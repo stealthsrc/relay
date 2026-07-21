@@ -10,7 +10,7 @@ use serenity::{
         CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateInteractionResponse,
         CreateInteractionResponseMessage, EventHandler, GatewayIntents, GetMessages, GuildId,
         Interaction, Message, MessageId, MessageUpdateEvent, OnlineStatus, PermissionOverwrite,
-        PermissionOverwriteType, Permissions, Ready, StickerFormatType, UserId,
+        PermissionOverwriteType, Permissions, Ready, StickerFormatType, User, UserId,
     },
     async_trait,
     cache::Cache,
@@ -24,8 +24,8 @@ use crate::{
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_or_create_relay_secret},
     model::{
-        AuthorIdentity, BotStatus, ChannelSummary, MediaEvent, MediaKind, StickerEvent, TtsRequest,
-        VisualSegment,
+        AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
+        StickerEvent, TtsRequest, VisualSegment,
     },
     state::{AppCore, BotRuntime},
 };
@@ -77,6 +77,8 @@ impl EventHandler for Handler {
         let channel_id = message.channel_id.to_string();
 
         if !config.tts_channel_id.is_empty() && channel_id == config.tts_channel_id {
+            let author = message_author(&message);
+            let guild_tag = guild_tag_from_user(&message.author);
             let mut sticker_segments = message
                 .sticker_items
                 .iter()
@@ -99,7 +101,8 @@ impl EventHandler for Handler {
                 self.core.publish_visual_tts(
                     message.id.to_string(),
                     message.content.clone(),
-                    message_author(&message),
+                    author,
+                    guild_tag,
                     message_timestamp(&message),
                     segments,
                 );
@@ -109,7 +112,8 @@ impl EventHandler for Handler {
                 self.core.publish_visual_tts(
                     message.id.to_string(),
                     message.content.clone(),
-                    message_author(&message),
+                    author,
+                    guild_tag,
                     message_timestamp(&message),
                     segments,
                 );
@@ -120,7 +124,8 @@ impl EventHandler for Handler {
                     self.core.publish_visual_tts(
                         message.id.to_string(),
                         text.clone(),
-                        message_author(&message),
+                        author,
+                        guild_tag,
                         message_timestamp(&message),
                         plain_text_segments(text),
                     );
@@ -129,7 +134,8 @@ impl EventHandler for Handler {
                 let request = TtsRequest {
                     id: message.id.to_string(),
                     text: text.clone(),
-                    author: message_author(&message),
+                    author,
+                    guild_tag,
                     timestamp: message_timestamp(&message),
                 };
                 if let Err(error) = self.core.publish_tts(request.clone()).await {
@@ -137,6 +143,7 @@ impl EventHandler for Handler {
                         request.id,
                         request.text.clone(),
                         request.author,
+                        request.guild_tag,
                         request.timestamp,
                         plain_text_segments(request.text),
                     );
@@ -319,6 +326,21 @@ fn message_author(message: &Message) -> AuthorIdentity {
             .avatar_url()
             .unwrap_or_else(|| message.author.default_avatar_url()),
     }
+}
+
+fn guild_tag_from_user(user: &User) -> Option<GuildTagIdentity> {
+    let primary_guild = user.primary_guild.as_ref()?;
+    if primary_guild.identity_enabled != Some(true) {
+        return None;
+    }
+    let name = primary_guild.tag.as_deref()?.trim();
+    if name.is_empty() {
+        return None;
+    }
+    Some(GuildTagIdentity {
+        name: name.into(),
+        badge_url: primary_guild.badge_url(),
+    })
 }
 
 fn message_timestamp(message: &Message) -> u64 {
@@ -1351,6 +1373,42 @@ fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extracts_only_enabled_discord_guild_tags() {
+        let tagged_user: User = serde_json::from_value(serde_json::json!({
+            "id": "123456789012345678",
+            "username": "Stealthy.",
+            "primary_guild": {
+                "identity_guild_id": "987654321098765432",
+                "identity_enabled": true,
+                "tag": "RE",
+                "badge": "7d1734ae5a615e82bc7a4033b98fade8"
+            }
+        }))
+        .unwrap();
+        let tag = guild_tag_from_user(&tagged_user).unwrap();
+        assert_eq!(tag.name, "RE");
+        assert_eq!(
+            tag.badge_url.as_deref(),
+            Some(
+                "https://cdn.discordapp.com/guild-tag-badges/987654321098765432/7d1734ae5a615e82bc7a4033b98fade8.png?size=1024"
+            )
+        );
+
+        let hidden_user: User = serde_json::from_value(serde_json::json!({
+            "id": "123456789012345678",
+            "username": "Stealthy.",
+            "primary_guild": {
+                "identity_guild_id": "987654321098765432",
+                "identity_enabled": false,
+                "tag": "RE",
+                "badge": "7d1734ae5a615e82bc7a4033b98fade8"
+            }
+        }))
+        .unwrap();
+        assert!(guild_tag_from_user(&hidden_user).is_none());
+    }
 
     #[test]
     fn formats_local_overlay_url_with_secret() {
