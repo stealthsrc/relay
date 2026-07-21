@@ -1113,11 +1113,15 @@ function hexToRgb(hex) {
 }
 
 function scaleInterfaceText() {
-  for (const element of $$('body *:not(svg):not(path)')) {
+  const elements = $$('body *:not(svg):not(path)');
+  for (const element of elements) element.style.removeProperty("font-size");
+  for (const element of elements) {
     if (!element.dataset.relayBaseFontSize) {
       const size = Number.parseFloat(window.getComputedStyle(element).fontSize);
       if (Number.isFinite(size) && size > 0) element.dataset.relayBaseFontSize = String(size);
     }
+  }
+  for (const element of elements) {
     if (element.dataset.relayBaseFontSize) {
       element.style.fontSize = `${Number(element.dataset.relayBaseFontSize) * fontScale / 100}px`;
     }

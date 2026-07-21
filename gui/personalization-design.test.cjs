@@ -43,3 +43,18 @@ test("tray refresh reads the design and theme shared by personalization", () => 
   assert.match(traySource, /document\.documentElement\.dataset\.design/);
   assert.match(traySource, /document\.documentElement\.dataset\.theme/);
 });
+
+test("text scaling measures the unscaled tree before applying the factor", () => {
+  const scalingSource = panelSource.slice(
+    panelSource.indexOf("function scaleInterfaceText"),
+    panelSource.indexOf("function syncInterfacePreferences"),
+  );
+  assert.ok(
+    scalingSource.indexOf('style.removeProperty("font-size")')
+      < scalingSource.indexOf("window.getComputedStyle(element).fontSize"),
+  );
+  assert.ok(
+    scalingSource.indexOf("window.getComputedStyle(element).fontSize")
+      < scalingSource.lastIndexOf("element.style.fontSize ="),
+  );
+});
