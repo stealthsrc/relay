@@ -742,6 +742,184 @@ select:focus {
   max-width: 780px;
 }
 
+.design-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.design-picker > legend {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.design-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.design-choice {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.design-choice:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.design-choice:has(input:checked) {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.design-choice:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.design-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.design-choice__preview {
+  position: relative;
+  display: block;
+  height: 66px;
+  overflow: hidden;
+  border: 1px solid #c8c8c2;
+  background: #f5f5f2;
+}
+
+.design-choice__preview i {
+  position: absolute;
+  display: block;
+}
+
+.design-choice--openai .design-choice__preview {
+  border-radius: 8px;
+}
+
+.design-choice--openai .design-choice__preview i:first-child {
+  inset: 0 auto 0 0;
+  width: 25%;
+  border-right: 1px solid #d5d5d0;
+  background: #fff;
+}
+
+.design-choice--openai .design-choice__preview i:nth-child(2) {
+  top: 17px;
+  right: 12px;
+  width: 55%;
+  height: 5px;
+  background: #111;
+}
+
+.design-choice--openai .design-choice__preview i:last-child {
+  top: 31px;
+  right: 12px;
+  width: 38%;
+  height: 20px;
+  border: 1px solid #dadad4;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.design-choice--anthropic .design-choice__preview {
+  border-color: #b0aea5;
+  border-radius: 3px;
+  background: #faf9f5;
+}
+
+.design-choice--anthropic .design-choice__preview i:first-child {
+  top: 13px;
+  left: 13px;
+  width: 34%;
+  height: 30px;
+  border-bottom: 2px solid #141413;
+}
+
+.design-choice--anthropic .design-choice__preview i:nth-child(2) {
+  top: 13px;
+  right: 12px;
+  width: 28%;
+  height: 28px;
+  border-radius: 50% 50% 8px 50%;
+  background: #d97757;
+}
+
+.design-choice--anthropic .design-choice__preview i:last-child {
+  right: 12px;
+  bottom: 9px;
+  width: 54%;
+  height: 2px;
+  background: #788c5d;
+}
+
+.design-choice--neo-brutalism .design-choice__preview {
+  border: 2px solid #15110f;
+  background: #fff8e8;
+  box-shadow: 4px 4px 0 #15110f;
+}
+
+.design-choice--neo-brutalism .design-choice__preview i:first-child {
+  top: 8px;
+  left: 8px;
+  width: 58%;
+  height: 18px;
+  border: 2px solid #15110f;
+  background: #ff7a66;
+}
+
+.design-choice--neo-brutalism .design-choice__preview i:nth-child(2) {
+  right: 10px;
+  bottom: 8px;
+  width: 25px;
+  height: 25px;
+  border: 2px solid #15110f;
+  border-radius: 50%;
+  background: #ff4fb3;
+}
+
+.design-choice--neo-brutalism .design-choice__preview i:last-child {
+  bottom: 9px;
+  left: 9px;
+  width: 42%;
+  height: 12px;
+  border: 2px solid #15110f;
+  background: #ffc94c;
+}
+
+.design-choice__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.design-choice__copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.design-choice__copy small {
+  min-height: 30px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .personalization-grid,
 .rgb-controls {
   display: grid;
@@ -2005,6 +2183,439 @@ input[type="range"] {
   text-align: center;
 }
 
+/* Anthropic: warm, literary, restrained. */
+:root[data-design="anthropic"] {
+  --canvas: #f0eee6;
+  --surface: #faf9f5;
+  --surface-subtle: #e8e6dc;
+  --ink: #141413;
+  --muted: #65635d;
+  --faint: #8b887f;
+  --line: #d4d1c6;
+  --line-strong: #b0aea5;
+  --inverse: #141413;
+  --inverse-ink: #faf9f5;
+  --success: #788c5d;
+  --danger: #b85f49;
+  --focus: #6a9bcc;
+  --anthropic-orange: #d97757;
+  --anthropic-blue: #6a9bcc;
+  --anthropic-green: #788c5d;
+  --sidebar-width: 224px;
+  font-family: Lora, Georgia, serif;
+}
+
+:root[data-design="anthropic"][data-theme="dark"] {
+  --canvas: #141413;
+  --surface: #1d1d1b;
+  --surface-subtle: #292824;
+  --ink: #faf9f5;
+  --muted: #b0aea5;
+  --faint: #85837b;
+  --line: #393833;
+  --line-strong: #5b5952;
+  --inverse: #faf9f5;
+  --inverse-ink: #141413;
+  --success: #99aa79;
+  --danger: #e28b70;
+  --focus: #8ab1d7;
+}
+
+:root[data-design="anthropic"] h1,
+:root[data-design="anthropic"] h2,
+:root[data-design="anthropic"] h3,
+:root[data-design="anthropic"] .brand__copy strong,
+:root[data-design="anthropic"] .button,
+:root[data-design="anthropic"] .navigation__item {
+  font-family: Poppins, "Segoe UI", sans-serif;
+}
+
+:root[data-design="anthropic"] .sidebar {
+  padding-inline: 20px;
+  border-right-color: var(--line-strong);
+  background: var(--surface);
+}
+
+:root[data-design="anthropic"][data-theme="dark"] .sidebar {
+  background: #181817;
+}
+
+:root[data-design="anthropic"] .brand {
+  padding-bottom: 32px;
+}
+
+:root[data-design="anthropic"] .brand__logo {
+  border-radius: 50% 50% 12px 50%;
+  box-shadow: none;
+}
+
+:root[data-design="anthropic"] .navigation {
+  gap: 5px;
+}
+
+:root[data-design="anthropic"] .navigation__item {
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+:root[data-design="anthropic"] .navigation__item.is-active {
+  padding-left: 14px;
+  border-left: 3px solid var(--anthropic-orange);
+  background: color-mix(in srgb, var(--anthropic-orange) 10%, var(--surface));
+}
+
+:root[data-design="anthropic"] .navigation__item.is-active::before {
+  display: none;
+}
+
+:root[data-design="anthropic"] .topbar {
+  min-height: 82px;
+  border-bottom-color: var(--line-strong);
+  background: var(--surface);
+}
+
+:root[data-design="anthropic"] .page {
+  width: min(1080px, 100%);
+  padding-top: 54px;
+}
+
+:root[data-design="anthropic"] h2 {
+  max-width: 650px;
+  font-size: clamp(38px, 5vw, 58px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+:root[data-design="anthropic"] .page-intro > p:last-child {
+  max-width: 680px;
+  font-size: 16px;
+  line-height: 1.72;
+}
+
+:root[data-design="anthropic"] .kicker,
+:root[data-design="anthropic"] .section-number,
+:root[data-design="anthropic"] .navigation__index {
+  color: var(--anthropic-orange);
+  font-family: Consolas, monospace;
+}
+
+:root[data-design="anthropic"] .status,
+:root[data-design="anthropic"] .panel-section--wide,
+:root[data-design="anthropic"] .split-layout,
+:root[data-design="anthropic"] .preview-section,
+:root[data-design="anthropic"] .history-list,
+:root[data-design="anthropic"] .help-accordions,
+:root[data-design="anthropic"] .about-card,
+:root[data-design="anthropic"] .about-profile__copy,
+:root[data-design="anthropic"] .privacy-card {
+  border-radius: 8px;
+}
+
+:root[data-design="anthropic"] .panel-section,
+:root[data-design="anthropic"] .about-profile__copy {
+  background: var(--surface);
+}
+
+:root[data-design="anthropic"] .button {
+  border-radius: 5px;
+}
+
+:root[data-design="anthropic"] .button--primary {
+  color: #141413;
+  background: var(--anthropic-orange);
+}
+
+:root[data-design="anthropic"] .personalization-preview {
+  border-color: var(--anthropic-orange);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--anthropic-orange) 9%, var(--surface));
+}
+
+:root[data-design="anthropic"] .personalization-preview::before {
+  color: var(--anthropic-blue);
+  content: "●  ●  ●";
+  font: 10px Consolas, monospace;
+  letter-spacing: 0.45em;
+}
+
+:root[data-design="anthropic"] .about-card__statement {
+  border-left-color: var(--anthropic-orange);
+  background: color-mix(in srgb, var(--anthropic-orange) 8%, var(--surface));
+}
+
+:root[data-design="anthropic"] .about-github {
+  border-radius: 8px;
+  background: var(--anthropic-green);
+}
+
+/* Playful Neo-Brutalism: editorial tension, hard edges, warm paper. */
+:root[data-design="neo-brutalism"] {
+  --canvas: #f1e5ce;
+  --surface: #fff8e8;
+  --surface-subtle: #ffd469;
+  --ink: #15110f;
+  --muted: #5f5147;
+  --faint: #7c6b5d;
+  --line: #15110f;
+  --line-strong: #15110f;
+  --inverse: #15110f;
+  --inverse-ink: #fff8e8;
+  --success: #3f9f66;
+  --danger: #e95344;
+  --focus: #15110f;
+  --neo-coral: #ff735f;
+  --neo-amber: #ffc94c;
+  --neo-pink: #ff4fb3;
+  --neo-blue: #78b9ff;
+  --hard-shadow: 7px 7px 0 #15110f;
+  --sidebar-width: 196px;
+  font-family: Manrope, "Aptos Display", Bahnschrift, sans-serif;
+}
+
+:root[data-design="neo-brutalism"][data-theme="dark"] {
+  --canvas: #17120f;
+  --surface: #251d18;
+  --surface-subtle: #443126;
+  --ink: #fff4dc;
+  --muted: #d4bfa7;
+  --faint: #aa927d;
+  --line: #f4cc78;
+  --line-strong: #fff4dc;
+  --inverse: #fff4dc;
+  --inverse-ink: #17120f;
+  --success: #6cc98b;
+  --danger: #ff806f;
+  --focus: #ffc94c;
+  --hard-shadow: 7px 7px 0 #050403;
+}
+
+:root[data-design="neo-brutalism"] .sidebar {
+  padding: 16px 12px;
+  border-right: 3px solid var(--line);
+  background: var(--neo-amber);
+}
+
+:root[data-design="neo-brutalism"][data-theme="dark"] .sidebar {
+  background: #3a281e;
+}
+
+:root[data-design="neo-brutalism"] .brand {
+  padding-bottom: 20px;
+}
+
+:root[data-design="neo-brutalism"] .brand__logo {
+  border: 2px solid #15110f;
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 #15110f;
+}
+
+:root[data-design="neo-brutalism"] .brand__copy strong,
+:root[data-design="neo-brutalism"] h1,
+:root[data-design="neo-brutalism"] h2,
+:root[data-design="neo-brutalism"] h3 {
+  font-weight: 850;
+}
+
+:root[data-design="neo-brutalism"] .navigation {
+  gap: 7px;
+}
+
+:root[data-design="neo-brutalism"] .navigation__item {
+  min-height: 38px;
+  border: 2px solid transparent;
+  border-radius: 1px;
+  color: #15110f;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+:root[data-design="neo-brutalism"][data-theme="dark"] .navigation__item {
+  color: var(--ink);
+}
+
+:root[data-design="neo-brutalism"] .navigation__item:hover {
+  border-color: #15110f;
+  background: #fff8e8;
+}
+
+:root[data-design="neo-brutalism"] .navigation__item.is-active {
+  border-color: #15110f;
+  color: #15110f;
+  background: var(--neo-pink);
+  box-shadow: 4px 4px 0 #15110f;
+}
+
+:root[data-design="neo-brutalism"] .navigation__item.is-active::before {
+  display: none;
+}
+
+:root[data-design="neo-brutalism"] .topbar {
+  min-height: 72px;
+  padding-inline: 22px;
+  border-bottom: 3px solid var(--line);
+  background: var(--neo-coral);
+}
+
+:root[data-design="neo-brutalism"][data-theme="dark"] .topbar {
+  color: #15110f;
+}
+
+:root[data-design="neo-brutalism"] .page {
+  width: min(1160px, 100%);
+  margin-left: 0;
+  padding-top: 36px;
+}
+
+:root[data-design="neo-brutalism"] .page-intro {
+  position: relative;
+  max-width: 100%;
+  padding-right: 150px;
+}
+
+:root[data-design="neo-brutalism"] .page-intro::after {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  padding: 8px 12px;
+  border: 2px solid #15110f;
+  color: #15110f;
+  background: var(--neo-amber);
+  box-shadow: 4px 4px 0 #15110f;
+  content: "LOCAL / SIGNAL";
+  font: 700 9px Consolas, monospace;
+  letter-spacing: 0.12em;
+  transform: rotate(2deg);
+}
+
+:root[data-design="neo-brutalism"] h2 {
+  max-width: 760px;
+  font-size: clamp(44px, 6vw, 72px);
+  font-weight: 900;
+  line-height: 0.94;
+  letter-spacing: -0.07em;
+}
+
+:root[data-design="neo-brutalism"] .kicker,
+:root[data-design="neo-brutalism"] .section-number,
+:root[data-design="neo-brutalism"] .navigation__index {
+  color: currentColor;
+  font-family: Consolas, monospace;
+  font-weight: 800;
+}
+
+:root[data-design="neo-brutalism"] .status {
+  border: 2px solid #15110f;
+  border-radius: 2px;
+  color: #15110f;
+  background: #fff8e8;
+  box-shadow: 3px 3px 0 #15110f;
+  font-family: Consolas, monospace;
+  font-weight: 700;
+}
+
+:root[data-design="neo-brutalism"] .split-layout,
+:root[data-design="neo-brutalism"] .panel-section--wide,
+:root[data-design="neo-brutalism"] .preview-section,
+:root[data-design="neo-brutalism"] .history-list,
+:root[data-design="neo-brutalism"] .help-accordions,
+:root[data-design="neo-brutalism"] .about-card,
+:root[data-design="neo-brutalism"] .about-profile__copy,
+:root[data-design="neo-brutalism"] .privacy-card,
+:root[data-design="neo-brutalism"] .personalization-card {
+  overflow: visible;
+  border: 2px solid var(--line);
+  border-radius: 2px;
+  box-shadow: var(--hard-shadow);
+}
+
+:root[data-design="neo-brutalism"] .panel-section {
+  background: var(--surface);
+}
+
+:root[data-design="neo-brutalism"] input,
+:root[data-design="neo-brutalism"] select,
+:root[data-design="neo-brutalism"] textarea,
+:root[data-design="neo-brutalism"] .personalization-fieldset {
+  border-width: 2px;
+  border-color: var(--line);
+  border-radius: 2px;
+}
+
+:root[data-design="neo-brutalism"] .button {
+  border: 2px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 var(--line);
+  font-family: Consolas, monospace;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+:root[data-design="neo-brutalism"] .button:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--line);
+}
+
+:root[data-design="neo-brutalism"] .button:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+:root[data-design="neo-brutalism"] .button--primary {
+  color: #15110f;
+  background: var(--neo-pink);
+}
+
+:root[data-design="neo-brutalism"] .personalization-preview {
+  position: relative;
+  overflow: visible;
+  border: 2px solid var(--line);
+  border-radius: 2px;
+  background: var(--neo-blue);
+  box-shadow: 6px 6px 0 var(--line);
+}
+
+:root[data-design="neo-brutalism"] .personalization-preview::after {
+  position: absolute;
+  top: -14px;
+  right: 18px;
+  padding: 5px 9px;
+  border: 2px solid #15110f;
+  color: #15110f;
+  background: var(--neo-coral);
+  content: "LIVE!";
+  font: 800 10px Consolas, monospace;
+  transform: rotate(4deg);
+}
+
+:root[data-design="neo-brutalism"] .design-choice {
+  border: 2px solid var(--line);
+  border-radius: 2px;
+}
+
+:root[data-design="neo-brutalism"] .design-choice:has(input:checked) {
+  box-shadow: 4px 4px 0 var(--line);
+  transform: translate(-2px, -2px);
+}
+
+:root[data-design="neo-brutalism"] .about-card__statement {
+  border-left: 2px solid var(--line);
+  background: var(--neo-amber);
+  color: #15110f;
+}
+
+:root[data-design="neo-brutalism"] .about-card__statement p {
+  color: #15110f;
+}
+
+:root[data-design="neo-brutalism"] .about-github {
+  border: 2px solid var(--line);
+  border-radius: 2px;
+  color: #15110f;
+  background: var(--neo-coral);
+  box-shadow: 6px 6px 0 var(--line);
+}
+
 @media (max-width: 930px) {
   :root {
     --sidebar-width: 184px;
@@ -2072,6 +2683,89 @@ input[type="range"] {
   .about-card__statement {
     border-top: 1px solid var(--line);
     border-left: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  html,
+  body {
+    min-width: 0;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sidebar {
+    padding: 9px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand,
+  .sidebar__footer {
+    display: none;
+  }
+
+  .navigation {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .navigation__item {
+    flex: 0 0 auto;
+    grid-template-columns: 20px auto;
+    min-width: 112px;
+  }
+
+  .topbar {
+    min-height: 62px;
+    padding-inline: 14px;
+  }
+
+  .status-strip {
+    display: none;
+  }
+
+  .now-playing {
+    width: min(320px, 52vw);
+    min-width: 210px;
+  }
+
+  .page {
+    padding: 28px 16px 44px;
+  }
+
+  .split-layout,
+  .personalization-grid,
+  .design-picker__grid,
+  .about-profile {
+    grid-template-columns: 1fr;
+  }
+
+  .split-layout .panel-section + .panel-section {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .rgb-controls {
+    grid-template-columns: repeat(2, minmax(90px, 1fr));
+  }
+
+  :root[data-design="neo-brutalism"] .page-intro {
+    padding-right: 0;
+  }
+
+  :root[data-design="neo-brutalism"] .page-intro::after {
+    position: static;
+    display: inline-block;
+    margin: 4px 0 20px;
+  }
+
+  :root[data-design="neo-brutalism"] h2 {
+    font-size: clamp(38px, 12vw, 58px);
   }
 }
 
