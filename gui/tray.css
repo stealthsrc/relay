@@ -1,5 +1,19 @@
 :root {
   color-scheme: dark;
+  --tray-bg: #141413;
+  --tray-surface: #191918;
+  --tray-surface-raised: #232321;
+  --tray-ink: #f5f5f1;
+  --tray-muted: #95958e;
+  --tray-faint: #85857e;
+  --tray-line: #343431;
+  --tray-line-strong: #55554f;
+  --tray-action: #f5f5f1;
+  --tray-action-ink: #121211;
+  --tray-success: #58b989;
+  --tray-danger: #ed7069;
+  --tray-radius: 18px;
+  --tray-radius-small: 12px;
   font-family: Bahnschrift, "Segoe UI Variable Text", sans-serif;
   background: transparent;
 }
@@ -360,6 +374,252 @@ button:focus-visible {
 button:disabled {
   cursor: wait;
   opacity: 0.55;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-design="openai"][data-theme="light"] {
+  --tray-bg: #f7f7f4;
+  --tray-surface: #ffffff;
+  --tray-surface-raised: #eeeeea;
+  --tray-ink: #111110;
+  --tray-muted: #6d6d67;
+  --tray-faint: #85857e;
+  --tray-line: #d4d4ce;
+  --tray-line-strong: #a5a59e;
+  --tray-action: #111110;
+  --tray-action-ink: #ffffff;
+  --tray-success: #16804d;
+  --tray-danger: #c43c36;
+}
+
+:root[data-design="anthropic"] {
+  --tray-bg: #141413;
+  --tray-surface: #1f1f1d;
+  --tray-surface-raised: #2a2925;
+  --tray-ink: #faf9f5;
+  --tray-muted: #b0aea5;
+  --tray-faint: #85837b;
+  --tray-line: #44423c;
+  --tray-line-strong: #6a675e;
+  --tray-action: #d97757;
+  --tray-action-ink: #141413;
+  --tray-success: #99aa79;
+  --tray-danger: #e28b70;
+  --tray-radius: 8px;
+  --tray-radius-small: 6px;
+  font-family: Lora, Georgia, serif;
+}
+
+:root[data-design="anthropic"][data-theme="light"] {
+  --tray-bg: #faf9f5;
+  --tray-surface: #f0eee6;
+  --tray-surface-raised: #e8e6dc;
+  --tray-ink: #141413;
+  --tray-muted: #65635d;
+  --tray-faint: #85837b;
+  --tray-line: #c9c6ba;
+  --tray-line-strong: #9b988e;
+  --tray-action: #d97757;
+  --tray-action-ink: #141413;
+  --tray-success: #788c5d;
+  --tray-danger: #b85f49;
+}
+
+:root[data-design="neo-brutalism"] {
+  --tray-bg: #251d18;
+  --tray-surface: #33251e;
+  --tray-surface-raised: #443126;
+  --tray-ink: #fff4dc;
+  --tray-muted: #d4bfa7;
+  --tray-faint: #aa927d;
+  --tray-line: #f4cc78;
+  --tray-line-strong: #fff4dc;
+  --tray-action: #ff4fb3;
+  --tray-action-ink: #15110f;
+  --tray-success: #6cc98b;
+  --tray-danger: #ff806f;
+  --tray-radius: 2px;
+  --tray-radius-small: 2px;
+  font-family: Manrope, "Aptos Display", Bahnschrift, sans-serif;
+}
+
+:root[data-design="neo-brutalism"][data-theme="light"] {
+  --tray-bg: #fff8e8;
+  --tray-surface: #f1e5ce;
+  --tray-surface-raised: #ffc94c;
+  --tray-ink: #15110f;
+  --tray-muted: #5f5147;
+  --tray-faint: #7c6b5d;
+  --tray-line: #15110f;
+  --tray-line-strong: #15110f;
+  --tray-action: #ff4fb3;
+  --tray-action-ink: #15110f;
+  --tray-success: #3f9f66;
+  --tray-danger: #e95344;
+}
+
+body {
+  color: var(--tray-ink);
+}
+
+.tray-panel {
+  border-color: var(--tray-line);
+  border-radius: var(--tray-radius);
+  background: var(--tray-bg);
+}
+
+.tray-logo {
+  border-color: var(--tray-line);
+  background: var(--tray-surface);
+}
+
+.eyebrow,
+.status-label,
+.section-label,
+.tray-footer {
+  color: var(--tray-faint);
+}
+
+.relay-indicator {
+  border-color: var(--tray-line);
+  background: var(--tray-muted);
+}
+
+.relay-indicator.is-online,
+.tray-footer i {
+  background: var(--tray-success);
+}
+
+.relay-indicator.is-error {
+  background: var(--tray-danger);
+}
+
+.status-rack,
+.widget-row {
+  border-color: var(--tray-line);
+  border-radius: var(--tray-radius-small);
+  background: var(--tray-surface);
+}
+
+.status-cell + .status-cell {
+  border-left-color: var(--tray-line);
+}
+
+.status-cell small,
+.widget-copy small,
+.section-label small,
+.tray-footer button {
+  color: var(--tray-muted);
+}
+
+.primary-action {
+  border-radius: var(--tray-radius-small);
+  color: var(--tray-action-ink);
+  background: var(--tray-action);
+}
+
+.primary-action:hover {
+  background: color-mix(in srgb, var(--tray-action) 84%, white);
+}
+
+.primary-action small {
+  color: color-mix(in srgb, var(--tray-action-ink) 62%, transparent);
+}
+
+.widget-icon,
+.chip,
+.icon-button {
+  border-color: var(--tray-line);
+  color: var(--tray-ink);
+  background: var(--tray-surface-raised);
+}
+
+.chip:hover,
+.icon-button:hover {
+  border-color: var(--tray-line-strong);
+  color: var(--tray-ink);
+  background: color-mix(in srgb, var(--tray-surface-raised) 76%, var(--tray-ink));
+}
+
+.tray-footer button:hover {
+  color: var(--tray-danger);
+  background: color-mix(in srgb, var(--tray-danger) 9%, transparent);
+}
+
+:root[data-design="anthropic"] .tray-brand strong,
+:root[data-design="anthropic"] .primary-action,
+:root[data-design="anthropic"] .chip {
+  font-family: Poppins, "Segoe UI", sans-serif;
+}
+
+:root[data-design="anthropic"] .tray-logo {
+  border-radius: 50% 50% 8px 50%;
+}
+
+:root[data-design="anthropic"] .widget-icon--signal {
+  color: #788c5d;
+}
+
+:root[data-design="anthropic"] .widget-row:first-of-type .widget-icon {
+  color: #6a9bcc;
+}
+
+:root[data-design="neo-brutalism"] .tray-panel {
+  padding: 13px;
+  border-width: 2px;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--tray-line) 22%, transparent);
+}
+
+:root[data-design="neo-brutalism"] .tray-logo,
+:root[data-design="neo-brutalism"] .status-rack,
+:root[data-design="neo-brutalism"] .widget-row,
+:root[data-design="neo-brutalism"] .primary-action,
+:root[data-design="neo-brutalism"] .chip,
+:root[data-design="neo-brutalism"] .icon-button {
+  border-width: 2px;
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 #050403;
+}
+
+:root[data-design="neo-brutalism"][data-theme="light"] .tray-logo,
+:root[data-design="neo-brutalism"][data-theme="light"] .status-rack,
+:root[data-design="neo-brutalism"][data-theme="light"] .widget-row,
+:root[data-design="neo-brutalism"][data-theme="light"] .primary-action,
+:root[data-design="neo-brutalism"][data-theme="light"] .chip,
+:root[data-design="neo-brutalism"][data-theme="light"] .icon-button {
+  box-shadow: 3px 3px 0 #15110f;
+}
+
+:root[data-design="neo-brutalism"] .tray-brand strong,
+:root[data-design="neo-brutalism"] .primary-action strong {
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+
+:root[data-design="neo-brutalism"] .status-label,
+:root[data-design="neo-brutalism"] .section-label,
+:root[data-design="neo-brutalism"] .primary-action small,
+:root[data-design="neo-brutalism"] .chip,
+:root[data-design="neo-brutalism"] .tray-footer {
+  font-family: Consolas, monospace;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+:root[data-design="neo-brutalism"] .widget-section {
+  gap: 9px;
+}
+
+:root[data-design="neo-brutalism"] .widget-icon {
+  color: #15110f;
+  background: #ffc94c;
+}
+
+:root[data-design="neo-brutalism"] .widget-icon--signal {
+  background: #ff735f;
 }
 
 @media (prefers-reduced-motion: reduce) {

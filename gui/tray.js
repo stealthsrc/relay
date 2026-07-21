@@ -15,8 +15,14 @@ function translate(key) {
 
 function applyTrayLanguage() {
   const storedLanguage = localStorage.getItem("relay-language");
+  const storedDesign = localStorage.getItem("relay-design");
+  const storedTheme = localStorage.getItem("relay-theme");
   language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
   document.documentElement.lang = language;
+  document.documentElement.dataset.design = ["anthropic", "neo-brutalism"].includes(storedDesign)
+    ? storedDesign
+    : "openai";
+  document.documentElement.dataset.theme = storedTheme === "light" ? "light" : "dark";
   for (const element of document.querySelectorAll("[data-i18n]")) {
     element.textContent = translate(element.dataset.i18n);
   }
