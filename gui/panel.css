@@ -2345,6 +2345,7 @@ input[type="range"] {
 
 :root[data-design="anthropic"] .about-github {
   border-radius: 8px;
+  color: #141413;
   background: var(--anthropic-green);
 }
 
