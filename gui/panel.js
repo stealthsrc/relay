@@ -538,6 +538,23 @@ Object.assign(translations.de, {
   updateCheckFailed: "Update-Prüfung fehlgeschlagen:", updateInstallFailed: "Update fehlgeschlagen:",
 });
 
+Object.assign(translations.en, {
+  designLabel: "Design", openaiDesignCopy: "Precise, calm and utilitarian.",
+  anthropicDesignCopy: "Warm, literary and human.", neoDesignCopy: "Bold, editorial and playful.",
+});
+Object.assign(translations.fr, {
+  designLabel: "Design", openaiDesignCopy: "Précis, calme et utilitaire.",
+  anthropicDesignCopy: "Chaleureux, littéraire et humain.", neoDesignCopy: "Audacieux, éditorial et ludique.",
+});
+Object.assign(translations.es, {
+  designLabel: "Diseño", openaiDesignCopy: "Preciso, sereno y funcional.",
+  anthropicDesignCopy: "Cálido, literario y humano.", neoDesignCopy: "Audaz, editorial y divertido.",
+});
+Object.assign(translations.de, {
+  designLabel: "Designstil", openaiDesignCopy: "Präzise, ruhig und funktional.",
+  anthropicDesignCopy: "Warm, literarisch und menschlich.", neoDesignCopy: "Mutig, redaktionell und verspielt.",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -655,6 +672,7 @@ const previewElement = $("#preview");
 const outputGeometryGridElement = $("#output-geometry-grid");
 const interfaceLanguageElement = $("#interface-language");
 const interfaceThemeElement = $("#interface-theme");
+const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
 const accentPickerElement = $("#accent-picker");
 const fontScaleElement = $("#font-scale");
@@ -698,8 +716,11 @@ let statusTimer;
 let isUnloading = false;
 let currentPage = "overview";
 const supportedLanguages = ["en", "fr", "es", "de"];
+const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
 let language = localStorage.getItem("relay-language") || "en";
 if (!supportedLanguages.includes(language)) language = "en";
+let design = localStorage.getItem("relay-design") || "openai";
+if (!supportedDesigns.includes(design)) design = "openai";
 let theme = localStorage.getItem("relay-theme")
   || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let accentRgb = parseStoredAccent();
@@ -790,6 +811,16 @@ function applyTheme() {
   localStorage.setItem("relay-theme", theme);
   themeValueElement.textContent = t(theme);
   invoke("set_window_theme", { theme }).catch(() => {});
+}
+
+function applyDesign() {
+  document.documentElement.dataset.design = design;
+  localStorage.setItem("relay-design", design);
+  for (const input of designInputs) input.checked = input.value === design;
+  for (const element of $$('[data-relay-base-font-size]')) {
+    element.style.removeProperty("font-size");
+    delete element.dataset.relayBaseFontSize;
+  }
 }
 
 function activeAudioPlayback() {
@@ -1730,6 +1761,14 @@ interfaceThemeElement.addEventListener("change", () => {
   applyPersonalization();
 });
 
+for (const input of designInputs) {
+  input.addEventListener("change", () => {
+    design = input.value;
+    applyDesign();
+    applyPersonalization();
+  });
+}
+
 for (const [index, input] of accentInputs.entries()) {
   input.addEventListener("input", () => {
     accentRgb[index] = clamp(input.value, 0, 255);
@@ -1750,10 +1789,12 @@ fontScaleElement.addEventListener("input", () => {
 resetPersonalizationButton.addEventListener("click", () => {
   language = "en";
   theme = "dark";
+  design = "openai";
   accentRgb = [88, 185, 137];
   fontScale = 100;
   applyLanguage();
   applyTheme();
+  applyDesign();
   applyPersonalization();
 });
 
@@ -2022,6 +2063,7 @@ window.addEventListener("beforeunload", () => {
 initializeOutputGeometryControls();
 applyLanguage();
 applyTheme();
+applyDesign();
 applyPersonalization();
 showPage(currentPage);
 

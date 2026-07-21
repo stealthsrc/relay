@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-design="openai">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -965,6 +965,35 @@
                   </select>
                 </label>
               </div>
+              <fieldset class="design-picker">
+                <legend data-i18n="designLabel">Design</legend>
+                <div class="design-picker__grid">
+                  <label class="design-choice design-choice--openai">
+                    <input type="radio" name="interface-design" value="openai" checked>
+                    <span class="design-choice__preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="design-choice__copy">
+                      <strong>OpenAI</strong>
+                      <small data-i18n="openaiDesignCopy">Precise, calm and utilitarian.</small>
+                    </span>
+                  </label>
+                  <label class="design-choice design-choice--anthropic">
+                    <input type="radio" name="interface-design" value="anthropic">
+                    <span class="design-choice__preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="design-choice__copy">
+                      <strong>Anthropic</strong>
+                      <small data-i18n="anthropicDesignCopy">Warm, literary and human.</small>
+                    </span>
+                  </label>
+                  <label class="design-choice design-choice--neo-brutalism">
+                    <input type="radio" name="interface-design" value="neo-brutalism">
+                    <span class="design-choice__preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="design-choice__copy">
+                      <strong>Neo-Brutalism</strong>
+                      <small data-i18n="neoDesignCopy">Bold, editorial and playful.</small>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
               <fieldset class="personalization-fieldset">
                 <legend data-i18n="accentColor">Accent color</legend>
                 <div class="rgb-controls">
