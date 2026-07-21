@@ -13,26 +13,26 @@
         <div class="tray-brand">
           <strong>Relay</strong>
         </div>
-        <span id="relay-indicator" class="relay-indicator" aria-label="Relay status"></span>
+        <span id="relay-indicator" class="relay-indicator" aria-label="Relay status" data-i18n-aria="relayStatus"></span>
       </header>
 
-      <section class="status-rack" aria-label="Connection status">
+      <section class="status-rack" aria-label="Connection status" data-i18n-aria="connectionStatus">
         <div class="status-cell">
-          <span class="status-label">Discord</span>
-          <strong id="discord-status">Checking</strong>
-          <small id="discord-detail">Connecting…</small>
+          <span class="status-label" data-i18n="discord">Discord</span>
+          <strong id="discord-status" data-i18n="checking">Checking</strong>
+          <small id="discord-detail" data-i18n="connecting">Connecting…</small>
         </div>
         <div class="status-cell">
-          <span class="status-label">Local relay</span>
-          <strong id="server-status">Checking</strong>
-          <small id="server-detail">0 outputs</small>
+          <span class="status-label" data-i18n="localRelay">Local relay</span>
+          <strong id="server-status" data-i18n="checking">Checking</strong>
+          <small id="server-detail" data-i18n="zeroOutputs">0 outputs</small>
         </div>
       </section>
 
       <button id="open-panel" class="primary-action" type="button">
         <span>
-          <small>System</small>
-          <strong>Open control panel</strong>
+          <small data-i18n="system">System</small>
+          <strong data-i18n="openPanel">Open control panel</strong>
         </span>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M7 4.5 12.5 10 7 15.5"></path>
@@ -41,7 +41,7 @@
 
       <section class="widget-section">
         <div class="section-label">
-          <span>Display widgets</span>
+          <span data-i18n="displayWidgets">Display widgets</span>
           <small>Windows</small>
         </div>
 
@@ -49,7 +49,7 @@
           <div class="widget-copy">
             <span class="widget-icon" aria-hidden="true">M</span>
             <span>
-              <strong>Media overlay</strong>
+              <strong data-i18n="mediaOverlay">Media overlay</strong>
               <small id="media-widget-state">Hidden</small>
             </span>
           </div>
@@ -68,7 +68,7 @@
           <div class="widget-copy">
             <span class="widget-icon widget-icon--signal" aria-hidden="true">T</span>
             <span>
-              <strong>TTS notifications</strong>
+              <strong data-i18n="ttsNotifications">TTS notifications</strong>
               <small id="notification-widget-state">Hidden</small>
             </span>
           </div>
@@ -85,8 +85,8 @@
       </section>
 
       <footer class="tray-footer">
-        <span><i aria-hidden="true"></i> Running locally</span>
-        <button id="quit" type="button">Quit Relay</button>
+        <span><i aria-hidden="true"></i> <span data-i18n="runningLocally">Running locally</span></span>
+        <button id="quit" type="button" data-i18n="quitRelay">Quit Relay</button>
       </footer>
     </main>
     <script src="tray.js" defer></script>

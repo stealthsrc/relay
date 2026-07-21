@@ -1,5 +1,30 @@
 const invoke = window.__TAURI__.core.invoke;
 
+const trayTranslations = {
+  en: { relayStatus: "Relay status", connectionStatus: "Connection status", discord: "Discord", localRelay: "Local relay", system: "System", openPanel: "Open control panel", displayWidgets: "Display widgets", mediaOverlay: "Media overlay", ttsNotifications: "TTS notifications", runningLocally: "Running locally", quitRelay: "Quit Relay", checking: "Checking", connecting: "Connecting…", zeroOutputs: "0 outputs", online: "Online", offline: "Offline", waitingDiscord: "Waiting for Discord", output: "output", outputs: "outputs", hidden: "Hidden", visibleLocked: "Visible · Locked", visibleMovable: "Visible · Movable", hide: "Hide", show: "Show", lock: "Lock", unlock: "Unlock", mediaWidget: "media widget", notificationWidget: "notification widget", unavailable: "Unavailable", notResponding: "Relay not responding" },
+  fr: { relayStatus: "Statut de Relay", connectionStatus: "État de la connexion", discord: "Discord", localRelay: "Relais local", system: "Système", openPanel: "Ouvrir le panneau de contrôle", displayWidgets: "Widgets d’affichage", mediaOverlay: "Overlay média", ttsNotifications: "Notifications TTS", runningLocally: "Exécution locale", quitRelay: "Quitter Relay", checking: "Vérification", connecting: "Connexion…", zeroOutputs: "0 sortie", online: "En ligne", offline: "Hors ligne", waitingDiscord: "En attente de Discord", output: "sortie", outputs: "sorties", hidden: "Masqué", visibleLocked: "Visible · Verrouillé", visibleMovable: "Visible · Déplaçable", hide: "Masquer", show: "Afficher", lock: "Verrouiller", unlock: "Déverrouiller", mediaWidget: "le widget média", notificationWidget: "le widget de notifications", unavailable: "Indisponible", notResponding: "Relay ne répond pas" },
+  es: { relayStatus: "Estado de Relay", connectionStatus: "Estado de la conexión", discord: "Discord", localRelay: "Relay local", system: "Sistema", openPanel: "Abrir el panel de control", displayWidgets: "Widgets de pantalla", mediaOverlay: "Overlay multimedia", ttsNotifications: "Notificaciones TTS", runningLocally: "Ejecución local", quitRelay: "Salir de Relay", checking: "Comprobando", connecting: "Conectando…", zeroOutputs: "0 salidas", online: "En línea", offline: "Sin conexión", waitingDiscord: "Esperando a Discord", output: "salida", outputs: "salidas", hidden: "Oculto", visibleLocked: "Visible · Bloqueado", visibleMovable: "Visible · Desplazable", hide: "Ocultar", show: "Mostrar", lock: "Bloquear", unlock: "Desbloquear", mediaWidget: "widget multimedia", notificationWidget: "widget de notificaciones", unavailable: "No disponible", notResponding: "Relay no responde" },
+  de: { relayStatus: "Relay-Status", connectionStatus: "Verbindungsstatus", discord: "Discord", localRelay: "Lokales Relay", system: "System", openPanel: "Bedienfeld öffnen", displayWidgets: "Anzeige-Widgets", mediaOverlay: "Medien-Overlay", ttsNotifications: "TTS-Benachrichtigungen", runningLocally: "Läuft lokal", quitRelay: "Relay beenden", checking: "Wird geprüft", connecting: "Verbindung…", zeroOutputs: "0 Ausgaben", online: "Online", offline: "Offline", waitingDiscord: "Warten auf Discord", output: "Ausgabe", outputs: "Ausgaben", hidden: "Ausgeblendet", visibleLocked: "Sichtbar · Gesperrt", visibleMovable: "Sichtbar · Verschiebbar", hide: "Ausblenden", show: "Anzeigen", lock: "Sperren", unlock: "Entsperren", mediaWidget: "Medien-Widget", notificationWidget: "Benachrichtigungs-Widget", unavailable: "Nicht verfügbar", notResponding: "Relay antwortet nicht" },
+};
+
+let language = "en";
+
+function translate(key) {
+  return trayTranslations[language]?.[key] || trayTranslations.en[key] || key;
+}
+
+function applyTrayLanguage() {
+  const storedLanguage = localStorage.getItem("relay-language");
+  language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
+  document.documentElement.lang = language;
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = translate(element.dataset.i18n);
+  }
+  for (const element of document.querySelectorAll("[data-i18n-aria]")) {
+    element.setAttribute("aria-label", translate(element.dataset.i18nAria));
+  }
+}
+
 const elements = {
   indicator: document.querySelector("#relay-indicator"),
   discordStatus: document.querySelector("#discord-status"),
@@ -18,12 +43,12 @@ const elements = {
 
 function renderWidget(state, stateElement, toggleButton, lockButton, name) {
   stateElement.textContent = state.visible
-    ? state.locked ? "Visible · Locked" : "Visible · Movable"
-    : "Hidden";
-  toggleButton.textContent = state.visible ? "Hide" : "Show";
+    ? translate(state.locked ? "visibleLocked" : "visibleMovable")
+    : translate("hidden");
+  toggleButton.textContent = translate(state.visible ? "hide" : "show");
   toggleButton.setAttribute("aria-pressed", String(state.visible));
   lockButton.classList.toggle("is-unlocked", !state.locked);
-  lockButton.setAttribute("aria-label", `${state.locked ? "Unlock" : "Lock"} ${name}`);
+  lockButton.setAttribute("aria-label", `${translate(state.locked ? "unlock" : "lock")} ${translate(name)}`);
   lockButton.setAttribute("aria-pressed", String(state.locked));
 }
 
@@ -32,29 +57,30 @@ function render(status) {
   elements.indicator.classList.toggle("is-online", relayOnline);
   elements.indicator.classList.toggle("is-error", !status.server.connected || Boolean(status.bot.error));
 
-  elements.discordStatus.textContent = status.bot.connected ? "Online" : "Offline";
-  elements.discordDetail.textContent = status.bot.username || status.bot.error || "Waiting for Discord";
-  elements.serverStatus.textContent = status.server.connected ? "Online" : "Offline";
-  elements.serverDetail.textContent = `${status.server.overlayClients} output${status.server.overlayClients === 1 ? "" : "s"}`;
+  elements.discordStatus.textContent = translate(status.bot.connected ? "online" : "offline");
+  elements.discordDetail.textContent = status.bot.username || status.bot.error || translate("waitingDiscord");
+  elements.serverStatus.textContent = translate(status.server.connected ? "online" : "offline");
+  elements.serverDetail.textContent = `${status.server.overlayClients} ${translate(status.server.overlayClients === 1 ? "output" : "outputs")}`;
 
-  renderWidget(status.widget, elements.mediaState, elements.toggleMedia, elements.lockMedia, "media widget");
+  renderWidget(status.widget, elements.mediaState, elements.toggleMedia, elements.lockMedia, "mediaWidget");
   renderWidget(
     status.notificationWidget,
     elements.notificationState,
     elements.toggleNotification,
     elements.lockNotification,
-    "notification widget",
+    "notificationWidget",
   );
 }
 
 async function refreshTray() {
+  applyTrayLanguage();
   try {
     render(await invoke("get_runtime_status"));
   } catch {
     elements.indicator.classList.remove("is-online");
     elements.indicator.classList.add("is-error");
-    elements.serverStatus.textContent = "Unavailable";
-    elements.serverDetail.textContent = "Relay not responding";
+    elements.serverStatus.textContent = translate("unavailable");
+    elements.serverDetail.textContent = translate("notResponding");
   }
 }
 
