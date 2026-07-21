@@ -11,6 +11,40 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-21
+
+### English
+
+#### Added
+
+- Added three selectable interface styles in Personalization: OpenAI, Anthropic, and Playful Neo-Brutalism, each with light and warm dark variants, keyboard focus, reduced-motion support, and narrow layouts.
+- Added Discord guild tags and badges beside author names in TTS notifications when the user enables their primary guild identity.
+
+#### Changed
+
+- The system tray now follows the interface language, theme, and selected design, including translated live status and widget controls.
+
+#### Fixed
+
+- Interface text scaling now applies the selected factor exactly once, preventing oversized or overflowing OpenAI text above 100%.
+- Narrow layouts now remain constrained to the viewport when using the Neo-Brutalism design.
+
+### Français
+
+#### Ajouté
+
+- Ajout de trois styles d’interface dans Personnalisation : OpenAI, Anthropic et Playful Neo-Brutalism, avec variantes claire et sombre chaude, focus clavier, réduction des animations et dispositions étroites.
+- Ajout des tags et badges de serveur Discord à côté du nom de l’auteur dans les notifications TTS lorsque l’identité du serveur principal est activée par l’utilisateur.
+
+#### Modifié
+
+- Le system tray suit désormais la langue, le thème et le design sélectionné dans l’interface, y compris pour les états en direct et les contrôles des widgets.
+
+#### Corrigé
+
+- La mise à l’échelle du texte applique désormais le facteur sélectionné une seule fois, empêchant les textes OpenAI surdimensionnés ou débordants au-dessus de 100 %.
+- Les dispositions étroites restent désormais contenues dans le viewport avec le design Neo-Brutalism.
+
 ## [1.1.23] - 2026-07-14
 
 ### English
@@ -213,7 +247,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.1.23...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/stealthsrc/relay/compare/v1.1.23...v1.2.0
 [1.1.23]: https://github.com/stealthsrc/relay/compare/v1.1.22...v1.1.23
 [1.1.22]: https://github.com/stealthsrc/relay/compare/v1.1.21...v1.1.22
 [1.1.21]: https://github.com/stealthsrc/relay/releases/tag/v1.1.21
