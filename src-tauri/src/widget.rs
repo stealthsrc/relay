@@ -55,13 +55,18 @@ pub async fn toggle(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> 
         }
         update_visibility(&core, false).await?;
     } else {
-        let window = ensure_window(app, core.clone()).await?;
-        window.show()?;
-        if !core.config.read().await.widget_locked {
-            let _ = window.set_focus();
-        }
-        update_visibility(&core, true).await?;
+        return show(app, core, true).await;
     }
+    Ok(state(app, &core).await)
+}
+
+pub async fn show(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Result<WidgetState> {
+    let window = ensure_window(app, core.clone()).await?;
+    window.show()?;
+    if focus && !core.config.read().await.widget_locked {
+        let _ = window.set_focus();
+    }
+    update_visibility(&core, true).await?;
     Ok(state(app, &core).await)
 }
 

@@ -12,7 +12,7 @@ use anyhow::Result;
 use axum::body::Bytes;
 use serenity::{cache::Cache, gateway::ShardManager, http::Http};
 use tokio::{
-    sync::{Mutex, RwLock, broadcast},
+    sync::{Mutex, RwLock, broadcast, mpsc, oneshot},
     task::JoinHandle,
 };
 
@@ -36,6 +36,7 @@ pub const PROCESSED_EMBED_LIMIT: usize = 500;
 pub const MEDIA_CACHE_ITEM_LIMIT: usize = 30;
 pub const MEDIA_CACHE_BYTE_LIMIT: usize = 100 * 1024 * 1024;
 const TTS_SYNTHESIS_TIMEOUT: Duration = Duration::from_secs(15);
+const MEDIA_DELIVERY_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Clone)]
 pub struct TtsAudio {
@@ -79,6 +80,11 @@ pub struct ServerRuntime {
     pub port: u16,
 }
 
+pub struct MediaDeliveryRequest {
+    pub kind: MediaKind,
+    pub ready: oneshot::Sender<()>,
+}
+
 pub struct AppCore {
     pub config: RwLock<AppConfig>,
     pub config_store: ConfigStore,
@@ -104,6 +110,7 @@ pub struct AppCore {
     pub interface_preferences: RwLock<InterfacePreferences>,
     pub processed_embed_ids: RwLock<VecDeque<String>>,
     pub cached_media: RwLock<VecDeque<CachedMedia>>,
+    media_delivery: RwLock<Option<mpsc::UnboundedSender<MediaDeliveryRequest>>>,
     next_moderation_id: AtomicU64,
 }
 
@@ -137,8 +144,13 @@ impl AppCore {
             interface_preferences: RwLock::new(InterfacePreferences::default()),
             processed_embed_ids: RwLock::new(VecDeque::with_capacity(PROCESSED_EMBED_LIMIT)),
             cached_media: RwLock::new(VecDeque::with_capacity(MEDIA_CACHE_ITEM_LIMIT)),
+            media_delivery: RwLock::new(None),
             next_moderation_id: AtomicU64::new(1),
         }))
+    }
+
+    pub async fn set_media_delivery(&self, sender: mpsc::UnboundedSender<MediaDeliveryRequest>) {
+        *self.media_delivery.write().await = Some(sender);
     }
 
     pub async fn set_config(&self, config: AppConfig) -> Result<()> {
@@ -290,12 +302,23 @@ impl AppCore {
     }
 
     pub async fn publish_media(&self, media: MediaEvent) {
+        self.prepare_media_delivery(media.kind).await;
         {
             let mut history = self.history.write().await;
             history.push_front(media.clone());
             history.truncate(HISTORY_LIMIT);
         }
         let _ = self.relay_tx.send(RelayEvent::Media(media));
+    }
+
+    async fn prepare_media_delivery(&self, kind: MediaKind) {
+        let Some(sender) = self.media_delivery.read().await.clone() else {
+            return;
+        };
+        let (ready, receiver) = oneshot::channel();
+        if sender.send(MediaDeliveryRequest { kind, ready }).is_ok() {
+            let _ = tokio::time::timeout(MEDIA_DELIVERY_TIMEOUT, receiver).await;
+        }
     }
 
     pub fn tts_pending_count(&self) -> usize {
@@ -425,7 +448,15 @@ mod tests {
         assert!(events.try_recv().is_err());
 
         let id = core.pending_media.read().await[0].id;
+        let (delivery, mut requests) = mpsc::unbounded_channel();
+        core.set_media_delivery(delivery).await;
+        let ready = tokio::spawn(async move {
+            let request = requests.recv().await.unwrap();
+            assert!(matches!(request.kind, MediaKind::Image));
+            request.ready.send(()).unwrap();
+        });
         assert!(core.approve_media(id).await);
+        ready.await.unwrap();
         assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
         assert_eq!(core.history.read().await.len(), 1);
         assert!(!core.reject_media(id).await);

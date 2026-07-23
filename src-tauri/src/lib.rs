@@ -11,7 +11,7 @@ mod tts;
 mod updater;
 mod widget;
 
-use std::{env, path::PathBuf, process::Command, sync::Arc};
+use std::{env, path::PathBuf, process::Command, sync::Arc, time::Duration};
 
 use tauri::{
     AppHandle, Manager, PhysicalPosition, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
@@ -31,9 +31,10 @@ use crate::{
         test_output, toggle_widget,
     },
     config::migrate_legacy_config,
+    model::{MediaKind, ServerStatus},
     notification_widget::restore as restore_notification_widget,
     server::start_server,
-    state::AppCore,
+    state::{AppCore, MediaDeliveryRequest},
     updater::{check_for_updates, download_and_install_update, get_app_version},
     widget::restore as restore_widget,
 };
@@ -98,6 +99,13 @@ pub fn run() {
                 if server_started {
                     let _ = restore_widget(&app_handle, core.clone()).await;
                     let _ = restore_notification_widget(&app_handle, core.clone()).await;
+                    let (media_delivery, requests) = tokio::sync::mpsc::unbounded_channel();
+                    core.set_media_delivery(media_delivery).await;
+                    tauri::async_runtime::spawn(deliver_media_to_local_widget(
+                        app_handle.clone(),
+                        core.clone(),
+                        requests,
+                    ));
                 }
                 if let Err(error) = start_bot(core.clone()).await {
                     core.bot_status.write().await.error = Some(error.to_string());
@@ -147,6 +155,48 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Relay");
+}
+
+async fn deliver_media_to_local_widget(
+    app: AppHandle,
+    core: Arc<AppCore>,
+    mut requests: tokio::sync::mpsc::UnboundedReceiver<MediaDeliveryRequest>,
+) {
+    while let Some(request) = requests.recv().await {
+        let should_wake = {
+            let status = core.server_status.read().await;
+            should_wake_media_widget(&status, request.kind)
+        };
+        if should_wake && widget::show(&app, core.clone(), false).await.is_ok() {
+            for _ in 0..40 {
+                let connected = {
+                    let status = core.server_status.read().await;
+                    media_widget_connected(&status)
+                };
+                if connected {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        }
+        let _ = request.ready.send(());
+    }
+}
+
+fn should_wake_media_widget(status: &ServerStatus, kind: MediaKind) -> bool {
+    if media_widget_connected(status) {
+        return false;
+    }
+    match kind {
+        MediaKind::Image | MediaKind::Gif | MediaKind::Video => {
+            status.outputs.visual.obs_clients == 0
+        }
+        MediaKind::Audio => status.outputs.audio.obs_clients == 0,
+    }
+}
+
+fn media_widget_connected(status: &ServerStatus) -> bool {
+    status.outputs.visual.widget_clients > 0 || status.outputs.audio.widget_clients > 0
 }
 
 fn register_skip_shortcut(app: &mut tauri::App, core: Arc<AppCore>) -> tauri::Result<()> {
