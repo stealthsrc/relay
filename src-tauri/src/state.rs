@@ -298,6 +298,10 @@ impl AppCore {
         let _ = self.relay_tx.send(RelayEvent::Media(media));
     }
 
+    pub fn tts_pending_count(&self) -> usize {
+        self.tts_pending_count.load(Ordering::SeqCst)
+    }
+
     pub fn publish_sticker(&self, sticker: StickerEvent) {
         let _ = self.relay_tx.send(RelayEvent::Sticker(sticker));
     }

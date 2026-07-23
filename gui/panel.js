@@ -344,7 +344,7 @@ Object.assign(translations.en, {
   navCommands: "Commands", commandsKicker: "Discord controls", commandsTitle: "Commands, under your control.",
   commandsCopy: "Enable only the Relay commands you want available in Discord.", commandsSettings: "Command availability",
   commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
-  commandShowHelp: "Show the active Relay configuration.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
+  commandShowHelp: "Show the active Relay configuration.", commandStatusHelp: "Show live output, queue, and widget status.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
   commandClearHelp: "Delete the requested number of messages from one Discord channel selected in the command.", commandLockHelp: "Toggle the configured media channel lock.",
   commandChangelogHelp: "Post the latest release notes from GitHub into a chosen channel.",
   commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
@@ -355,7 +355,7 @@ Object.assign(translations.fr, {
   navCommands: "Commandes", commandsKicker: "Contrôles Discord", commandsTitle: "Vos commandes, vos règles.",
   commandsCopy: "Activez uniquement les commandes Relay que vous souhaitez rendre disponibles dans Discord.", commandsSettings: "Disponibilité des commandes",
   commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
-  commandShowHelp: "Affiche la configuration Relay active.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
+  commandShowHelp: "Affiche la configuration Relay active.", commandStatusHelp: "Affiche l’état en direct des sorties, files et widgets.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
   commandClearHelp: "Supprime le nombre demandé de messages dans le salon Discord choisi dans la commande.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
   commandChangelogHelp: "Publie les dernières notes de version depuis GitHub dans le salon choisi.",
   commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
@@ -372,7 +372,7 @@ Object.assign(translations.es, {
   navCommands: "Comandos", commandsKicker: "Controles de Discord", commandsTitle: "Tus comandos, tus reglas.",
   commandsCopy: "Activa solo los comandos de Relay que quieras usar en Discord.", commandsSettings: "Disponibilidad de comandos",
   commandChannelHelp: "Elige el canal de medios de Discord.", commandUrlHelp: "Muestra de forma efímera las URL locales de Relay y OBS.",
-  commandShowHelp: "Muestra la configuración activa de Relay.", commandRegenerateHelp: "Reconecta las salidas locales sin cambiar sus URL.",
+  commandShowHelp: "Muestra la configuración activa de Relay.", commandStatusHelp: "Muestra el estado en directo de salidas, colas y widgets.", commandRegenerateHelp: "Reconecta las salidas locales sin cambiar sus URL.",
   commandClearHelp: "Elimina el número solicitado de mensajes del canal Discord elegido en el comando.", commandLockHelp: "Bloquea o desbloquea el canal de medios configurado.",
   commandChangelogHelp: "Publica las últimas notas de versión desde GitHub en el canal elegido.",
   commandLockInactive: "El canal de medios está desbloqueado.", commandLockActive: "El canal de medios está bloqueado. /relay lock sigue disponible para desbloquearlo.",
@@ -389,7 +389,7 @@ Object.assign(translations.de, {
   navCommands: "Befehle", commandsKicker: "Discord-Steuerung", commandsTitle: "Deine Befehle, deine Regeln.",
   commandsCopy: "Aktiviere nur die Relay-Befehle, die in Discord verfügbar sein sollen.", commandsSettings: "Befehlsverfügbarkeit",
   commandChannelHelp: "Wählt den Discord-Medienkanal.", commandUrlHelp: "Zeigt lokale Relay- und OBS-URLs ephemer an.",
-  commandShowHelp: "Zeigt die aktive Relay-Konfiguration.", commandRegenerateHelp: "Verbindet lokale Ausgaben neu, ohne ihre URLs zu ändern.",
+  commandShowHelp: "Zeigt die aktive Relay-Konfiguration.", commandStatusHelp: "Zeigt den Live-Status von Ausgaben, Warteschlangen und Widgets.", commandRegenerateHelp: "Verbindet lokale Ausgaben neu, ohne ihre URLs zu ändern.",
   commandClearHelp: "Löscht die angegebene Anzahl Nachrichten aus dem im Befehl gewählten Discord-Kanal.", commandLockHelp: "Sperrt oder entsperrt den konfigurierten Medienkanal.",
   commandChangelogHelp: "Veröffentlicht die neuesten Versionshinweise von GitHub im gewählten Kanal.",
   commandLockInactive: "Der Medienkanal ist derzeit entsperrt.", commandLockActive: "Der Medienkanal ist gesperrt. /relay lock bleibt zum Entsperren verfügbar.",
@@ -590,7 +590,7 @@ const commandsSaveStateElement = $("#commands-save-state");
 const channelLockStateElement = $("#channel-lock-state");
 const commandInputs = {
   channel: $("#command-channel"), url: $("#command-url"), show: $("#command-show"),
-  regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
+  status: $("#command-status"), regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
   changelog: $("#command-changelog"),
 };
 const clientIdElement = $("#client-id");
@@ -1288,6 +1288,7 @@ function applyConfig(config) {
   commandInputs.channel.checked = config.commandChannelEnabled !== false;
   commandInputs.url.checked = config.commandUrlEnabled !== false;
   commandInputs.show.checked = config.commandShowEnabled !== false;
+  commandInputs.status.checked = config.commandStatusEnabled !== false;
   commandInputs.regenerate.checked = config.commandRegenerateEnabled !== false;
   commandInputs.clear.checked = config.commandClearEnabled !== false;
   commandInputs.lock.checked = config.commandLockEnabled !== false;

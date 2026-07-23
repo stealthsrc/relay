@@ -25,7 +25,7 @@ use crate::{
     credentials::{load_discord_credentials, load_or_create_relay_secret},
     model::{
         AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
-        StickerEvent, TtsRequest, VisualSegment,
+        OutputConnectionStatus, ServerStatus, StickerEvent, TtsRequest, VisualSegment,
     },
     state::{AppCore, BotRuntime},
 };
@@ -665,6 +665,11 @@ fn relay_command() -> CreateCommand {
         ))
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
+            "status",
+            "Show live Relay, OBS, queue, and widget status",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
             "regenerate",
             "Reconnect local relay outputs without changing their URLs",
         ))
@@ -768,6 +773,7 @@ async fn handle_relay(
                 connection_details(&config, &secret)
             ))
         }
+        "status" => relay_status(core).await,
         "regenerate" => {
             let config = core.config.read().await.clone();
             let secret = load_or_create_relay_secret()?;
@@ -931,12 +937,107 @@ fn command_enabled(config: &AppConfig, command: &str) -> bool {
         "channel" => config.command_channel_enabled,
         "url" => config.command_url_enabled,
         "show" => config.command_show_enabled,
+        "status" => config.command_status_enabled,
         "regenerate" => config.command_regenerate_enabled,
         "clear" => config.command_clear_enabled,
         "lock" => config.command_lock_enabled,
         "changelog" => config.command_changelog_enabled,
         _ => false,
     }
+}
+
+async fn relay_status(core: &AppCore) -> Result<String> {
+    let config = core.config.read().await.clone();
+    let bot = core.bot_status.read().await.clone();
+    let server = core.server_status.read().await.clone();
+    let moderation_pending = core.pending_media.read().await.len();
+    Ok(format_relay_status(
+        &config,
+        &bot,
+        &server,
+        moderation_pending,
+        core.tts_pending_count(),
+    ))
+}
+
+fn format_relay_status(
+    config: &AppConfig,
+    bot: &BotStatus,
+    server: &ServerStatus,
+    moderation_pending: usize,
+    tts_pending: usize,
+) -> String {
+    let bot_state = if bot.connected {
+        bot.username
+            .as_deref()
+            .map(|username| format!("connected as {username}"))
+            .unwrap_or_else(|| "connected".into())
+    } else {
+        "disconnected".into()
+    };
+    let media_channel = if config.watched_channel_id.is_empty() {
+        "not configured".into()
+    } else {
+        format!("<#{}>", config.watched_channel_id)
+    };
+    let tts_channel = if config.tts_channel_id.is_empty() {
+        "disabled".into()
+    } else {
+        format!("<#{}>", config.tts_channel_id)
+    };
+    let moderation = if config.moderation_enabled {
+        format!("enabled ({moderation_pending} pending)")
+    } else {
+        "disabled".into()
+    };
+    let media_widget = widget_status(config.widget_visible, config.widget_locked);
+    let notification_widget = widget_status(
+        config.notification_widget_visible,
+        config.notification_widget_locked,
+    );
+
+    format!(
+        "**Relay status**\n\
+         Bot: {bot_state}\n\
+         Local server: {}\n\
+         Media channel: {media_channel}\n\
+         TTS channel: {tts_channel}\n\
+         Moderation: {moderation}\n\
+         TTS preparing: {tts_pending}\n\
+         Media widget: {media_widget}\n\
+         Notification widget: {notification_widget}\n\
+         **Connected outputs (OBS / widget / preview)**\n\
+         Visual: {}\n\
+         Audio: {}\n\
+         TTS: {}\n\
+         Notifications: {}\n\
+         Stickers: {}",
+        if server.connected {
+            "online"
+        } else {
+            "offline"
+        },
+        output_status(&server.outputs.visual),
+        output_status(&server.outputs.audio),
+        output_status(&server.outputs.tts),
+        output_status(&server.outputs.notification),
+        output_status(&server.outputs.sticker),
+    )
+}
+
+fn widget_status(visible: bool, locked: bool) -> &'static str {
+    match (visible, locked) {
+        (false, _) => "hidden",
+        (true, true) => "visible and locked",
+        (true, false) => "visible and movable",
+    }
+}
+
+fn output_status(status: &OutputConnectionStatus) -> String {
+    format!(
+        "{} / {} / {}",
+        status.obs_clients, status.widget_clients, status.preview_clients
+    )
 }
 
 async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String> {
@@ -1434,11 +1535,48 @@ mod tests {
     fn disables_commands_individually() {
         let config = AppConfig {
             command_clear_enabled: false,
+            command_status_enabled: false,
             ..AppConfig::default()
         };
         assert!(!command_enabled(&config, "clear"));
+        assert!(!command_enabled(&config, "status"));
         assert!(command_enabled(&config, "lock"));
         assert!(!command_enabled(&config, "unknown"));
+    }
+
+    #[test]
+    fn formats_live_status_for_obs_and_windows_outputs() {
+        let config = AppConfig {
+            watched_channel_id: "123456789012345678".into(),
+            tts_channel_id: "223456789012345678".into(),
+            moderation_enabled: true,
+            widget_visible: true,
+            widget_locked: true,
+            ..AppConfig::default()
+        };
+        let bot = BotStatus {
+            connected: true,
+            username: Some("Relay".into()),
+            ..BotStatus::default()
+        };
+        let mut server = ServerStatus {
+            connected: true,
+            ..ServerStatus::default()
+        };
+        server.outputs.visual.obs_clients = 1;
+        server.outputs.visual.widget_clients = 1;
+        server.outputs.notification.preview_clients = 1;
+
+        let status = format_relay_status(&config, &bot, &server, 3, 2);
+
+        assert!(status.contains("Bot: connected as Relay"));
+        assert!(status.contains("Media channel: <#123456789012345678>"));
+        assert!(status.contains("Moderation: enabled (3 pending)"));
+        assert!(status.contains("TTS preparing: 2"));
+        assert!(status.contains("Media widget: visible and locked"));
+        assert!(status.contains("Visual: 1 / 1 / 0"));
+        assert!(status.contains("Notifications: 0 / 0 / 1"));
+        assert!(!status.contains("secret"));
     }
 
     #[test]
