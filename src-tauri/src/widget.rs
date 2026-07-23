@@ -51,7 +51,7 @@ pub async fn toggle(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> 
 
     if is_visible {
         if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
-            window.hide()?;
+            window.close()?;
         }
         update_visibility(&core, false).await?;
     } else {

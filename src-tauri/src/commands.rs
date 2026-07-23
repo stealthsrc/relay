@@ -437,7 +437,7 @@ pub(crate) async fn emit_output_test(
             sticker: None,
         },
         OutputTestTarget::Audio => {
-            core.cache_audio(TEST_AUDIO_ID.into(), "audio/wav".into(), silent_wav())
+            core.cache_audio(TEST_AUDIO_ID.into(), "audio/wav".into(), test_tone_wav())
                 .await;
             OutputTestEvent {
                 target,
@@ -451,7 +451,7 @@ pub(crate) async fn emit_output_test(
             }
         }
         OutputTestTarget::Tts => {
-            core.cache_tts_audio(TEST_TTS_ID.into(), "audio/wav".into(), silent_wav())
+            core.cache_tts_audio(TEST_TTS_ID.into(), "audio/wav".into(), test_tone_wav())
                 .await;
             OutputTestEvent {
                 target,
@@ -538,9 +538,9 @@ fn test_media(kind: MediaKind, filename: &str, audio_id: Option<String>) -> Medi
     }
 }
 
-fn silent_wav() -> Vec<u8> {
-    const SAMPLE_RATE: u32 = 8_000;
-    const SAMPLE_COUNT: u32 = 1_600;
+fn test_tone_wav() -> Vec<u8> {
+    const SAMPLE_RATE: u32 = 16_000;
+    const SAMPLE_COUNT: u32 = SAMPLE_RATE * 3 / 5;
     const BYTES_PER_SAMPLE: u16 = 2;
     let data_length = SAMPLE_COUNT * u32::from(BYTES_PER_SAMPLE);
     let mut bytes = Vec::with_capacity(44 + data_length as usize);
@@ -556,7 +556,18 @@ fn silent_wav() -> Vec<u8> {
     bytes.extend_from_slice(&16_u16.to_le_bytes());
     bytes.extend_from_slice(b"data");
     bytes.extend_from_slice(&data_length.to_le_bytes());
-    bytes.resize(44 + data_length as usize, 0);
+    for index in 0..SAMPLE_COUNT {
+        let elapsed = index as f32 / SAMPLE_RATE as f32;
+        let fade_samples = SAMPLE_RATE / 50;
+        let attack = (index as f32 / fade_samples as f32).min(1.0);
+        let release = ((SAMPLE_COUNT - index) as f32 / fade_samples as f32).min(1.0);
+        let envelope = attack.min(release);
+        let sample = (f32::sin(std::f32::consts::TAU * 660.0 * elapsed)
+            * envelope
+            * 0.22
+            * f32::from(i16::MAX)) as i16;
+        bytes.extend_from_slice(&sample.to_le_bytes());
+    }
     bytes
 }
 
@@ -819,11 +830,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn creates_a_valid_silent_wav() {
-        let wav = silent_wav();
+    fn creates_an_audible_test_tone_wav() {
+        let wav = test_tone_wav();
         assert_eq!(&wav[..4], b"RIFF");
         assert_eq!(&wav[8..12], b"WAVE");
-        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 3_200);
+        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 19_200);
+        assert!(wav[44..].chunks_exact(2).any(|sample| {
+            i16::from_le_bytes(sample.try_into().expect("two-byte PCM sample")) != 0
+        }));
     }
 
     #[tokio::test]
