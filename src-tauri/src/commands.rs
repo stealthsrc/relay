@@ -97,6 +97,7 @@ pub struct CommandSettings {
     url: bool,
     show: bool,
     status: bool,
+    test: bool,
     regenerate: bool,
     clear: bool,
     lock: bool,
@@ -346,6 +347,7 @@ pub async fn save_command_settings(
         config.command_url_enabled = settings.url;
         config.command_show_enabled = settings.show;
         config.command_status_enabled = settings.status;
+        config.command_test_enabled = settings.test;
         config.command_regenerate_enabled = settings.regenerate;
         config.command_clear_enabled = settings.clear;
         config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
@@ -414,7 +416,10 @@ pub async fn test_output(
     emit_output_test(&core, target).await.map_err(display_error)
 }
 
-async fn emit_output_test(core: &AppCore, target: OutputTestTarget) -> anyhow::Result<()> {
+pub(crate) async fn emit_output_test(
+    core: &AppCore,
+    target: OutputTestTarget,
+) -> anyhow::Result<()> {
     const TEST_AUTHOR: &str = "Relay test";
     const TEST_AVATAR: &str = "/overlay-assets/relay-radar.png";
     const TEST_AUDIO_ID: &str = "999999999999999998";

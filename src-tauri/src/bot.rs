@@ -21,11 +21,13 @@ use serenity::{
 
 use crate::{
     artwork,
+    commands::emit_output_test,
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_or_create_relay_secret},
     model::{
         AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
-        OutputConnectionStatus, ServerStatus, StickerEvent, TtsRequest, VisualSegment,
+        OutputConnectionStatus, OutputTestTarget, ServerStatus, StickerEvent, TtsRequest,
+        VisualSegment,
     },
     state::{AppCore, BotRuntime},
 };
@@ -672,6 +674,26 @@ fn relay_command() -> CreateCommand {
             "status",
             "Show live Relay, OBS, queue, and widget status",
         ))
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "test",
+                "Send a local test to one connected output",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "output",
+                    "Output to test locally",
+                )
+                .add_string_choice("Media", "visual")
+                .add_string_choice("Audio", "audio")
+                .add_string_choice("TTS", "tts")
+                .add_string_choice("Notification", "notification")
+                .add_string_choice("Sticker", "sticker")
+                .required(true),
+            ),
+        )
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
             "regenerate",
@@ -778,6 +800,16 @@ async fn handle_relay(
             ))
         }
         "status" => relay_status(core).await,
+        "test" => {
+            let target = arguments
+                .iter()
+                .find_map(|argument| match &argument.value {
+                    CommandDataOptionValue::String(value) => output_test_target(value),
+                    _ => None,
+                })
+                .context("an output is required")?;
+            relay_output_test(core, target).await
+        }
         "regenerate" => {
             let config = core.config.read().await.clone();
             let secret = load_or_create_relay_secret()?;
@@ -942,6 +974,7 @@ fn command_enabled(config: &AppConfig, command: &str) -> bool {
         "url" => config.command_url_enabled,
         "show" => config.command_show_enabled,
         "status" => config.command_status_enabled,
+        "test" => config.command_test_enabled,
         "regenerate" => config.command_regenerate_enabled,
         "clear" => config.command_clear_enabled,
         "lock" => config.command_lock_enabled,
@@ -1042,6 +1075,58 @@ fn output_status(status: &OutputConnectionStatus) -> String {
         "{} / {} / {}",
         status.obs_clients, status.widget_clients, status.preview_clients
     )
+}
+
+async fn relay_output_test(core: &AppCore, target: OutputTestTarget) -> Result<String> {
+    let connected = {
+        let server = core.server_status.read().await;
+        connected_output_count(&server, target)
+    };
+    let label = output_test_label(target);
+    if connected == 0 {
+        return Ok(format!(
+            "No live {label} output is connected. Connect the matching OBS source or Windows output first."
+        ));
+    }
+    emit_output_test(core, target).await?;
+    Ok(format!(
+        "Local {label} test sent to {connected} connected output(s). Nothing was posted to Discord or added to Relay history."
+    ))
+}
+
+fn output_test_target(value: &str) -> Option<OutputTestTarget> {
+    match value {
+        "visual" | "media" => Some(OutputTestTarget::Visual),
+        "audio" => Some(OutputTestTarget::Audio),
+        "tts" => Some(OutputTestTarget::Tts),
+        "notification" => Some(OutputTestTarget::Notification),
+        "sticker" => Some(OutputTestTarget::Sticker),
+        _ => None,
+    }
+}
+
+fn connected_output_count(server: &ServerStatus, target: OutputTestTarget) -> usize {
+    if !server.connected {
+        return 0;
+    }
+    let status = match target {
+        OutputTestTarget::Visual => &server.outputs.visual,
+        OutputTestTarget::Audio => &server.outputs.audio,
+        OutputTestTarget::Tts => &server.outputs.tts,
+        OutputTestTarget::Notification => &server.outputs.notification,
+        OutputTestTarget::Sticker => &server.outputs.sticker,
+    };
+    status.obs_clients + status.widget_clients
+}
+
+fn output_test_label(target: OutputTestTarget) -> &'static str {
+    match target {
+        OutputTestTarget::Visual => "media",
+        OutputTestTarget::Audio => "audio",
+        OutputTestTarget::Tts => "TTS",
+        OutputTestTarget::Notification => "notification",
+        OutputTestTarget::Sticker => "sticker",
+    }
 }
 
 async fn toggle_channel_lock(core: &Arc<AppCore>, http: &Http) -> Result<String> {
@@ -1575,10 +1660,12 @@ mod tests {
         let config = AppConfig {
             command_clear_enabled: false,
             command_status_enabled: false,
+            command_test_enabled: false,
             ..AppConfig::default()
         };
         assert!(!command_enabled(&config, "clear"));
         assert!(!command_enabled(&config, "status"));
+        assert!(!command_enabled(&config, "test"));
         assert!(command_enabled(&config, "lock"));
         assert!(!command_enabled(&config, "unknown"));
     }
@@ -1635,6 +1722,59 @@ mod tests {
         assert_eq!(count["required"], true);
         assert_eq!(count["min_value"], 1);
         assert_eq!(count["max_value"], 1_000);
+    }
+
+    #[test]
+    fn test_command_exposes_every_local_output() {
+        let command = serde_json::to_value(relay_command()).unwrap();
+        let test = command["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|option| option["name"] == "test")
+            .unwrap();
+        let output = &test["options"][0];
+        assert_eq!(output["name"], "output");
+        assert_eq!(output["required"], true);
+        let values = output["choices"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|choice| choice["value"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            values,
+            vec!["visual", "audio", "tts", "notification", "sticker"]
+        );
+    }
+
+    #[tokio::test]
+    async fn discord_output_tests_require_a_live_output_and_bypass_history() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+
+        let unavailable = relay_output_test(&core, OutputTestTarget::Visual)
+            .await
+            .unwrap();
+        assert!(unavailable.contains("No live media output is connected"));
+
+        {
+            let mut server = core.server_status.write().await;
+            server.connected = true;
+            server.outputs.visual.obs_clients = 1;
+        }
+        let mut events = core.relay_tx.subscribe();
+        let confirmation = relay_output_test(&core, OutputTestTarget::Visual)
+            .await
+            .unwrap();
+
+        assert!(confirmation.contains("Local media test sent to 1 connected output"));
+        assert!(confirmation.contains("Nothing was posted to Discord"));
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            crate::model::RelayEvent::TestOutput(_)
+        ));
+        assert!(core.history.read().await.is_empty());
     }
 
     #[test]

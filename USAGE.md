@@ -121,6 +121,7 @@ Server **administrators** can manage Relay from Discord (replies are ephemeral):
 | `/relay channel <#channel>` | Set the watched media channel |
 | `/relay show` | Show the current configuration |
 | `/relay status` | Show live OBS output, queue, and Windows widget status |
+| `/relay test <media\|audio\|tts\|notification\|sticker>` | Send an isolated local test to a connected output |
 | `/relay url` | Get the overlay URL (with secret) |
 | `/relay regenerate` | Regenerate the overlay secret (old URLs stop working) |
 
