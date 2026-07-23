@@ -63,6 +63,7 @@ let reconnectDelayMs = 1000;
 let socket;
 let pendingPort;
 let isUnloading = false;
+let widgetPlaybackVisible = true;
 let lastAudioPlaybackReport = "";
 let mediaClockReady = !coordinatesSplitOutputs;
 let videoOutputBusy = false;
@@ -447,7 +448,7 @@ function startCurrentMedia(generation = playbackGeneration) {
 }
 
 function showNextMedia() {
-  if (currentMedia || queue.length === 0 || !mediaClockReady) return;
+  if ((isWidgetWindow && !widgetPlaybackVisible) || currentMedia || queue.length === 0 || !mediaClockReady) return;
   currentMedia = queue.shift();
   const generation = ++playbackGeneration;
   setAuthor(currentMedia);
@@ -621,7 +622,7 @@ applyAppearance({ language: interfaceLanguage, fontScale: 100, accentRgb: [88, 1
 applyOutputGeometry();
 
 function scheduleReconnect() {
-  if (isUnloading || reconnectTimer) {
+  if (isUnloading || reconnectTimer || (isWidgetWindow && !widgetPlaybackVisible)) {
     return;
   }
   reconnectTimer = window.setTimeout(() => {
@@ -653,13 +654,16 @@ function moveToPendingPort() {
 }
 
 function connect() {
-  socket = new WebSocket(outputSocketUrl(window.location.host));
-  socket.addEventListener("open", () => {
+  const nextSocket = new WebSocket(outputSocketUrl(window.location.host));
+  socket = nextSocket;
+  nextSocket.addEventListener("open", () => {
     reconnectDelayMs = 1000;
     showNextMedia();
   });
-  socket.addEventListener("message", handleMessage);
-  socket.addEventListener("close", () => {
+  nextSocket.addEventListener("message", handleMessage);
+  nextSocket.addEventListener("close", () => {
+    if (socket !== nextSocket) return;
+    if (isWidgetWindow && !widgetPlaybackVisible) return;
     // Stop the current playback but keep the queue: the server does not
     // rebroadcast queued media after a transient reconnect.
     interruptPlayback();
@@ -673,8 +677,30 @@ function connect() {
     }
     scheduleReconnect();
   });
-  socket.addEventListener("error", () => socket.close());
+  nextSocket.addEventListener("error", () => nextSocket.close());
 }
+
+window.setWidgetVisible = (visible) => {
+  if (!isWidgetWindow || widgetPlaybackVisible === visible) return;
+  widgetPlaybackVisible = visible;
+  if (!visible) {
+    reportAudioPlayback("idle");
+    playbackGeneration += 1;
+    resetElements();
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+    socket?.close();
+    return;
+  }
+  if (!socket || socket.readyState >= 2) connect();
+  if (currentMedia) {
+    setAuthor(currentMedia);
+    setMediaText(currentMedia);
+    startCurrentMedia();
+  } else {
+    showNextMedia();
+  }
+};
 
 window.addEventListener("beforeunload", () => {
   isUnloading = true;

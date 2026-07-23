@@ -148,7 +148,7 @@ function createHarness(search = "?secret=private", mode = "all") {
     addEventListener(type, listener) { this.listeners.set(type, listener); }
     emit(type, data) { this.listeners.get(type)?.({ data }); }
     send(data) { this.sent.push(JSON.parse(data)); }
-    close() {}
+    close() { this.readyState = 3; }
   }
 
   const location = {
@@ -431,6 +431,26 @@ test("desktop media widget plays sound locally when widget sound is enabled", ()
   }));
   assert.equal(elements["#audio"].muted, true);
   assert.equal(elements["#audio"].volume, 0);
+});
+
+test("desktop media widget restores active images, GIFs, video and audio after hide and show", () => {
+  for (const [selector, media] of [
+    ["#image", { kind: "image", url: "https://cdn.discordapp.com/photo.png" }],
+    ["#video", { kind: "gif", contentType: "video/mp4", url: "https://cdn.discordapp.com/loop.mp4" }],
+    ["#video", { kind: "video", url: "https://cdn.discordapp.com/clip.mp4" }],
+    ["#audio", { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" }],
+  ]) {
+    const widget = createHarness("?secret=private&widget=1");
+    widget.socket.emit("message", JSON.stringify({ type: "media", payload: media }));
+    vm.runInContext("window.setWidgetVisible(false)", widget.context);
+    assert.equal(widget.elements[selector].src, "");
+    assert.equal(widget.socket.readyState, 3);
+    vm.runInContext("window.setWidgetVisible(true)", widget.context);
+    assert.equal(widget.elements[selector].src, media.url);
+    assert.equal(widget.sockets.length, 2);
+    widget.socket.emit("close");
+    assert.equal(widget.elements[selector].src, media.url);
+  }
 });
 
 test("OBS audio uses the unchanged bytes cached by Relay", () => {

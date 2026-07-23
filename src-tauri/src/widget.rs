@@ -15,6 +15,7 @@ use crate::{
 
 const WIDGET_LABEL: &str = "widget";
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
+static WIDGET_TRANSITION: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,30 +45,50 @@ pub async fn restore(app: &AppHandle, core: Arc<AppCore>) -> Result<()> {
 }
 
 pub async fn toggle(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> {
+    let _transition = WIDGET_TRANSITION.lock().await;
     let is_visible = app
         .get_webview_window(WIDGET_LABEL)
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
 
     if is_visible {
-        if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
-            window.close()?;
-        }
         update_visibility(&core, false).await?;
+        if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+            window.eval("window.setWidgetVisible?.(false);")?;
+            window.hide()?;
+        }
+        wait_for_widget_disconnect(&core).await;
     } else {
-        return show(app, core, true).await;
+        return show_unlocked(app, core, true).await;
     }
     Ok(state(app, &core).await)
 }
 
 pub async fn show(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Result<WidgetState> {
+    let _transition = WIDGET_TRANSITION.lock().await;
+    show_unlocked(app, core, focus).await
+}
+
+async fn show_unlocked(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Result<WidgetState> {
     let window = ensure_window(app, core.clone()).await?;
     window.show()?;
+    window.eval("window.setWidgetVisible?.(true);")?;
     if focus && !core.config.read().await.widget_locked {
         let _ = window.set_focus();
     }
     update_visibility(&core, true).await?;
     Ok(state(app, &core).await)
+}
+
+async fn wait_for_widget_disconnect(core: &Arc<AppCore>) {
+    for _ in 0..40 {
+        let status = core.server_status.read().await;
+        if status.outputs.visual.widget_clients == 0 && status.outputs.audio.widget_clients == 0 {
+            return;
+        }
+        drop(status);
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
 }
 
 pub async fn set_locked(app: &AppHandle, core: Arc<AppCore>, locked: bool) -> Result<WidgetState> {

@@ -164,8 +164,9 @@ async fn deliver_media_to_local_widget(
 ) {
     while let Some(request) = requests.recv().await {
         let should_wake = {
+            let widget_visible = core.config.read().await.widget_visible;
             let status = core.server_status.read().await;
-            should_wake_media_widget(&status, request.kind)
+            should_wake_media_widget(&status, request.kind, widget_visible)
         };
         if should_wake && widget::show(&app, core.clone(), false).await.is_ok() {
             for _ in 0..40 {
@@ -183,8 +184,8 @@ async fn deliver_media_to_local_widget(
     }
 }
 
-fn should_wake_media_widget(status: &ServerStatus, kind: MediaKind) -> bool {
-    if media_widget_connected(status) {
+fn should_wake_media_widget(status: &ServerStatus, kind: MediaKind, widget_visible: bool) -> bool {
+    if widget_visible && media_widget_connected(status) {
         return false;
     }
     match kind {
