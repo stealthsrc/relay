@@ -44,6 +44,8 @@ pub struct MediaEvent {
     pub title: Option<String>,
     #[serde(default)]
     pub artist: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
     pub author: AuthorIdentity,
     pub timestamp: u64,
     pub message_id: String,

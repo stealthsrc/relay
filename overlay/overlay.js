@@ -8,6 +8,7 @@ const audioArtistElement = document.querySelector("#audio-artist");
 const authorElement = document.querySelector("#author");
 const authorAvatarElement = document.querySelector("#author-avatar");
 const authorNameElement = document.querySelector("#author-name");
+const mediaTextElement = document.querySelector("#media-text");
 const widgetParameters = new URLSearchParams(window.location.search);
 const relaySecret = widgetParameters.get("secret") || "";
 const isWidgetWindow = widgetParameters.get("widget") === "1";
@@ -20,6 +21,12 @@ const coordinatesSplitOutputs = outputClient === "obs"
 const moveLabelElement = document.querySelector("#widget-move-label");
 const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
 const previewLabels = { en: "Live preview", fr: "Aperçu en direct", es: "Vista previa", de: "Live-Vorschau" };
+const previewCaptionLabels = {
+  en: "Discord message shown with the media",
+  fr: "Message Discord affiché avec le média",
+  es: "Mensaje de Discord mostrado con el medio",
+  de: "Discord-Nachricht zum Medium",
+};
 
 window.setWidgetLocked = (locked) => {
   document.documentElement.classList.toggle("widget-window", isWidgetWindow);
@@ -37,6 +44,8 @@ let config = {
   gifDurationMs: 8000,
   mediaVolume: 50,
   showAuthor: true,
+  showMediaTextObs: false,
+  showMediaTextWidget: false,
   widgetSoundEnabled: false,
   mediaObsGeometry: {},
   mediaWidgetGeometry: {},
@@ -154,6 +163,17 @@ function setAuthor(media) {
   }
 }
 
+function setMediaText(media) {
+  const enabled = isWidgetWindow ? config.showMediaTextWidget : config.showMediaTextObs;
+  const text = enabled && typeof media?.text === "string" ? media.text.trim() : "";
+  mediaTextElement.textContent = text;
+  mediaTextElement.hidden = !text;
+  mediaTextElement.classList.toggle(
+    "is-visible",
+    Boolean(text) && (isPreview || activeVisual?.classList.contains("is-visible")),
+  );
+}
+
 function showPreview() {
   imageElement.src = FALLBACK_AVATAR;
   imageElement.alt = "Relay preview";
@@ -165,6 +185,9 @@ function showPreview() {
       username: previewLabels[interfaceLanguage] || previewLabels.en,
       displayAvatarUrl: FALLBACK_AVATAR,
     },
+  });
+  setMediaText({
+    text: previewCaptionLabels[interfaceLanguage] || previewCaptionLabels.en,
   });
   if (!authorElement.hidden) authorElement.classList.add("is-visible");
 }
@@ -216,6 +239,9 @@ function resetElements() {
   authorElement.classList.remove("is-visible");
   authorElement.hidden = true;
   authorAvatarElement.removeAttribute("src");
+  mediaTextElement.classList.remove("is-visible");
+  mediaTextElement.hidden = true;
+  mediaTextElement.textContent = "";
   activeVisual = undefined;
   activePlayback = undefined;
 }
@@ -227,6 +253,9 @@ function revealMedia({ timed = false } = {}) {
   activeVisual.classList.add("is-visible");
   if (!authorElement.hidden) {
     authorElement.classList.add("is-visible");
+  }
+  if (!mediaTextElement.hidden) {
+    mediaTextElement.classList.add("is-visible");
   }
   if (timed) {
     const durationMs = currentMedia.kind === "gif"
@@ -260,6 +289,7 @@ function hideCurrentMedia(expectedGeneration = playbackGeneration) {
   activeVisual?.classList.remove("is-visible");
   activeVisual?.classList.add("is-hiding");
   authorElement.classList.remove("is-visible");
+  mediaTextElement.classList.remove("is-visible");
   fadeTimer = window.setTimeout(() => finishCurrentMedia(expectedGeneration), FADE_DURATION_MS);
 }
 
@@ -421,6 +451,7 @@ function showNextMedia() {
   currentMedia = queue.shift();
   const generation = ++playbackGeneration;
   setAuthor(currentMedia);
+  setMediaText(currentMedia);
   if (isCoordinatedMedia(currentMedia) && !outputLeaseHeld) {
     waitingForOutputLease = true;
     requestOutputLease();
@@ -522,6 +553,7 @@ function handleMessage(event) {
       authorElement.hidden = true;
     }
     if (isPreview) showPreview();
+    else setMediaText(currentMedia);
   } else if (message.type === "media") {
     if (isPreview) return;
     if (message.payload) enqueueMedia(message.payload);

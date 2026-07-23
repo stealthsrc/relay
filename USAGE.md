@@ -72,6 +72,7 @@ The pages have a transparent background and reconnect automatically if Relay res
 - **Queue**: media arriving while another is displayed waits in a FIFO queue.
 - **Now playing**: audio files with embedded tags show a card with cover art, title and artist.
 - **Author badge**: the poster's avatar and name appear with the media (toggleable with *Show author*).
+- **Media message**: optionally show up to **180 characters** from the Discord message in OBS, the Windows widget, or both. Standalone links are omitted.
 - **History**: the panel lists the last **50** media with **Replay**, and global **Skip** / **Clear overlay** buttons.
 - **Skip anywhere**: press **`Ctrl+Alt+S`** even when Relay is not focused.
 

@@ -47,7 +47,8 @@ body {
 .audio-card__label,
 .audio-card__title,
 .audio-card__artist,
-.author__name {
+.author__name,
+.overlay__caption {
   font-size: calc(1em * var(--font-scale));
 }
 
@@ -243,10 +244,56 @@ html.widget-edit .widget-move-layer {
   object-fit: cover;
 }
 
+.overlay__caption {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  display: -webkit-box;
+  max-width: min(62ch, calc(100% - 18rem));
+  max-height: 4.5em;
+  margin: 0;
+  overflow: hidden;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 0.8rem;
+  color: #fff;
+  background: rgb(0 0 0 / 76%);
+  opacity: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  transform: translateY(8px) scale(var(--content-scale));
+  transform-origin: left bottom;
+  transition: opacity 240ms ease 80ms, transform 240ms ease 80ms;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.overlay__caption.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(var(--content-scale));
+}
+
+.overlay__caption[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .overlay__caption {
+    right: 1rem;
+    bottom: 4.75rem;
+    left: 1rem;
+    max-width: none;
+    transform-origin: left bottom;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .overlay__media,
   .audio-card,
-  .overlay__author {
+  .overlay__author,
+  .overlay__caption {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }

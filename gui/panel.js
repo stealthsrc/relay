@@ -341,6 +341,8 @@ translations.de = {
 };
 
 Object.assign(translations.en, {
+  showMediaTextObs: "Show media message in OBS", showMediaTextObsHelp: "Display up to 180 characters from the Discord message.",
+  showMediaTextWidget: "Show media message in the Windows widget", showMediaTextWidgetHelp: "Independent from the OBS media message.",
   navCommands: "Commands", commandsKicker: "Discord controls", commandsTitle: "Commands, under your control.",
   commandsCopy: "Enable only the Relay commands you want available in Discord.", commandsSettings: "Command availability",
   commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
@@ -352,6 +354,8 @@ Object.assign(translations.en, {
   commandsPermission: "Channel locking requires Manage Roles; clearing requires Manage Messages. Commands are restricted to Discord administrators.",
 });
 Object.assign(translations.fr, {
+  showMediaTextObs: "Afficher le message du média dans OBS", showMediaTextObsHelp: "Affiche jusqu’à 180 caractères du message Discord.",
+  showMediaTextWidget: "Afficher le message du média dans le widget Windows", showMediaTextWidgetHelp: "Indépendant du message affiché dans OBS.",
   navCommands: "Commandes", commandsKicker: "Contrôles Discord", commandsTitle: "Vos commandes, vos règles.",
   commandsCopy: "Activez uniquement les commandes Relay que vous souhaitez rendre disponibles dans Discord.", commandsSettings: "Disponibilité des commandes",
   commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
@@ -363,6 +367,8 @@ Object.assign(translations.fr, {
   commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages. Les commandes sont réservées aux administrateurs Discord.",
 });
 Object.assign(translations.es, {
+  showMediaTextObs: "Mostrar el mensaje del medio en OBS", showMediaTextObsHelp: "Muestra hasta 180 caracteres del mensaje de Discord.",
+  showMediaTextWidget: "Mostrar el mensaje del medio en el widget de Windows", showMediaTextWidgetHelp: "Independiente del mensaje mostrado en OBS.",
   stickerDuration: "Duración de stickers", stickerDurationHelp: "Los stickers de Discord permanecen visibles durante este tiempo.",
   notificationDuration: "Duración de notificaciones", notificationDurationHelp: "Las notificaciones TTS sin audio permanecen visibles durante este tiempo.",
   durationsGroup: "Duraciones de visualización", durationsGroupHelp: "Tiempo de visibilidad de imágenes, stickers, notificaciones y GIF.",
@@ -380,6 +386,8 @@ Object.assign(translations.es, {
   commandsPermission: "El bloqueo requiere Gestionar roles; la limpieza requiere Gestionar mensajes. Los comandos están restringidos a administradores de Discord.",
 });
 Object.assign(translations.de, {
+  showMediaTextObs: "Mediennachricht in OBS anzeigen", showMediaTextObsHelp: "Zeigt bis zu 180 Zeichen der Discord-Nachricht.",
+  showMediaTextWidget: "Mediennachricht im Windows-Widget anzeigen", showMediaTextWidgetHelp: "Unabhängig von der Anzeige in OBS.",
   stickerDuration: "Sticker-Dauer", stickerDurationHelp: "Discord-Sticker bleiben für diese Dauer sichtbar.",
   notificationDuration: "Benachrichtigungsdauer", notificationDurationHelp: "TTS-Benachrichtigungen ohne Audio bleiben für diese Dauer sichtbar.",
   durationsGroup: "Anzeigedauern", durationsGroupHelp: "Sichtbarkeitsdauer von Bildern, Stickern, Benachrichtigungen und GIFs.",
@@ -619,6 +627,8 @@ const notificationDurationElement = $("#notification-duration");
 const ttsSpeechEnabledElement = $("#tts-speech-enabled");
 const ttsNotificationsObsElement = $("#tts-notifications-obs");
 const showAuthorElement = $("#show-author");
+const showMediaTextObsElement = $("#show-media-text-obs");
+const showMediaTextWidgetElement = $("#show-media-text-widget");
 const moderationEnabledElement = $("#moderation-enabled");
 const moderationAllowImagesElement = $("#moderation-allow-images");
 const moderationAllowVideosElement = $("#moderation-allow-videos");
@@ -1273,6 +1283,8 @@ function applyConfig(config) {
   botActivityTextElement.value = config.botActivityText || "";
   updateBotActivityAvailability();
   showAuthorElement.checked = config.showAuthor;
+  showMediaTextObsElement.checked = Boolean(config.showMediaTextObs);
+  showMediaTextWidgetElement.checked = Boolean(config.showMediaTextWidget);
   moderationEnabledElement.checked = Boolean(config.moderationEnabled);
   moderationAllowImagesElement.checked = config.moderationAllowImages !== false;
   moderationAllowVideosElement.checked = config.moderationAllowVideos !== false;
@@ -1611,6 +1623,8 @@ async function saveConfig(stateElement) {
         botActivityText: botActivityTextElement.value,
         port: Number(portElement.value),
         showAuthor: showAuthorElement.checked,
+        showMediaTextObs: showMediaTextObsElement.checked,
+        showMediaTextWidget: showMediaTextWidgetElement.checked,
         widgetSoundEnabled: widgetSoundEnabledElement.checked,
         moderationEnabled: moderationEnabledElement.checked,
         moderationAllowImages: moderationAllowImagesElement.checked,

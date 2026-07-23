@@ -81,6 +81,8 @@ pub struct PanelConfig {
     bot_activity_type: String,
     bot_activity_text: String,
     show_author: bool,
+    show_media_text_obs: bool,
+    show_media_text_widget: bool,
     widget_sound_enabled: bool,
     moderation_enabled: bool,
     moderation_allow_images: bool,
@@ -293,6 +295,8 @@ pub async fn apply_config(
             current.bot_activity_type = config.bot_activity_type;
             current.bot_activity_text = config.bot_activity_text.trim().to_owned();
             current.show_author = config.show_author;
+            current.show_media_text_obs = config.show_media_text_obs;
+            current.show_media_text_widget = config.show_media_text_widget;
             current.widget_sound_enabled = config.widget_sound_enabled;
             current.moderation_enabled = config.moderation_enabled;
             current.moderation_allow_images = config.moderation_allow_images;
@@ -519,6 +523,7 @@ fn test_media(kind: MediaKind, filename: &str, audio_id: Option<String>) -> Medi
         cached_media_id: None,
         title: None,
         artist: None,
+        text: None,
         author: AuthorIdentity {
             username: "Relay test".into(),
             display_avatar_url: "/overlay-assets/relay-radar.png".into(),

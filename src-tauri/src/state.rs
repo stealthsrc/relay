@@ -395,6 +395,7 @@ mod tests {
             cached_media_id: None,
             title: None,
             artist: None,
+            text: None,
             author: crate::model::AuthorIdentity {
                 username: "Moderator".into(),
                 display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),

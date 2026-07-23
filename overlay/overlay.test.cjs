@@ -129,7 +129,7 @@ function element() {
 function createHarness(search = "?secret=private", mode = "all") {
   const selectors = [
     "#image", "#video", "#audio", "#audio-card", "#audio-artwork", "#audio-title", "#audio-artist",
-    "#author", "#author-avatar", "#author-name",
+    "#author", "#author-avatar", "#author-name", "#media-text",
     "#widget-move-label",
   ];
   const elements = Object.fromEntries(selectors.map((selector) => [selector, element()]));
@@ -306,6 +306,54 @@ test("media overlay reads the camelCase Discord avatar and falls back locally", 
   avatar.onerror();
   assert.equal(avatar.src, "/overlay-assets/relay-radar.png");
   assert.equal(avatar.onerror, null);
+});
+
+test("media messages are bounded upstream and independently visible in OBS and widgets", () => {
+  const obs = createHarness();
+  obs.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { showMediaTextObs: true, showMediaTextWidget: false },
+  }));
+  obs.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: {
+      kind: "image",
+      url: "https://cdn.discordapp.com/setup.png",
+      text: "<strong>Regardez mon setup</strong>",
+    },
+  }));
+  obs.elements["#image"].naturalWidth = 1280;
+  obs.elements["#image"].naturalHeight = 720;
+  obs.elements["#image"].emit("load");
+
+  assert.equal(
+    obs.elements["#media-text"].textContent,
+    "<strong>Regardez mon setup</strong>",
+  );
+  assert.equal(obs.elements["#media-text"].hidden, false);
+  assert.equal(obs.elements["#media-text"].classList.contains("is-visible"), true);
+
+  const widget = createHarness("?secret=private&widget=1");
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { showMediaTextObs: true, showMediaTextWidget: false },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: {
+      kind: "image",
+      url: "https://cdn.discordapp.com/setup.png",
+      text: "Widget caption",
+    },
+  }));
+  assert.equal(widget.elements["#media-text"].hidden, true);
+
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { showMediaTextWidget: true },
+  }));
+  assert.equal(widget.elements["#media-text"].textContent, "Widget caption");
+  assert.equal(widget.elements["#media-text"].hidden, false);
 });
 
 test("media overlay follows a configured server port once it responds", () => {

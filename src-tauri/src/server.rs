@@ -48,6 +48,8 @@ struct OverlayConfig {
     tts_speech_enabled: bool,
     tts_notifications_obs_enabled: bool,
     show_author: bool,
+    show_media_text_obs: bool,
+    show_media_text_widget: bool,
     widget_sound_enabled: bool,
     notification_sound_enabled: bool,
     notification_sound_obs_enabled: bool,
@@ -70,6 +72,8 @@ impl From<&AppConfig> for OverlayConfig {
             tts_speech_enabled: config.tts_speech_enabled,
             tts_notifications_obs_enabled: config.tts_notifications_obs_enabled,
             show_author: config.show_author,
+            show_media_text_obs: config.show_media_text_obs,
+            show_media_text_widget: config.show_media_text_widget,
             widget_sound_enabled: config.widget_sound_enabled,
             notification_sound_enabled: config.notification_sound_enabled,
             notification_sound_obs_enabled: config.notification_sound_obs_enabled,
@@ -1300,6 +1304,7 @@ mod tests {
                 cached_media_id: None,
                 title: None,
                 artist: None,
+                text: None,
                 author: AuthorIdentity {
                     username: "stability".into(),
                     display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
@@ -1470,6 +1475,7 @@ mod tests {
             cached_media_id: None,
             title: None,
             artist: None,
+            text: None,
             author: AuthorIdentity {
                 username: "clock-test".into(),
                 display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),

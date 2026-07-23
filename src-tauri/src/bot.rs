@@ -33,6 +33,7 @@ use crate::{
 const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "bmp"];
 const VIDEO_EXTENSIONS: [&str; 6] = ["mp4", "webm", "mov", "m4v", "ogv", "avi"];
 const AUDIO_EXTENSIONS: [&str; 7] = ["mp3", "ogg", "wav", "m4a", "flac", "aac", "opus"];
+const MEDIA_TEXT_LIMIT: usize = 180;
 
 struct Handler {
     core: Arc<AppCore>,
@@ -159,6 +160,7 @@ impl EventHandler for Handler {
         if config.watched_channel_id.is_empty() || channel_id != config.watched_channel_id {
             return;
         }
+        let media_text = prepare_media_text(&message.content);
 
         for sticker in message.sticker_items.iter().take(3) {
             let Some(url) = sticker.image_url() else {
@@ -240,6 +242,7 @@ impl EventHandler for Handler {
                     .as_ref()
                     .and_then(|metadata| metadata.title.clone()),
                 artist: audio_metadata.and_then(|metadata| metadata.artist),
+                text: media_text.clone(),
                 author: AuthorIdentity {
                     username: message.author.name.clone(),
                     display_avatar_url: message
@@ -279,6 +282,7 @@ impl EventHandler for Handler {
                     .timestamp
                     .map(|timestamp| timestamp.unix_timestamp().max(0) as u64 * 1_000)
                     .unwrap_or_else(current_timestamp_ms),
+                content: event.content.unwrap_or_default(),
                 embeds,
             };
             submit_deferred_embeds(&self.core, message).await;
@@ -1192,6 +1196,7 @@ struct DeferredEmbedMessage {
     message_id: String,
     author: serenity::all::User,
     timestamp: u64,
+    content: String,
     embeds: Vec<serenity::all::Embed>,
 }
 
@@ -1203,6 +1208,7 @@ async fn submit_embedded_gifs(core: &Arc<AppCore>, message: &Message) {
             message_id: message.id.to_string(),
             author: message.author.clone(),
             timestamp: message.timestamp.unix_timestamp().max(0) as u64 * 1_000,
+            content: message.content.clone(),
             embeds: message.embeds.clone(),
         },
     )
@@ -1218,6 +1224,7 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
         return;
     }
     drop(config);
+    let media_text = prepare_media_text(&message.content);
     for (index, embed) in message.embeds.iter().filter_map(embedded_gif).enumerate() {
         let event_id = format!("{}-embed-{index}", message.message_id);
         if !core.claim_embed(event_id.clone()).await {
@@ -1253,6 +1260,7 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
             cached_media_id,
             title: None,
             artist: None,
+            text: media_text.clone(),
             author: AuthorIdentity {
                 username: message.author.name.clone(),
                 display_avatar_url: message
@@ -1455,6 +1463,37 @@ fn prepare_tts_text(content: &str, character_limit: u32) -> Option<String> {
         return Some(content.to_owned());
     }
     Some(content.chars().take(character_limit as usize).collect())
+}
+
+fn prepare_media_text(content: &str) -> Option<String> {
+    let printable = content
+        .chars()
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
+        .collect::<String>();
+    let normalized = printable
+        .split_whitespace()
+        .filter(|segment| !segment.starts_with("https://") && !segment.starts_with("http://"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    if normalized.is_empty() {
+        return None;
+    }
+    let mut characters = normalized.chars();
+    let mut text = characters
+        .by_ref()
+        .take(MEDIA_TEXT_LIMIT)
+        .collect::<String>();
+    if characters.next().is_some() {
+        text.pop();
+        text.push('…');
+    }
+    Some(text)
 }
 
 async fn set_bot_error(core: &Arc<AppCore>, error: String) {
@@ -1775,6 +1814,23 @@ mod tests {
             Some("\u{e9}l\u{e9}")
         );
         assert!(prepare_tts_text("   ", 0).is_none());
+    }
+
+    #[test]
+    fn prepares_bounded_media_text_without_standalone_links() {
+        assert_eq!(
+            prepare_media_text("Regardez mon setup https://example.com/image"),
+            Some("Regardez mon setup".into())
+        );
+        assert_eq!(prepare_media_text("https://example.com/image"), None);
+        assert_eq!(
+            prepare_media_text("Une ligne\navec\tdu texte"),
+            Some("Une ligne avec du texte".into())
+        );
+
+        let caption = prepare_media_text(&"é".repeat(MEDIA_TEXT_LIMIT + 1)).unwrap();
+        assert_eq!(caption.chars().count(), MEDIA_TEXT_LIMIT);
+        assert!(caption.ends_with('…'));
     }
 
     #[test]
