@@ -37,6 +37,7 @@ window.setWidgetLocked(widgetParameters.get("locked") === "1");
 
 const FADE_DURATION_MS = 320;
 const FALLBACK_AVATAR = "/overlay-assets/relay-radar.png";
+const VIDEO_COMPOSITOR_INSET_PX = 4;
 const queue = [];
 
 let config = {
@@ -193,11 +194,12 @@ function showPreview() {
   if (!authorElement.hidden) authorElement.classList.add("is-visible");
 }
 
-function fitVisualToViewport(element, width, height) {
+function fitVisualToViewport(element, width, height, insetPx = 0) {
   if (!width || !height || !window.innerWidth || !window.innerHeight) return;
   const fitByWidth = width / height >= window.innerWidth / window.innerHeight;
-  element.style.width = fitByWidth ? "100%" : "auto";
-  element.style.height = fitByWidth ? "auto" : "100%";
+  const fittedSize = insetPx ? `calc(100% - ${insetPx}px)` : "100%";
+  element.style.width = fitByWidth ? fittedSize : "auto";
+  element.style.height = fitByWidth ? "auto" : fittedSize;
 }
 
 function applyOutputGeometry() {
@@ -392,7 +394,12 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
   const onLoaded = () => {
     if (generation !== playbackGeneration) return;
     if (visualElement === videoElement) {
-      fitVisualToViewport(videoElement, videoElement.videoWidth, videoElement.videoHeight);
+      fitVisualToViewport(
+        videoElement,
+        videoElement.videoWidth,
+        videoElement.videoHeight,
+        VIDEO_COMPOSITOR_INSET_PX,
+      );
     }
     clearSourceListeners();
     revealMedia({ timed: isTimedGif });

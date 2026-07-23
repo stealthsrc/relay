@@ -272,15 +272,18 @@ test("media output applies live crop and scale for OBS and widgets", () => {
   assert.match(css, /\.overlay__author[\s\S]*var\(--content-scale\)/);
 });
 
-test("portrait GIF videos use their native aspect ratio without side letterboxing", () => {
+test("video fitting preserves its aspect ratio without touching the WebView2 viewport edge", () => {
   const { context, elements } = createHarness();
-  vm.runInContext("fitVisualToViewport(videoElement, 408, 720)", context);
+  vm.runInContext("fitVisualToViewport(videoElement, 408, 720, VIDEO_COMPOSITOR_INSET_PX)", context);
   assert.equal(elements["#video"].style.width, "auto");
-  assert.equal(elements["#video"].style.height, "100%");
+  assert.equal(elements["#video"].style.height, "calc(100% - 4px)");
 
-  vm.runInContext("fitVisualToViewport(videoElement, 1280, 720)", context);
-  assert.equal(elements["#video"].style.width, "100%");
+  vm.runInContext("fitVisualToViewport(videoElement, 1280, 720, VIDEO_COMPOSITOR_INSET_PX)", context);
+  assert.equal(elements["#video"].style.width, "calc(100% - 4px)");
   assert.equal(elements["#video"].style.height, "auto");
+
+  vm.runInContext("fitVisualToViewport(imageElement, 408, 720)", context);
+  assert.equal(elements["#image"].style.height, "100%");
 });
 
 test("media overlay reads the camelCase Discord avatar and falls back locally", () => {
