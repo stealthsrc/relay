@@ -70,6 +70,7 @@ test("local visual tests reach matching outputs without affecting previews", () 
       media: { kind: "image", url: "/overlay-assets/relay-radar.png" },
     },
   }));
+  sendMediaGrant(visual, true, { videoBusy: true });
   assert.equal(visual.elements["#image"].src, "/overlay-assets/relay-radar.png");
 
   const audio = createHarness("?secret=private", "audio");
@@ -510,6 +511,49 @@ test("overlay clears playback and visuals when Relay stops", () => {
   assert.equal(elements["#audio"].src, "");
   assert.equal(elements["#audio-card"].hidden, true);
   assert.ok(elements["#audio"].pauseCalls > 0);
+});
+
+test("images, GIFs and videos wait for the exclusive OBS visual lease", () => {
+  const cases = [
+    {
+      label: "image",
+      media: { kind: "image", url: "https://cdn.discordapp.com/still.png" },
+      selector: "#image",
+    },
+    {
+      label: "GIF",
+      media: { kind: "gif", contentType: "image/gif", url: "https://cdn.discordapp.com/loop.gif" },
+      selector: "#image",
+    },
+    {
+      label: "video GIF",
+      media: { kind: "gif", contentType: "video/mp4", url: "https://media.klipy.com/loop.mp4" },
+      selector: "#video",
+    },
+    {
+      label: "video",
+      media: { kind: "video", url: "https://cdn.discordapp.com/clip.mp4" },
+      selector: "#video",
+    },
+  ];
+
+  for (const { label, media, selector } of cases) {
+    const visual = createHarness("", "visual");
+    sendMediaClock(visual, { audioBusy: true });
+    sendMedia(visual, media);
+    assert.equal(visual.elements[selector].src, "", `${label} started over active OBS audio`);
+
+    sendMediaClock(visual, { audioBusy: false });
+    assert.deepEqual(
+      visual.socket.sent.at(-1),
+      { type: "mediaClock", payload: { busy: true } },
+      `${label} did not request the OBS visual lease`,
+    );
+    assert.equal(visual.elements[selector].src, "");
+
+    sendMediaGrant(visual, true, { videoBusy: true });
+    assert.equal(visual.elements[selector].src, media.url);
+  }
 });
 
 test("audio waits for the active video lease before starting", () => {

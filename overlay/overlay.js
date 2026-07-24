@@ -38,6 +38,7 @@ window.setWidgetLocked(widgetParameters.get("locked") === "1");
 const FADE_DURATION_MS = 320;
 const FALLBACK_AVATAR = "/overlay-assets/relay-radar.png";
 const VIDEO_COMPOSITOR_INSET_PX = 4;
+const VISUAL_MEDIA_KINDS = new Set(["image", "gif", "video"]);
 const queue = [];
 
 let config = {
@@ -101,7 +102,7 @@ function sendOutputLeaseState(busy) {
 }
 
 function isCoordinatedMedia(media) {
-  return (relayMode === "visual" && media?.kind === "video")
+  return (relayMode === "visual" && VISUAL_MEDIA_KINDS.has(media?.kind))
     || (relayMode === "audio" && media?.kind === "audio");
 }
 
