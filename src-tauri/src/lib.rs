@@ -333,7 +333,8 @@ fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> 
 #[tauri::command]
 fn open_help_link(link: String) -> Result<(), String> {
     let url = resolve_external_link(&link)?;
-    Command::new("explorer.exe")
+    Command::new("rundll32.exe")
+        .arg("url.dll,FileProtocolHandler")
         .arg(url)
         .spawn()
         .map(|_| ())
