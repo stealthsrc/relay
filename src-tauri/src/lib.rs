@@ -332,7 +332,16 @@ fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> 
 
 #[tauri::command]
 fn open_help_link(link: String) -> Result<(), String> {
-    let url = match link.as_str() {
+    let url = resolve_external_link(&link)?;
+    Command::new("explorer.exe")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+fn resolve_external_link(link: &str) -> Result<String, String> {
+    let url = match link {
         "discord" => "https://discord.com/developers/applications",
         "obs" => "https://obsproject.com/kb/browser-source",
         "github" => "https://github.com/stealthsrc",
@@ -340,13 +349,67 @@ fn open_help_link(link: String) -> Result<(), String> {
         "privacy-global" => {
             "https://unctad.org/page/data-protection-and-privacy-legislation-worldwide"
         }
-        _ => return Err("Unsupported help link.".into()),
+        _ if is_discord_invite_url(link) => return Ok(link.to_owned()),
+        _ => return Err("Unsupported external link.".into()),
     };
-    Command::new("explorer.exe")
-        .arg(url)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    Ok(url.to_owned())
+}
+
+fn is_discord_invite_url(link: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(link) else {
+        return false;
+    };
+    if url.scheme() != "https"
+        || url.host_str() != Some("discord.com")
+        || url.port().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/oauth2/authorize"
+        || url.fragment().is_some()
+    {
+        return false;
+    }
+
+    let mut client_id = false;
+    let mut permissions = false;
+    let mut scope = false;
+    let mut query_count = 0;
+    for (key, value) in url.query_pairs() {
+        query_count += 1;
+        match key.as_ref() {
+            "client_id" => {
+                client_id = (17..=20).contains(&value.len())
+                    && value.chars().all(|character| character.is_ascii_digit());
+            }
+            "permissions" => permissions = value == "268510208",
+            "scope" => scope = value == "bot applications.commands",
+            _ => return false,
+        }
+    }
+    query_count == 3 && client_id && permissions && scope
+}
+
+#[cfg(test)]
+mod external_link_tests {
+    use super::{is_discord_invite_url, resolve_external_link};
+
+    const INVITE: &str = "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands";
+
+    #[test]
+    fn accepts_the_generated_discord_invite_url() {
+        assert_eq!(resolve_external_link(INVITE), Ok(INVITE.to_owned()));
+    }
+
+    #[test]
+    fn rejects_untrusted_or_modified_discord_invite_urls() {
+        for link in [
+            "https://discord.com.evil.example/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands",
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=8&scope=bot%20applications.commands",
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands&redirect_uri=https://example.com",
+        ] {
+            assert!(!is_discord_invite_url(link));
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]

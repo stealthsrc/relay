@@ -9,7 +9,7 @@ const translations = {
     overviewCopy: "Connect Discord once, choose a channel, then keep the relay running quietly in the tray.",
     credentialsTitle: "Discord connection", credentialsCopy: "Credentials are encrypted by Windows and never shown again.",
     clientId: "Discord client ID", botToken: "Discord bot token", connectBot: "Encrypt and start bot",
-    inviteUrl: "Bot invitation URL", copy: "Copy", copied: "Copied",
+    inviteUrl: "Bot invitation URL", openInvite: "Open", copy: "Copy", copied: "Copied",
     routingTitle: "Input routing", routingCopy: "Choose one Discord channel for media and another for spoken messages.",
     mediaChannel: "Media channel", ttsChannel: "TTS message channel", localPort: "Local port", saveRouting: "Save routing",
     selectChannel: "Select a visible text channel", ttsDisabled: "TTS disabled", unavailableChannel: "Unavailable channel",
@@ -120,7 +120,7 @@ const translations = {
     overviewCopy: "Connectez Discord une fois, choisissez un canal, puis laissez le relais fonctionner discrètement dans la zone de notification.",
     credentialsTitle: "Connexion Discord", credentialsCopy: "Les identifiants sont chiffrés par Windows et ne sont jamais réaffichés.",
     clientId: "ID client Discord", botToken: "Token du bot Discord", connectBot: "Chiffrer et démarrer le bot",
-    inviteUrl: "URL d’invitation du bot", copy: "Copier", copied: "Copié",
+    inviteUrl: "URL d’invitation du bot", openInvite: "Ouvrir", copy: "Copier", copied: "Copié",
     routingTitle: "Routage d’entrée", routingCopy: "Choisissez un canal Discord pour les médias et un autre pour les messages lus.",
     mediaChannel: "Canal des médias", ttsChannel: "Canal des messages TTS", localPort: "Port local", saveRouting: "Enregistrer le routage",
     selectChannel: "Sélectionner un canal texte visible", ttsDisabled: "TTS désactivé", unavailableChannel: "Canal indisponible",
@@ -267,7 +267,7 @@ translations.es = {
   system: "Sistema", playback: "Reproducción", output: "Salida", safety: "Seguridad", archive: "Archivo", guide: "Guía", about: "Acerca de",
   overviewKicker: "Emisión local", overviewTitle: "Un canal. Todas tus pantallas.", overviewCopy: "Conecta Discord una vez, elige un canal y deja que Relay funcione discretamente en la bandeja del sistema.",
   credentialsTitle: "Conexión con Discord", credentialsCopy: "Las credenciales se cifran con Windows y no vuelven a mostrarse.",
-  clientId: "ID de cliente de Discord", botToken: "Token del bot de Discord", connectBot: "Cifrar e iniciar el bot", inviteUrl: "URL de invitación del bot", copy: "Copiar", copied: "Copiado",
+  clientId: "ID de cliente de Discord", botToken: "Token del bot de Discord", connectBot: "Cifrar e iniciar el bot", inviteUrl: "URL de invitación del bot", openInvite: "Abrir", copy: "Copiar", copied: "Copiado",
   routingTitle: "Enrutamiento de entrada", routingCopy: "Elige un canal de Discord para los medios y otro para los mensajes hablados.",
   mediaChannel: "Canal de medios", ttsChannel: "Canal de mensajes TTS", localPort: "Puerto local", saveRouting: "Guardar enrutamiento",
   selectChannel: "Selecciona un canal de texto visible", ttsDisabled: "TTS desactivado", unavailableChannel: "Canal no disponible",
@@ -311,7 +311,7 @@ translations.de = {
   navOverview: "Übersicht", navMedia: "Medien", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "Verlauf", navHelp: "Hilfe", navPersonalization: "Personalisierung", navAbout: "Info",
   language: "Sprache", appearance: "Darstellung", light: "Hell", dark: "Dunkel", overlays: "OBS-Quellen", system: "System", playback: "Wiedergabe", output: "Ausgabe", safety: "Sicherheit", archive: "Archiv", guide: "Anleitung", about: "Info",
   overviewKicker: "Lokale Übertragung", overviewTitle: "Ein Kanal. Alle Bildschirme.", overviewCopy: "Verbinde Discord einmal, wähle einen Kanal und lasse Relay unauffällig im Infobereich laufen.",
-  credentialsTitle: "Discord-Verbindung", credentialsCopy: "Die Zugangsdaten werden von Windows verschlüsselt und nie erneut angezeigt.", clientId: "Discord-Client-ID", botToken: "Discord-Bot-Token", connectBot: "Verschlüsseln und Bot starten", inviteUrl: "Einladungs-URL des Bots", copy: "Kopieren", copied: "Kopiert",
+  credentialsTitle: "Discord-Verbindung", credentialsCopy: "Die Zugangsdaten werden von Windows verschlüsselt und nie erneut angezeigt.", clientId: "Discord-Client-ID", botToken: "Discord-Bot-Token", connectBot: "Verschlüsseln und Bot starten", inviteUrl: "Einladungs-URL des Bots", openInvite: "Öffnen", copy: "Kopieren", copied: "Kopiert",
   routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
   mediaKicker: "Wiedergabewarteschlange", mediaTitle: "Medien nach deinen Regeln.", mediaCopy: "Bilder und GIFs verwenden getrennte Anzeigedauern. Videos und Audio laufen bis zum Ende.", transportLabel: "Live-Steuerung", transportReady: "Bereit für das nächste Element", skip: "Aktuelles Element überspringen",
   playbackTitle: "Wiedergabeeinstellungen", imageDuration: "Bilddauer", gifDuration: "GIF-Dauer", imageDurationHelp: "Nur für statische Bilder.", gifDurationHelp: "Animierte GIFs wiederholen sich für diese Dauer.", seconds: "Sek.", mediaVolume: "Medienlautstärke", mediaVolumeHelp: "Gilt für Video, Audio und gesprochene Nachrichten.", ttsCharacterLimit: "TTS-Zeichenlimit", ttsCharacterLimitHelp: "0 bedeutet unbegrenzte Nachrichtenlänge.", characters: "Zeichen", ttsQueueLimit: "TTS-Warteschlangengröße", ttsQueueLimitHelp: "Maximal 1 bis 50 wartende Nachrichten.", items: "Elemente",
@@ -610,7 +610,7 @@ const botActivityTextElement = $("#bot-activity-text");
 const botPresenceSaveStateElement = $("#bot-presence-save-state");
 const inviteRowElement = $("#invite-row");
 const inviteUrlElement = $("#invite-url");
-const copyInviteButton = $("#copy-invite");
+const openInviteButton = $("#open-invite");
 const channelElement = $("#channel");
 const refreshChannelsButton = $("#refresh-channels");
 const ttsChannelElement = $("#tts-channel");
@@ -1931,7 +1931,7 @@ copyAudioUrlButton.addEventListener("click", () => copyValue(copyAudioUrlButton,
 copyTtsUrlButton.addEventListener("click", () => copyValue(copyTtsUrlButton, ttsUrlElement.value));
 copyNotificationUrlButton.addEventListener("click", () => copyValue(copyNotificationUrlButton, notificationUrlElement.value));
 copyStickerUrlButton.addEventListener("click", () => copyValue(copyStickerUrlButton, stickerUrlElement.value));
-copyInviteButton.addEventListener("click", () => copyValue(copyInviteButton, inviteUrlElement.value));
+openInviteButton.addEventListener("click", () => invoke("open_help_link", { link: inviteUrlElement.value }));
 
 for (const [target, button] of outputTestButtons) {
   button.addEventListener("click", async () => {

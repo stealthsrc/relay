@@ -20,6 +20,15 @@ test("French, Spanish and German provide every interface translation key", () =>
   }
 });
 
+test("the Discord invitation action opens the authorization URL", () => {
+  assert.match(panelHtml, /id="open-invite"[\s\S]*data-i18n="openInvite"/);
+  assert.doesNotMatch(panelHtml, /id="copy-invite"/);
+  assert.match(
+    panelSource,
+    /openInviteButton\.addEventListener\("click", \(\) => invoke\("open_help_link", \{ link: inviteUrlElement\.value \}\)\)/,
+  );
+});
+
 test("reported Spanish and German pages no longer use English fallback copy", () => {
   for (const language of ["es", "de"]) {
     for (const key of [
