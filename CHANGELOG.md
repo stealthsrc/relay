@@ -11,6 +11,40 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-28
+
+### English
+
+#### Added
+
+- Added `/relay status` to report the live Discord connection, local relay, OBS outputs, queues, and Windows widget state directly in Discord.
+- Added `/relay test` for isolated local tests of media, audio, TTS, notifications, and stickers without posting to Discord or adding history entries.
+- Added independent options to show up to 180 characters from the Discord media message in OBS and the Windows media widget.
+- Added a **Start with Windows** toggle to the system tray; automatic launches now open Relay directly in the tray without showing the control panel.
+
+#### Fixed
+
+- Local media tests and incoming live media now wake the Windows widget before playback so their output is immediately visible.
+- The Windows media widget now restores active media after hide/show and avoids WebView2 edge artifacts around videos.
+- OBS media and audio outputs no longer overlap during playback.
+- Discord invitation links now open reliably in the default web browser instead of File Explorer.
+
+### Français
+
+#### Ajouté
+
+- Ajout de `/relay status` pour afficher directement dans Discord l’état de la connexion, du relais local, des sorties OBS, des files d’attente et des widgets Windows.
+- Ajout de `/relay test` pour tester localement les médias, l’audio, le TTS, les notifications et les stickers sans publier dans Discord ni créer d’entrée dans l’historique.
+- Ajout d’options indépendantes pour afficher jusqu’à 180 caractères du message Discord associé au média dans OBS et dans le widget média Windows.
+- Ajout d’un bouton **Démarrer avec Windows** dans le system tray ; les lancements automatiques ouvrent désormais Relay directement dans le tray sans afficher le panneau de contrôle.
+
+#### Corrigé
+
+- Les tests médias locaux et les nouveaux médias reçus réveillent désormais le widget Windows avant la lecture afin que leur sortie soit immédiatement visible.
+- Le widget média Windows restaure le média actif après avoir été masqué puis affiché et évite les artefacts de bordure WebView2 autour des vidéos.
+- Les sorties média et audio OBS ne se chevauchent plus pendant la lecture.
+- Les liens d’invitation Discord s’ouvrent désormais correctement dans le navigateur web par défaut plutôt que dans l’Explorateur de fichiers.
+
 ## [1.2.0] - 2026-07-21
 
 ### English
@@ -247,7 +281,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/stealthsrc/relay/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/stealthsrc/relay/compare/v1.1.23...v1.2.0
 [1.1.23]: https://github.com/stealthsrc/relay/compare/v1.1.22...v1.1.23
 [1.1.22]: https://github.com/stealthsrc/relay/compare/v1.1.21...v1.1.22
