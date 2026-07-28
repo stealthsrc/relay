@@ -43,14 +43,19 @@ const TRAY_PANEL_LABEL: &str = "tray-panel";
 const TRAY_PANEL_WIDTH: f64 = 336.0;
 const TRAY_PANEL_HEIGHT: f64 = 430.0;
 const TRAY_PANEL_MARGIN: i32 = 10;
+const STARTUP_ARGUMENT: &str = "--startup";
+const WINDOWS_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main_window(app);
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !is_startup_launch(&args) {
+                show_main_window(app);
+            }
         }))
         .setup(|app| {
             load_dotenv();
+            let startup_launch = is_startup_launch(&env::args().collect::<Vec<_>>());
             let config_directory = app.path().app_config_dir()?;
             migrate_legacy_config(&config_directory)?;
             let config_path = config_directory.join("config.json");
@@ -85,6 +90,9 @@ pub fn run() {
                         let _ = window_to_hide.hide();
                     }
                 });
+                if startup_launch {
+                    let _ = window.hide();
+                }
             }
 
             let app_handle = app.handle().clone();
@@ -146,6 +154,8 @@ pub fn run() {
             tray_toggle_media_widget_lock,
             tray_toggle_notification_widget,
             tray_toggle_notification_widget_lock,
+            get_start_with_windows,
+            set_start_with_windows,
             tray_quit,
             set_window_theme,
             open_help_link,
@@ -317,6 +327,57 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 }
 
+fn is_startup_launch(args: &[String]) -> bool {
+    args.iter().any(|argument| argument == STARTUP_ARGUMENT)
+}
+
+fn registry_status(args: &[&str]) -> Result<bool, String> {
+    let mut command = Command::new("reg.exe");
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    command
+        .args(args)
+        .output()
+        .map(|output| output.status.success())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_start_with_windows() -> Result<bool, String> {
+    registry_status(&["query", WINDOWS_RUN_KEY, "/v", "Relay"])
+}
+
+#[tauri::command]
+fn set_start_with_windows(enabled: bool) -> Result<bool, String> {
+    let updated = if enabled {
+        let executable = env::current_exe().map_err(|error| error.to_string())?;
+        let value = format!("\"{}\" {STARTUP_ARGUMENT}", executable.display());
+        registry_status(&[
+            "add",
+            WINDOWS_RUN_KEY,
+            "/v",
+            "Relay",
+            "/t",
+            "REG_SZ",
+            "/d",
+            &value,
+            "/f",
+        ])?
+    } else if get_start_with_windows()? {
+        registry_status(&["delete", WINDOWS_RUN_KEY, "/v", "Relay", "/f"])?
+    } else {
+        return Ok(false);
+    };
+    if updated {
+        Ok(enabled)
+    } else {
+        Err("Windows refused to update the startup setting.".into())
+    }
+}
+
 #[tauri::command]
 fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> {
     let dark = match theme.as_str() {
@@ -392,7 +453,7 @@ fn is_discord_invite_url(link: &str) -> bool {
 
 #[cfg(test)]
 mod external_link_tests {
-    use super::{is_discord_invite_url, resolve_external_link};
+    use super::{is_discord_invite_url, is_startup_launch, resolve_external_link};
 
     const INVITE: &str = "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands";
 
@@ -410,6 +471,11 @@ mod external_link_tests {
         ] {
             assert!(!is_discord_invite_url(link));
         }
+    }
+
+    #[test]
+    fn detects_the_startup_launch() {
+        assert!(is_startup_launch(&["Relay.exe".into(), "--startup".into()]));
     }
 }
 

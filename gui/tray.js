@@ -1,10 +1,10 @@
 const invoke = window.__TAURI__.core.invoke;
 
 const trayTranslations = {
-  en: { relayStatus: "Relay status", connectionStatus: "Connection status", discord: "Discord", localRelay: "Local relay", system: "System", openPanel: "Open control panel", displayWidgets: "Display widgets", mediaOverlay: "Media overlay", ttsNotifications: "TTS notifications", runningLocally: "Running locally", quitRelay: "Quit Relay", checking: "Checking", connecting: "Connecting…", zeroOutputs: "0 outputs", online: "Online", offline: "Offline", waitingDiscord: "Waiting for Discord", output: "output", outputs: "outputs", hidden: "Hidden", visibleLocked: "Visible · Locked", visibleMovable: "Visible · Movable", hide: "Hide", show: "Show", lock: "Lock", unlock: "Unlock", mediaWidget: "media widget", notificationWidget: "notification widget", unavailable: "Unavailable", notResponding: "Relay not responding" },
-  fr: { relayStatus: "Statut de Relay", connectionStatus: "État de la connexion", discord: "Discord", localRelay: "Relais local", system: "Système", openPanel: "Ouvrir le panneau de contrôle", displayWidgets: "Widgets d’affichage", mediaOverlay: "Overlay média", ttsNotifications: "Notifications TTS", runningLocally: "Exécution locale", quitRelay: "Quitter Relay", checking: "Vérification", connecting: "Connexion…", zeroOutputs: "0 sortie", online: "En ligne", offline: "Hors ligne", waitingDiscord: "En attente de Discord", output: "sortie", outputs: "sorties", hidden: "Masqué", visibleLocked: "Visible · Verrouillé", visibleMovable: "Visible · Déplaçable", hide: "Masquer", show: "Afficher", lock: "Verrouiller", unlock: "Déverrouiller", mediaWidget: "le widget média", notificationWidget: "le widget de notifications", unavailable: "Indisponible", notResponding: "Relay ne répond pas" },
-  es: { relayStatus: "Estado de Relay", connectionStatus: "Estado de la conexión", discord: "Discord", localRelay: "Relay local", system: "Sistema", openPanel: "Abrir el panel de control", displayWidgets: "Widgets de pantalla", mediaOverlay: "Overlay multimedia", ttsNotifications: "Notificaciones TTS", runningLocally: "Ejecución local", quitRelay: "Salir de Relay", checking: "Comprobando", connecting: "Conectando…", zeroOutputs: "0 salidas", online: "En línea", offline: "Sin conexión", waitingDiscord: "Esperando a Discord", output: "salida", outputs: "salidas", hidden: "Oculto", visibleLocked: "Visible · Bloqueado", visibleMovable: "Visible · Desplazable", hide: "Ocultar", show: "Mostrar", lock: "Bloquear", unlock: "Desbloquear", mediaWidget: "widget multimedia", notificationWidget: "widget de notificaciones", unavailable: "No disponible", notResponding: "Relay no responde" },
-  de: { relayStatus: "Relay-Status", connectionStatus: "Verbindungsstatus", discord: "Discord", localRelay: "Lokales Relay", system: "System", openPanel: "Bedienfeld öffnen", displayWidgets: "Anzeige-Widgets", mediaOverlay: "Medien-Overlay", ttsNotifications: "TTS-Benachrichtigungen", runningLocally: "Läuft lokal", quitRelay: "Relay beenden", checking: "Wird geprüft", connecting: "Verbindung…", zeroOutputs: "0 Ausgaben", online: "Online", offline: "Offline", waitingDiscord: "Warten auf Discord", output: "Ausgabe", outputs: "Ausgaben", hidden: "Ausgeblendet", visibleLocked: "Sichtbar · Gesperrt", visibleMovable: "Sichtbar · Verschiebbar", hide: "Ausblenden", show: "Anzeigen", lock: "Sperren", unlock: "Entsperren", mediaWidget: "Medien-Widget", notificationWidget: "Benachrichtigungs-Widget", unavailable: "Nicht verfügbar", notResponding: "Relay antwortet nicht" },
+  en: { relayStatus: "Relay status", connectionStatus: "Connection status", discord: "Discord", localRelay: "Local relay", system: "System", openPanel: "Open control panel", displayWidgets: "Display widgets", mediaOverlay: "Media overlay", ttsNotifications: "TTS notifications", runningLocally: "Running locally", startWithWindows: "Start with Windows", quitRelay: "Quit Relay", checking: "Checking", connecting: "Connecting…", zeroOutputs: "0 outputs", online: "Online", offline: "Offline", waitingDiscord: "Waiting for Discord", output: "output", outputs: "outputs", hidden: "Hidden", visibleLocked: "Visible · Locked", visibleMovable: "Visible · Movable", hide: "Hide", show: "Show", lock: "Lock", unlock: "Unlock", mediaWidget: "media widget", notificationWidget: "notification widget", unavailable: "Unavailable", notResponding: "Relay not responding" },
+  fr: { relayStatus: "Statut de Relay", connectionStatus: "État de la connexion", discord: "Discord", localRelay: "Relais local", system: "Système", openPanel: "Ouvrir le panneau de contrôle", displayWidgets: "Widgets d’affichage", mediaOverlay: "Overlay média", ttsNotifications: "Notifications TTS", runningLocally: "Exécution locale", startWithWindows: "Démarrer avec Windows", quitRelay: "Quitter Relay", checking: "Vérification", connecting: "Connexion…", zeroOutputs: "0 sortie", online: "En ligne", offline: "Hors ligne", waitingDiscord: "En attente de Discord", output: "sortie", outputs: "sorties", hidden: "Masqué", visibleLocked: "Visible · Verrouillé", visibleMovable: "Visible · Déplaçable", hide: "Masquer", show: "Afficher", lock: "Verrouiller", unlock: "Déverrouiller", mediaWidget: "le widget média", notificationWidget: "le widget de notifications", unavailable: "Indisponible", notResponding: "Relay ne répond pas" },
+  es: { relayStatus: "Estado de Relay", connectionStatus: "Estado de la conexión", discord: "Discord", localRelay: "Relay local", system: "Sistema", openPanel: "Abrir el panel de control", displayWidgets: "Widgets de pantalla", mediaOverlay: "Overlay multimedia", ttsNotifications: "Notificaciones TTS", runningLocally: "Ejecución local", startWithWindows: "Iniciar con Windows", quitRelay: "Salir de Relay", checking: "Comprobando", connecting: "Conectando…", zeroOutputs: "0 salidas", online: "En línea", offline: "Sin conexión", waitingDiscord: "Esperando a Discord", output: "salida", outputs: "salidas", hidden: "Oculto", visibleLocked: "Visible · Bloqueado", visibleMovable: "Visible · Desplazable", hide: "Ocultar", show: "Mostrar", lock: "Bloquear", unlock: "Desbloquear", mediaWidget: "widget multimedia", notificationWidget: "widget de notificaciones", unavailable: "No disponible", notResponding: "Relay no responde" },
+  de: { relayStatus: "Relay-Status", connectionStatus: "Verbindungsstatus", discord: "Discord", localRelay: "Lokales Relay", system: "System", openPanel: "Bedienfeld öffnen", displayWidgets: "Anzeige-Widgets", mediaOverlay: "Medien-Overlay", ttsNotifications: "TTS-Benachrichtigungen", runningLocally: "Läuft lokal", startWithWindows: "Mit Windows starten", quitRelay: "Relay beenden", checking: "Wird geprüft", connecting: "Verbindung…", zeroOutputs: "0 Ausgaben", online: "Online", offline: "Offline", waitingDiscord: "Warten auf Discord", output: "Ausgabe", outputs: "Ausgaben", hidden: "Ausgeblendet", visibleLocked: "Sichtbar · Gesperrt", visibleMovable: "Sichtbar · Verschiebbar", hide: "Ausblenden", show: "Anzeigen", lock: "Sperren", unlock: "Entsperren", mediaWidget: "Medien-Widget", notificationWidget: "Benachrichtigungs-Widget", unavailable: "Nicht verfügbar", notResponding: "Relay antwortet nicht" },
 };
 
 let language = "en";
@@ -44,6 +44,7 @@ const elements = {
   toggleNotification: document.querySelector("#toggle-notification-widget"),
   lockNotification: document.querySelector("#lock-notification-widget"),
   openPanel: document.querySelector("#open-panel"),
+  startup: document.querySelector("#toggle-startup"),
   quit: document.querySelector("#quit"),
 };
 
@@ -81,7 +82,13 @@ function render(status) {
 async function refreshTray() {
   applyTrayLanguage();
   try {
-    render(await invoke("get_runtime_status"));
+    const [status, startupEnabled] = await Promise.all([
+      invoke("get_runtime_status"),
+      invoke("get_start_with_windows").catch(() => false),
+    ]);
+    render(status);
+    elements.startup.setAttribute("aria-pressed", String(startupEnabled));
+    elements.startup.textContent = `${startupEnabled ? "✓ " : ""}${translate("startWithWindows")}`;
   } catch {
     elements.indicator.classList.remove("is-online");
     elements.indicator.classList.add("is-error");
@@ -90,10 +97,10 @@ async function refreshTray() {
   }
 }
 
-async function runAction(button, command) {
+async function runAction(button, command, payload) {
   button.disabled = true;
   try {
-    await invoke(command);
+    await invoke(command, payload);
     await refreshTray();
   } catch {
     await refreshTray();
@@ -107,6 +114,10 @@ elements.toggleMedia.addEventListener("click", () => runAction(elements.toggleMe
 elements.lockMedia.addEventListener("click", () => runAction(elements.lockMedia, "tray_toggle_media_widget_lock"));
 elements.toggleNotification.addEventListener("click", () => runAction(elements.toggleNotification, "tray_toggle_notification_widget"));
 elements.lockNotification.addEventListener("click", () => runAction(elements.lockNotification, "tray_toggle_notification_widget_lock"));
+elements.startup.addEventListener("click", () => {
+  const enabled = elements.startup.getAttribute("aria-pressed") !== "true";
+  return runAction(elements.startup, "set_start_with_windows", { enabled });
+});
 elements.quit.addEventListener("click", () => invoke("tray_quit"));
 
 window.refreshTray = refreshTray;

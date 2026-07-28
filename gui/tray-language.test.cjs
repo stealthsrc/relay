@@ -22,4 +22,5 @@ test("tray translations cover every interface language", () => {
 test("tray refresh reads the language shared by the control panel", () => {
   assert.match(traySource, /localStorage\.getItem\("relay-language"\)/);
   assert.match(traySource, /async function refreshTray\(\) \{\s+applyTrayLanguage\(\)/);
+  assert.match(traySource, /invoke\("get_start_with_windows"\)[\s\S]*"set_start_with_windows", \{ enabled \}/);
 });
