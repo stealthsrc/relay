@@ -90,8 +90,9 @@ pub fn run() {
                         let _ = window_to_hide.hide();
                     }
                 });
-                if startup_launch {
-                    let _ = window.hide();
+                if !startup_launch {
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
             }
 
