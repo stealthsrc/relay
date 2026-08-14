@@ -13,9 +13,9 @@ const context = vm.createContext({});
 vm.runInContext(`${dictionarySource}\nglobalThis.translationsForTest = translations;`, context);
 const translations = context.translationsForTest;
 
-test("French, Spanish and German provide every interface translation key", () => {
+test("every supported language provides every interface translation key", () => {
   const expectedKeys = Object.keys(translations.en).sort();
-  for (const language of ["fr", "es", "de"]) {
+  for (const language of ["fr", "es", "de", "ru", "zh", "ko", "ja", "id"]) {
     assert.deepEqual(Object.keys(translations[language]).sort(), expectedKeys, language);
   }
 });
@@ -49,6 +49,27 @@ test("Russian localizes the primary Relay controls", () => {
   }
   assert.equal(translations.ru.navOverview, "Обзор");
   assert.equal(translations.ru.privacyProfileBalanced, "Сбалансированный");
+});
+
+test("Chinese, Korean, Japanese and Indonesian localize the primary Relay controls", () => {
+  const expected = {
+    zh: { navOverview: "概览", privacyProfileBalanced: "平衡" },
+    ko: { navOverview: "개요", privacyProfileBalanced: "균형" },
+    ja: { navOverview: "概要", privacyProfileBalanced: "バランス" },
+    id: { navOverview: "Ringkasan", privacyProfileBalanced: "Seimbang" },
+  };
+  const keys = [
+    "navOverview", "overviewTitle", "mediaTitle", "moderationTitle",
+    "commandsTitle", "privacyProtection", "searchPlaceholder", "fontFamily",
+  ];
+
+  for (const [language, values] of Object.entries(expected)) {
+    for (const key of keys) {
+      assert.notEqual(translations[language][key], translations.en[key], `${language}.${key}`);
+    }
+    assert.equal(translations[language].navOverview, values.navOverview, `${language}.navOverview`);
+    assert.equal(translations[language].privacyProfileBalanced, values.privacyProfileBalanced, `${language}.privacyProfileBalanced`);
+  }
 });
 
 test("translation values contain no UTF-8 mojibake", () => {

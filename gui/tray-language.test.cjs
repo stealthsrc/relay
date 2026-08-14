@@ -14,7 +14,7 @@ const translations = context.trayTranslationsForTest;
 
 test("tray translations cover every interface language", () => {
   const expectedKeys = Object.keys(translations.en).sort();
-  for (const language of ["fr", "es", "de"]) {
+  for (const language of ["fr", "es", "de", "ru", "zh", "ko", "ja", "id"]) {
     assert.deepEqual(Object.keys(translations[language]).sort(), expectedKeys, language);
   }
 });
@@ -28,4 +28,18 @@ test("tray refresh reads the language shared by the control panel", () => {
 test("the Russian tray stays localized", () => {
   assert.equal(translations.ru.openPanel, "Открыть панель управления");
   assert.notEqual(translations.ru.quitRelay, translations.en.quitRelay);
+});
+
+test("the added Asian and Indonesian tray locales stay localized", () => {
+  const expectedOpenPanel = {
+    zh: "打开控制面板",
+    ko: "제어 패널 열기",
+    ja: "コントロール パネルを開く",
+    id: "Buka panel kontrol",
+  };
+
+  for (const [language, label] of Object.entries(expectedOpenPanel)) {
+    assert.equal(translations[language].openPanel, label, `${language}.openPanel`);
+    assert.notEqual(translations[language].quitRelay, translations.en.quitRelay, `${language}.quitRelay`);
+  }
 });
