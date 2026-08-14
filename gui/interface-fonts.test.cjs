@@ -40,6 +40,7 @@ test("every interface font is a local WOFF2 file with licensing metadata", () =>
   }
   assert.ok(fs.existsSync(`${__dirname}/assets/fonts/OFL-1.1.txt`));
   assert.ok(fs.existsSync(`${__dirname}/assets/fonts/SOURCES.md`));
+  assert.match(panelHtml, /(?:^|;)\s*font-src 'self'(?:;|$)/);
   assert.match(tauriConfig.app.security.csp, /(?:^|;)\s*font-src 'self'(?:;|$)/);
 });
 
