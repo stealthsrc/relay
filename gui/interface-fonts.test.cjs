@@ -7,6 +7,7 @@ const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
 const panelCss = fs.readFileSync(__dirname + "/panel.css", "utf8");
 const traySource = fs.readFileSync(__dirname + "/tray.js", "utf8");
 const trayCss = fs.readFileSync(__dirname + "/tray.css", "utf8");
+const tauriConfig = JSON.parse(fs.readFileSync(__dirname + "/../src-tauri/tauri.conf.json", "utf8"));
 
 const fonts = {
   bricolage: "BricolageGrotesque.woff2",
@@ -39,6 +40,7 @@ test("every interface font is a local WOFF2 file with licensing metadata", () =>
   }
   assert.ok(fs.existsSync(`${__dirname}/assets/fonts/OFL-1.1.txt`));
   assert.ok(fs.existsSync(`${__dirname}/assets/fonts/SOURCES.md`));
+  assert.match(tauriConfig.app.security.csp, /(?:^|;)\s*font-src 'self'(?:;|$)/);
 });
 
 test("the selected font is persisted for the panel and tray only", () => {
