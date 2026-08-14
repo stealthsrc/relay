@@ -106,9 +106,36 @@
 
       <div class="workspace">
         <header class="topbar">
-          <div class="topbar__heading">
-            <p id="page-kicker" class="kicker">System</p>
-            <h1 id="page-title">Overview</h1>
+          <div class="topbar__start">
+            <div class="navigation-history">
+              <button id="navigation-back" class="navigation-history__button" type="button" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <button id="navigation-forward" class="navigation-history__button" type="button" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+            <div class="topbar__heading">
+              <p id="page-kicker" class="kicker">System</p>
+              <h1 id="page-title">Overview</h1>
+            </div>
+          </div>
+          <div id="settings-search-control" class="settings-search">
+            <svg class="settings-search__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>
+            </svg>
+            <input
+              id="settings-search"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="searchPlaceholder"
+              placeholder="Search settings"
+            >
+            <button id="settings-search-clear" class="settings-search__clear" type="button" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+            </button>
+            <div id="settings-search-results" class="settings-search__results" role="listbox" hidden></div>
           </div>
           <section id="now-playing" class="now-playing" aria-live="polite" hidden>
             <img id="now-playing-artwork" class="now-playing__artwork" src="./assets/relay-radar.png" alt="">

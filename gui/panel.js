@@ -854,6 +854,40 @@ Object.assign(translations.de, {
   privacyAllowlistHelp: "Exakte öffentliche Werte aus dieser Liste werden vor der automatischen Erkennung ausgeblendet.",
   privacyAllowlistPlaceholder: "Ein öffentlicher Wert pro Zeile",
 });
+Object.assign(translations.en, {
+  navigationBack: "Go back",
+  navigationForward: "Go forward",
+  searchLabel: "Search Relay settings",
+  searchPlaceholder: "Search settings",
+  searchNoResults: "No matching setting",
+  clearSearch: "Clear search",
+});
+Object.assign(translations.fr, {
+  navigationBack: "Retour",
+  navigationForward: "Suivant",
+  searchLabel: "Rechercher dans les réglages Relay",
+  searchPlaceholder: "Rechercher un réglage",
+  searchNoResults: "Aucun réglage correspondant",
+  clearSearch: "Effacer la recherche",
+});
+Object.assign(translations.es, {
+  navigationBack: "Atrás",
+  navigationForward: "Adelante",
+  searchLabel: "Buscar en los ajustes de Relay",
+  searchPlaceholder: "Buscar un ajuste",
+  searchNoResults: "No hay ningún ajuste coincidente",
+  clearSearch: "Borrar búsqueda",
+  unsaved: "Cambios sin guardar",
+});
+Object.assign(translations.de, {
+  navigationBack: "Zurück",
+  navigationForward: "Vorwärts",
+  searchLabel: "Relay-Einstellungen durchsuchen",
+  searchPlaceholder: "Einstellung suchen",
+  searchNoResults: "Keine passende Einstellung",
+  clearSearch: "Suche löschen",
+  unsaved: "Nicht gespeicherte Änderungen",
+});
 for (const dictionary of Object.values(translations)) {
   for (const [key, value] of Object.entries(translations.en)) {
     dictionary[key] ??= value;
@@ -1037,6 +1071,12 @@ const themeToggleButton = $("#theme-toggle");
 const themeValueElement = $("#theme-value");
 const pageTitleElement = $("#page-title");
 const pageKickerElement = $("#page-kicker");
+const navigationBackButton = $("#navigation-back");
+const navigationForwardButton = $("#navigation-forward");
+const settingsSearchControl = $("#settings-search-control");
+const settingsSearchElement = $("#settings-search");
+const settingsSearchClearButton = $("#settings-search-clear");
+const settingsSearchResultsElement = $("#settings-search-results");
 const nowPlayingElement = $("#now-playing");
 const nowPlayingArtworkElement = $("#now-playing-artwork");
 const nowPlayingTitleElement = $("#now-playing-title");
@@ -1062,6 +1102,10 @@ let reconnectDelayMs = 1000;
 let statusTimer;
 let isUnloading = false;
 let currentPage = "overview";
+const navigationHistory = ["overview"];
+let navigationHistoryIndex = 0;
+let settingsSearchIndex = [];
+let settingsSearchHighlightTimer;
 const supportedLanguages = ["en", "fr", "es", "de"];
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
 let language = localStorage.getItem("relay-language") || "en";
@@ -1143,6 +1187,15 @@ function applyLanguage() {
   applyTranslations();
   updateCheckButton.setAttribute("aria-label", `${t("checkUpdates")}. Relay v${currentAppVersion}`);
   updateMenuCloseButton.setAttribute("aria-label", t("closeUpdateMenu"));
+  navigationBackButton.title = t("navigationBack");
+  navigationBackButton.setAttribute("aria-label", t("navigationBack"));
+  navigationForwardButton.title = t("navigationForward");
+  navigationForwardButton.setAttribute("aria-label", t("navigationForward"));
+  settingsSearchElement.setAttribute("aria-label", t("searchLabel"));
+  settingsSearchClearButton.title = t("clearSearch");
+  settingsSearchClearButton.setAttribute("aria-label", t("clearSearch"));
+  buildSettingsSearchIndex();
+  renderSettingsSearchResults();
   renderUpdateStatus();
   updatePageHeading();
   renderNowPlaying();
@@ -1527,7 +1580,18 @@ function updatePageHeading() {
   pageKickerElement.textContent = t(metadata.kicker);
 }
 
-function showPage(page) {
+function updateNavigationControls() {
+  navigationBackButton.disabled = navigationHistoryIndex <= 0;
+  navigationForwardButton.disabled = navigationHistoryIndex >= navigationHistory.length - 1;
+}
+
+function showPage(page, { recordHistory = true } = {}) {
+  if (!pageMetadata[page]) return;
+  if (recordHistory && page !== currentPage) {
+    navigationHistory.splice(navigationHistoryIndex + 1);
+    navigationHistory.push(page);
+    navigationHistoryIndex = navigationHistory.length - 1;
+  }
   currentPage = page;
   for (const element of $$("[data-page]")) {
     const active = element.dataset.page === page;
@@ -1541,6 +1605,103 @@ function showPage(page) {
     window.requestAnimationFrame(loadHistoryVideoThumbnails);
   }
   updatePageHeading();
+  updateNavigationControls();
+}
+
+function navigateHistory(offset) {
+  const nextIndex = navigationHistoryIndex + offset;
+  if (nextIndex < 0 || nextIndex >= navigationHistory.length) return;
+  navigationHistoryIndex = nextIndex;
+  showPage(navigationHistory[navigationHistoryIndex], { recordHistory: false });
+}
+
+function normalizeSettingsSearch(value) {
+  return String(value)
+    .normalize("NFKD")
+    .replace(/\p{Mark}/gu, "")
+    .toLocaleLowerCase(language);
+}
+
+function buildSettingsSearchIndex() {
+  const seen = new Set();
+  settingsSearchIndex = $$('[data-page] [data-i18n]').flatMap((element) => {
+    const page = element.closest("[data-page]")?.dataset.page;
+    const key = element.dataset.i18n;
+    const identity = `${page}:${key}`;
+    if (!pageMetadata[page] || seen.has(identity)) return [];
+    seen.add(identity);
+    const label = t(key);
+    const pageLabel = t(pageMetadata[page].title);
+    const target = element.closest("label, .setting-row, details, fieldset, .panel-section, .help-step") || element;
+    return [{
+      label, page, pageLabel, target,
+      searchable: normalizeSettingsSearch(`${label} ${pageLabel}`),
+    }];
+  });
+}
+
+function closeSettingsSearch() {
+  settingsSearchResultsElement.hidden = true;
+}
+
+function openSettingsSearchResult(entry) {
+  settingsSearchElement.value = "";
+  settingsSearchClearButton.hidden = true;
+  closeSettingsSearch();
+  showPage(entry.page);
+  for (let parent = entry.target.closest("details"); parent; parent = parent.parentElement?.closest("details")) {
+    parent.open = true;
+  }
+  window.requestAnimationFrame(() => {
+    entry.target.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.clearTimeout(settingsSearchHighlightTimer);
+    entry.target.classList.remove("settings-search-target");
+    window.requestAnimationFrame(() => entry.target.classList.add("settings-search-target"));
+    settingsSearchHighlightTimer = window.setTimeout(
+      () => entry.target.classList.remove("settings-search-target"),
+      1400,
+    );
+  });
+}
+
+function renderSettingsSearchResults() {
+  const query = normalizeSettingsSearch(settingsSearchElement.value.trim());
+  settingsSearchClearButton.hidden = !query;
+  settingsSearchResultsElement.replaceChildren();
+  if (!query) {
+    closeSettingsSearch();
+    return;
+  }
+  const terms = query.split(/\s+/).filter(Boolean);
+  const results = settingsSearchIndex
+    .filter((entry) => terms.every((term) => entry.searchable.includes(term)))
+    .sort((left, right) => {
+      const leftStarts = normalizeSettingsSearch(left.label).startsWith(query);
+      const rightStarts = normalizeSettingsSearch(right.label).startsWith(query);
+      return Number(rightStarts) - Number(leftStarts) || left.label.localeCompare(right.label, language);
+    })
+    .slice(0, 8);
+  settingsSearchResultsElement.hidden = false;
+  if (!results.length) {
+    const empty = document.createElement("p");
+    empty.className = "settings-search__empty";
+    empty.textContent = t("searchNoResults");
+    settingsSearchResultsElement.append(empty);
+    return;
+  }
+  for (const entry of results) {
+    const button = document.createElement("button");
+    button.className = "settings-search__result";
+    button.type = "button";
+    button.setAttribute("role", "option");
+    const label = document.createElement("strong");
+    label.textContent = entry.label;
+    const page = document.createElement("small");
+    page.textContent = entry.pageLabel;
+    button.append(label, page);
+    button.addEventListener("click", () => openSettingsSearchResult(entry));
+    settingsSearchResultsElement.append(button);
+  }
 }
 
 function setBotStatus(status) {
@@ -2543,6 +2704,36 @@ for (const button of $$("[data-page-target]")) {
   button.addEventListener("click", () => showPage(button.dataset.pageTarget));
 }
 
+navigationBackButton.addEventListener("click", () => navigateHistory(-1));
+navigationForwardButton.addEventListener("click", () => navigateHistory(1));
+
+settingsSearchElement.addEventListener("input", renderSettingsSearchResults);
+settingsSearchElement.addEventListener("focus", renderSettingsSearchResults);
+settingsSearchElement.addEventListener("keydown", (event) => {
+  const results = $$(".settings-search__result", settingsSearchResultsElement);
+  if (event.key === "ArrowDown" && results.length) {
+    event.preventDefault();
+    results[0].focus();
+  }
+});
+settingsSearchResultsElement.addEventListener("keydown", (event) => {
+  const results = $$(".settings-search__result", settingsSearchResultsElement);
+  const index = results.indexOf(document.activeElement);
+  if (event.key === "ArrowDown" && index < results.length - 1) {
+    event.preventDefault();
+    results[index + 1].focus();
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    if (index > 0) results[index - 1].focus();
+    else settingsSearchElement.focus();
+  }
+});
+settingsSearchClearButton.addEventListener("click", () => {
+  settingsSearchElement.value = "";
+  renderSettingsSearchResults();
+  settingsSearchElement.focus();
+});
+
 for (const button of $$("[data-help-link]")) {
   button.addEventListener("click", () => invoke("open_help_link", { link: button.dataset.helpLink }));
 }
@@ -2585,12 +2776,30 @@ document.addEventListener("pointerdown", (event) => {
   if (!updateMenuElement.hidden && !updateControlElement.contains(event.target)) {
     setUpdateMenuOpen(false);
   }
+  if (!settingsSearchResultsElement.hidden && !settingsSearchControl.contains(event.target)) {
+    closeSettingsSearch();
+  }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !updateMenuElement.hidden) {
-    setUpdateMenuOpen(false);
-    updateCheckButton.focus();
+  if (event.key === "Escape") {
+    if (!updateMenuElement.hidden) {
+      setUpdateMenuOpen(false);
+      updateCheckButton.focus();
+    }
+    if (!settingsSearchResultsElement.hidden) {
+      closeSettingsSearch();
+      settingsSearchElement.focus();
+    }
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
+    event.preventDefault();
+    settingsSearchElement.focus();
+    settingsSearchElement.select();
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+    event.preventDefault();
+    navigateHistory(event.key === "ArrowLeft" ? -1 : 1);
   }
 });
 

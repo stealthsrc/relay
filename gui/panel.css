@@ -362,8 +362,190 @@ select:focus-visible {
   background: var(--canvas);
 }
 
+.topbar__start,
+.navigation-history {
+  display: flex;
+  align-items: center;
+}
+
+.topbar__start {
+  min-width: 0;
+  gap: 12px;
+}
+
+.navigation-history {
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.navigation-history__button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.navigation-history__button:hover:not(:disabled) {
+  border-color: var(--line);
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.navigation-history__button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.navigation-history__button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .topbar__heading {
   flex: 0 0 auto;
+}
+
+.settings-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 300px;
+  width: min(330px, 28vw);
+  min-width: 170px;
+  max-width: 330px;
+  align-items: center;
+}
+
+.settings-search__icon {
+  position: absolute;
+  left: 11px;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-linecap: round;
+  stroke-width: 1.7;
+  pointer-events: none;
+}
+
+.settings-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 36px 0 34px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface);
+  outline: none;
+}
+
+.settings-search input::placeholder {
+  color: var(--faint);
+}
+
+.settings-search input:focus {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line-strong));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.settings-search__clear {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.settings-search__clear:hover {
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.settings-search__clear svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.settings-search__results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  width: max(100%, 320px);
+  max-height: min(420px, calc(100vh - 110px));
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 18%);
+  overflow: auto;
+}
+
+.settings-search__result {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.settings-search__result:hover,
+.settings-search__result:focus-visible {
+  background: var(--surface-subtle);
+}
+
+.settings-search__result strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-search__result small,
+.settings-search__empty {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.settings-search__empty {
+  margin: 0;
+  padding: 12px 10px;
+}
+
+.settings-search-target {
+  animation: settings-search-target 1.25s ease-out;
+}
+
+@keyframes settings-search-target {
+  0%, 38% {
+    border-radius: 5px;
+    outline: 3px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    outline-offset: 4px;
+  }
 }
 
 .now-playing {
@@ -2915,8 +3097,7 @@ input[type="range"] {
   }
 
   .status-strip {
-    max-width: 370px;
-    flex-wrap: wrap;
+    display: none;
   }
 
   .topbar {
@@ -2931,6 +3112,12 @@ input[type="range"] {
 
   .now-playing__artist {
     display: none;
+  }
+
+  .settings-search {
+    flex-basis: 190px;
+    width: min(220px, 28vw);
+    min-width: 150px;
   }
 
   .history-item {
@@ -3014,6 +3201,19 @@ input[type="range"] {
   .topbar {
     min-height: 62px;
     padding-inline: 14px;
+  }
+
+  .topbar__heading {
+    display: none;
+  }
+
+  .settings-search {
+    width: min(260px, 42vw);
+    min-width: 140px;
+  }
+
+  .settings-search__results {
+    width: min(340px, calc(100vw - 28px));
   }
 
   .status-strip {
