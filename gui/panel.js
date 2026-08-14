@@ -861,6 +861,9 @@ Object.assign(translations.en, {
   searchPlaceholder: "Search settings",
   searchNoResults: "No matching setting",
   clearSearch: "Clear search",
+  fontFamily: "Interface font",
+  fontDesignDefault: "Match selected design",
+  fontFamilyHelp: "Applies to Relay and its tray menu. OBS output typography remains unchanged.",
 });
 Object.assign(translations.fr, {
   navigationBack: "Retour",
@@ -869,6 +872,9 @@ Object.assign(translations.fr, {
   searchPlaceholder: "Rechercher un réglage",
   searchNoResults: "Aucun réglage correspondant",
   clearSearch: "Effacer la recherche",
+  fontFamily: "Police de l’interface",
+  fontDesignDefault: "Suivre le design sélectionné",
+  fontFamilyHelp: "S’applique à Relay et à son menu de zone de notification. La typographie des sorties OBS reste inchangée.",
 });
 Object.assign(translations.es, {
   navigationBack: "Atrás",
@@ -878,6 +884,9 @@ Object.assign(translations.es, {
   searchNoResults: "No hay ningún ajuste coincidente",
   clearSearch: "Borrar búsqueda",
   unsaved: "Cambios sin guardar",
+  fontFamily: "Fuente de la interfaz",
+  fontDesignDefault: "Usar la fuente del diseño seleccionado",
+  fontFamilyHelp: "Se aplica a Relay y a su menú de la bandeja. La tipografía de las salidas de OBS no cambia.",
 });
 Object.assign(translations.de, {
   navigationBack: "Zurück",
@@ -887,6 +896,9 @@ Object.assign(translations.de, {
   searchNoResults: "Keine passende Einstellung",
   clearSearch: "Suche löschen",
   unsaved: "Nicht gespeicherte Änderungen",
+  fontFamily: "Oberflächenschrift",
+  fontDesignDefault: "Schrift des ausgewählten Designs verwenden",
+  fontFamilyHelp: "Gilt für Relay und sein Infobereichsmenü. Die Typografie der OBS-Ausgaben bleibt unverändert.",
 });
 for (const dictionary of Object.values(translations)) {
   for (const [key, value] of Object.entries(translations.en)) {
@@ -1057,6 +1069,7 @@ const interfaceLanguageOptionsElement = $("#interface-language-options");
 const interfaceLanguageLabelElement = $("#interface-language-label");
 const interfaceLanguageFlagElement = $("#interface-language-flag");
 const interfaceThemeElement = $("#interface-theme");
+const interfaceFontElement = $("#interface-font");
 const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
 const accentPickerElement = $("#accent-picker");
@@ -1123,12 +1136,18 @@ const languageOptions = [
 const languageOptionByLocale = new Map(languageOptions.map((option) => [option.locale, option]));
 const defaultLocaleByLanguage = { en: "en-US", fr: "fr-FR", es: "es-ES", de: "de-DE" };
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
+const supportedInterfaceFonts = [
+  "design", "bricolage", "dm-sans", "figtree", "inter",
+  "jetbrains-mono", "manrope", "poppins", "space-grotesk",
+];
 const storedLanguage = localStorage.getItem("relay-language") || "en";
 let locale = localStorage.getItem("relay-locale") || defaultLocaleByLanguage[storedLanguage] || "en-US";
 if (!languageOptionByLocale.has(locale)) locale = "en-US";
 let language = languageOptionByLocale.get(locale).language;
 let design = localStorage.getItem("relay-design") || "openai";
 if (!supportedDesigns.includes(design)) design = "openai";
+let interfaceFont = localStorage.getItem("relay-interface-font") || "design";
+if (!supportedInterfaceFonts.includes(interfaceFont)) interfaceFont = "design";
 let theme = localStorage.getItem("relay-theme")
   || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let accentRgb = parseStoredAccent();
@@ -1278,6 +1297,12 @@ function applyDesign() {
     element.style.removeProperty("font-size");
     delete element.dataset.relayBaseFontSize;
   }
+}
+
+function applyInterfaceFont() {
+  document.documentElement.dataset.interfaceFont = interfaceFont;
+  localStorage.setItem("relay-interface-font", interfaceFont);
+  interfaceFontElement.value = interfaceFont;
 }
 
 function activeAudioPlayback() {
@@ -1611,6 +1636,7 @@ function applyPersonalization(sync = true) {
   accentPickerElement.value = rgbToHex(accentRgb);
   fontScaleElement.value = String(fontScale);
   fontScaleValueElement.textContent = `${fontScale}%`;
+  applyInterfaceFont();
   scaleInterfaceText();
   if (sync) syncInterfacePreferences();
 }
@@ -2891,6 +2917,11 @@ interfaceThemeElement.addEventListener("change", () => {
   applyPersonalization();
 });
 
+interfaceFontElement.addEventListener("change", () => {
+  interfaceFont = interfaceFontElement.value;
+  applyPersonalization();
+});
+
 for (const input of designInputs) {
   input.addEventListener("change", () => {
     design = input.value;
@@ -2921,6 +2952,7 @@ resetPersonalizationButton.addEventListener("click", () => {
   language = "en";
   theme = "dark";
   design = "openai";
+  interfaceFont = "design";
   accentRgb = [88, 185, 137];
   fontScale = 100;
   applyLanguage();

@@ -1,3 +1,67 @@
+@font-face {
+  font-family: "Relay Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/BricolageGrotesque.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay DM Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/DMSans.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay Figtree";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/Figtree.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/Inter.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay Manrope";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/Manrope.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay Poppins";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/Poppins.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Relay Space Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/SpaceGrotesk.woff2") format("woff2");
+}
+
 :root {
   color-scheme: dark;
   --tray-bg: #141413;
@@ -620,6 +684,38 @@ body {
 
 :root[data-design="neo-brutalism"] .widget-icon--signal {
   background: #ff735f;
+}
+
+:root[data-interface-font="bricolage"] {
+  font-family: "Relay Bricolage Grotesque", Bahnschrift, sans-serif;
+}
+
+:root[data-interface-font="dm-sans"] {
+  font-family: "Relay DM Sans", "Segoe UI", sans-serif;
+}
+
+:root[data-interface-font="figtree"] {
+  font-family: "Relay Figtree", "Segoe UI", sans-serif;
+}
+
+:root[data-interface-font="inter"] {
+  font-family: "Relay Inter", "Segoe UI", sans-serif;
+}
+
+:root[data-interface-font="jetbrains-mono"] {
+  font-family: "Relay JetBrains Mono", Consolas, monospace;
+}
+
+:root[data-interface-font="manrope"] {
+  font-family: "Relay Manrope", Bahnschrift, sans-serif;
+}
+
+:root[data-interface-font="poppins"] {
+  font-family: "Relay Poppins", "Segoe UI", sans-serif;
+}
+
+:root[data-interface-font="space-grotesk"] {
+  font-family: "Relay Space Grotesk", Bahnschrift, sans-serif;
 }
 
 @media (prefers-reduced-motion: reduce) {

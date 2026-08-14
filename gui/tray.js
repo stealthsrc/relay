@@ -18,6 +18,7 @@ function applyTrayLanguage() {
   const storedLocale = localStorage.getItem("relay-locale");
   const storedDesign = localStorage.getItem("relay-design");
   const storedTheme = localStorage.getItem("relay-theme");
+  const storedInterfaceFont = localStorage.getItem("relay-interface-font");
   language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
   document.documentElement.lang = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419))$/.test(storedLocale || "")
     ? storedLocale
@@ -26,6 +27,10 @@ function applyTrayLanguage() {
     ? storedDesign
     : "openai";
   document.documentElement.dataset.theme = storedTheme === "light" ? "light" : "dark";
+  document.documentElement.dataset.interfaceFont = [
+    "bricolage", "dm-sans", "figtree", "inter", "jetbrains-mono",
+    "manrope", "poppins", "space-grotesk",
+  ].includes(storedInterfaceFont) ? storedInterfaceFont : "design";
   for (const element of document.querySelectorAll("[data-i18n]")) {
     element.textContent = translate(element.dataset.i18n);
   }
