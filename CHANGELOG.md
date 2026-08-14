@@ -19,6 +19,7 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 - Added a local settings search bar with `Ctrl+K`, keyboard-accessible results, and page-aware Back and Forward controls.
 - Added regional language choices with bundled SVG flags for English (US, UK, and India), French, German, Spanish, and Latin American Spanish while preserving the complete English, French, Spanish, and German dictionaries.
+- Added Russian, Simplified Chinese, Korean, Japanese, and Indonesian choices with bundled SVG flags, translated core Relay controls, moderation, privacy protection, custom commands, and the system tray.
 - Added eight locally bundled interface fonts: Bricolage Grotesque, DM Sans, Figtree, Inter, JetBrains Mono, Manrope, Poppins, and Space Grotesk. Font files never load from a remote service at runtime.
 
 #### Changed
@@ -36,6 +37,7 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 - Ajout d’une barre de recherche locale des réglages avec `Ctrl+K`, de résultats accessibles au clavier et de boutons Retour et Suivant tenant compte de l’historique des pages.
 - Ajout de variantes régionales avec des drapeaux SVG embarqués pour l’anglais (États-Unis, Royaume-Uni et Inde), le français, l’allemand, l’espagnol et l’espagnol latino-américain, tout en conservant les dictionnaires complets anglais, français, espagnol et allemand.
+- Ajout du russe, du chinois simplifié, du coréen, du japonais et de l’indonésien avec leurs drapeaux SVG embarqués, ainsi que des traductions des contrôles principaux, de la modération, de la protection de la vie privée, des commandes personnalisées et du menu de zone.
 - Ajout de huit polices d’interface embarquées localement : Bricolage Grotesque, DM Sans, Figtree, Inter, JetBrains Mono, Manrope, Poppins et Space Grotesk. Aucun fichier de police n’est chargé depuis un service distant à l’exécution.
 
 #### Modifié
