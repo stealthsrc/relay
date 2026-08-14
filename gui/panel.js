@@ -1791,7 +1791,8 @@ function formatOutputLastConnected(timestamp) {
   if (!Number.isFinite(value) || value <= 0) {
     return t("outputNeverConnected");
   }
-  return `${t("outputLastConnected")} ${new Date(value).toLocaleTimeString(locale, {
+  const formattingLocale = typeof locale === "string" ? locale : language;
+  return `${t("outputLastConnected")} ${new Date(value).toLocaleTimeString(formattingLocale, {
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   })}`;
 }
