@@ -15,10 +15,13 @@ function translate(key) {
 
 function applyTrayLanguage() {
   const storedLanguage = localStorage.getItem("relay-language");
+  const storedLocale = localStorage.getItem("relay-locale");
   const storedDesign = localStorage.getItem("relay-design");
   const storedTheme = localStorage.getItem("relay-theme");
   language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
-  document.documentElement.lang = language;
+  document.documentElement.lang = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419))$/.test(storedLocale || "")
+    ? storedLocale
+    : language;
   document.documentElement.dataset.design = ["anthropic", "neo-brutalism"].includes(storedDesign)
     ? storedDesign
     : "openai";

@@ -1052,6 +1052,10 @@ const notificationSoundStateElement = $("#notification-sound-state");
 const previewElement = $("#preview");
 const outputGeometryGridElement = $("#output-geometry-grid");
 const interfaceLanguageElement = $("#interface-language");
+const interfaceLanguageButton = $("#interface-language-button");
+const interfaceLanguageOptionsElement = $("#interface-language-options");
+const interfaceLanguageLabelElement = $("#interface-language-label");
+const interfaceLanguageFlagElement = $("#interface-language-flag");
 const interfaceThemeElement = $("#interface-theme");
 const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
@@ -1067,6 +1071,7 @@ const clearOverlayButton = $("#clear-overlay");
 const skipMediaButton = $("#skip-media");
 const languageToggleButton = $("#language-toggle");
 const languageValueElement = $("#language-value");
+const languageFlagElement = $("#language-flag");
 const themeToggleButton = $("#theme-toggle");
 const themeValueElement = $("#theme-value");
 const pageTitleElement = $("#page-title");
@@ -1106,10 +1111,22 @@ const navigationHistory = ["overview"];
 let navigationHistoryIndex = 0;
 let settingsSearchIndex = [];
 let settingsSearchHighlightTimer;
-const supportedLanguages = ["en", "fr", "es", "de"];
+const languageOptions = [
+  { locale: "en-US", language: "en", label: "English (US)", short: "EN-US", flag: "us" },
+  { locale: "en-GB", language: "en", label: "English (UK)", short: "EN-UK", flag: "gb" },
+  { locale: "en-IN", language: "en", label: "English (India)", short: "EN-IN", flag: "in" },
+  { locale: "fr-FR", language: "fr", label: "Français", short: "FR", flag: "fr" },
+  { locale: "de-DE", language: "de", label: "Deutsch", short: "DE", flag: "de" },
+  { locale: "es-ES", language: "es", label: "Español", short: "ES", flag: "es" },
+  { locale: "es-419", language: "es", label: "Español (Latinoamérica)", short: "ES-LATAM", flag: "mx" },
+];
+const languageOptionByLocale = new Map(languageOptions.map((option) => [option.locale, option]));
+const defaultLocaleByLanguage = { en: "en-US", fr: "fr-FR", es: "es-ES", de: "de-DE" };
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
-let language = localStorage.getItem("relay-language") || "en";
-if (!supportedLanguages.includes(language)) language = "en";
+const storedLanguage = localStorage.getItem("relay-language") || "en";
+let locale = localStorage.getItem("relay-locale") || defaultLocaleByLanguage[storedLanguage] || "en-US";
+if (!languageOptionByLocale.has(locale)) locale = "en-US";
+let language = languageOptionByLocale.get(locale).language;
 let design = localStorage.getItem("relay-design") || "openai";
 if (!supportedDesigns.includes(design)) design = "openai";
 let theme = localStorage.getItem("relay-theme")
@@ -1180,11 +1197,35 @@ function setUpdateMenuOpen(open) {
   if (open) window.requestAnimationFrame(() => updateMenuCloseButton.focus());
 }
 
+function activeLanguageOption() {
+  return languageOptionByLocale.get(locale) || languageOptions[0];
+}
+
+function setLanguageMenuOpen(open) {
+  interfaceLanguageOptionsElement.hidden = !open;
+  interfaceLanguageButton.setAttribute("aria-expanded", String(open));
+}
+
+function renderLanguagePicker() {
+  const selected = activeLanguageOption();
+  const flagUrl = `./assets/flags/${selected.flag}.svg`;
+  interfaceLanguageLabelElement.textContent = selected.label;
+  interfaceLanguageFlagElement.src = flagUrl;
+  languageFlagElement.src = flagUrl;
+  languageValueElement.textContent = selected.short;
+  interfaceLanguageButton.setAttribute("aria-label", `${t("language")}: ${selected.label}`);
+  for (const option of $$("[data-locale]", interfaceLanguageOptionsElement)) {
+    const isSelected = option.dataset.locale === selected.locale;
+    option.setAttribute("aria-selected", String(isSelected));
+  }
+}
+
 function applyLanguage() {
-  document.documentElement.lang = language;
+  document.documentElement.lang = locale;
   localStorage.setItem("relay-language", language);
-  languageValueElement.textContent = language.toUpperCase();
+  localStorage.setItem("relay-locale", locale);
   applyTranslations();
+  renderLanguagePicker();
   updateCheckButton.setAttribute("aria-label", `${t("checkUpdates")}. Relay v${currentAppVersion}`);
   updateMenuCloseButton.setAttribute("aria-label", t("closeUpdateMenu"));
   navigationBackButton.title = t("navigationBack");
@@ -1564,7 +1605,7 @@ function applyPersonalization(sync = true) {
   document.documentElement.style.setProperty("--accent-ink", accentInk(accentRgb));
   localStorage.setItem("relay-accent-rgb", JSON.stringify(accentRgb));
   localStorage.setItem("relay-font-scale", String(fontScale));
-  interfaceLanguageElement.value = language;
+  renderLanguagePicker();
   interfaceThemeElement.value = theme;
   accentInputs.forEach((input, index) => { input.value = String(accentRgb[index]); });
   accentPickerElement.value = rgbToHex(accentRgb);
@@ -1619,7 +1660,7 @@ function normalizeSettingsSearch(value) {
   return String(value)
     .normalize("NFKD")
     .replace(/\p{Mark}/gu, "")
-    .toLocaleLowerCase(language);
+    .toLocaleLowerCase(locale);
 }
 
 function buildSettingsSearchIndex() {
@@ -1678,7 +1719,7 @@ function renderSettingsSearchResults() {
     .sort((left, right) => {
       const leftStarts = normalizeSettingsSearch(left.label).startsWith(query);
       const rightStarts = normalizeSettingsSearch(right.label).startsWith(query);
-      return Number(rightStarts) - Number(leftStarts) || left.label.localeCompare(right.label, language);
+      return Number(rightStarts) - Number(leftStarts) || left.label.localeCompare(right.label, locale);
     })
     .slice(0, 8);
   settingsSearchResultsElement.hidden = false;
@@ -1724,7 +1765,7 @@ function formatOutputLastConnected(timestamp) {
   if (!Number.isFinite(value) || value <= 0) {
     return t("outputNeverConnected");
   }
-  return `${t("outputLastConnected")} ${new Date(value).toLocaleTimeString(language, {
+  return `${t("outputLastConnected")} ${new Date(value).toLocaleTimeString(locale, {
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   })}`;
 }
@@ -2299,7 +2340,7 @@ function renderHistory() {
     item.querySelector(".history-item__author").textContent = mediaEvent.author?.username || t("unknownAuthor");
     const time = item.querySelector(".history-item__time");
     time.dateTime = new Date(mediaEvent.timestamp).toISOString();
-    time.textContent = new Date(mediaEvent.timestamp).toLocaleTimeString(language, {
+    time.textContent = new Date(mediaEvent.timestamp).toLocaleTimeString(locale, {
       hour: "2-digit", minute: "2-digit", second: "2-digit",
     });
     const replayButton = item.querySelector(".history-item__replay");
@@ -2418,7 +2459,7 @@ function renderModeration() {
     item.querySelector(".moderation-item__privacy").textContent = `${String(classification).toUpperCase()} · ${detected}`;
     const time = item.querySelector(".history-item__time");
     time.dateTime = new Date(mediaEvent.timestamp).toISOString();
-    time.textContent = new Date(mediaEvent.timestamp).toLocaleTimeString(language, {
+    time.textContent = new Date(mediaEvent.timestamp).toLocaleTimeString(locale, {
       hour: "2-digit", minute: "2-digit", second: "2-digit",
     });
     const approveButton = item.querySelector(".moderation-item__approve");
@@ -2779,6 +2820,9 @@ document.addEventListener("pointerdown", (event) => {
   if (!settingsSearchResultsElement.hidden && !settingsSearchControl.contains(event.target)) {
     closeSettingsSearch();
   }
+  if (!interfaceLanguageOptionsElement.hidden && !interfaceLanguageElement.contains(event.target)) {
+    setLanguageMenuOpen(false);
+  }
 });
 
 document.addEventListener("keydown", (event) => {
@@ -2790,6 +2834,10 @@ document.addEventListener("keydown", (event) => {
     if (!settingsSearchResultsElement.hidden) {
       closeSettingsSearch();
       settingsSearchElement.focus();
+    }
+    if (!interfaceLanguageOptionsElement.hidden) {
+      setLanguageMenuOpen(false);
+      interfaceLanguageButton.focus();
     }
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
@@ -2811,10 +2859,8 @@ $("#privacy-reference").addEventListener("click", () => {
 });
 
 languageToggleButton.addEventListener("click", () => {
-  language = supportedLanguages[(supportedLanguages.indexOf(language) + 1) % supportedLanguages.length];
-  applyLanguage();
-  applyTheme();
-  applyPersonalization();
+  showPage("personalization");
+  window.requestAnimationFrame(() => interfaceLanguageButton.focus());
 });
 
 themeToggleButton.addEventListener("click", () => {
@@ -2823,12 +2869,21 @@ themeToggleButton.addEventListener("click", () => {
   applyPersonalization();
 });
 
-interfaceLanguageElement.addEventListener("change", () => {
-  language = interfaceLanguageElement.value;
-  applyLanguage();
-  applyTheme();
-  applyPersonalization();
+interfaceLanguageButton.addEventListener("click", () => {
+  setLanguageMenuOpen(interfaceLanguageOptionsElement.hidden);
 });
+
+for (const option of $$("[data-locale]", interfaceLanguageOptionsElement)) {
+  option.addEventListener("click", () => {
+    locale = option.dataset.locale;
+    language = activeLanguageOption().language;
+    setLanguageMenuOpen(false);
+    applyLanguage();
+    applyTheme();
+    applyPersonalization();
+    interfaceLanguageButton.focus();
+  });
+}
 
 interfaceThemeElement.addEventListener("change", () => {
   theme = interfaceThemeElement.value;
@@ -2862,6 +2917,7 @@ fontScaleElement.addEventListener("input", () => {
 });
 
 resetPersonalizationButton.addEventListener("click", () => {
+  locale = "en-US";
   language = "en";
   theme = "dark";
   design = "openai";

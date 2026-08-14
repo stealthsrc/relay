@@ -62,7 +62,10 @@
         <div class="sidebar__footer">
           <button id="language-toggle" class="utility-button" type="button" aria-label="Switch language">
             <span data-i18n="language">Language</span>
-            <strong id="language-value">EN</strong>
+            <span class="utility-button__value">
+              <img id="language-flag" class="flag-icon" src="./assets/flags/us.svg" alt="">
+              <strong id="language-value">EN-US</strong>
+            </span>
           </button>
           <button id="theme-toggle" class="utility-button" type="button" aria-label="Switch theme">
             <span data-i18n="appearance">Appearance</span>
@@ -1228,15 +1231,46 @@
             </div>
             <section class="panel-section personalization-card">
               <div class="personalization-grid">
-                <label class="source-field">
+                <div class="source-field">
                   <span data-i18n="language">Language</span>
-                  <select id="interface-language">
-                    <option value="en">English</option>
-                    <option value="fr">Français</option>
-                    <option value="es">Español</option>
-                    <option value="de">Deutsch</option>
-                  </select>
-                </label>
+                  <div id="interface-language" class="language-picker">
+                    <button
+                      id="interface-language-button"
+                      class="language-picker__button"
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-controls="interface-language-options"
+                    >
+                      <img id="interface-language-flag" class="flag-icon" src="./assets/flags/us.svg" alt="">
+                      <span id="interface-language-label">English (US)</span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
+                    </button>
+                    <div id="interface-language-options" class="language-picker__options" role="listbox" hidden>
+                      <button class="language-picker__option" type="button" role="option" data-locale="en-US">
+                        <img class="flag-icon" src="./assets/flags/us.svg" alt=""><span>English (US)</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="en-GB">
+                        <img class="flag-icon" src="./assets/flags/gb.svg" alt=""><span>English (UK)</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="en-IN">
+                        <img class="flag-icon" src="./assets/flags/in.svg" alt=""><span>English (India)</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="fr-FR">
+                        <img class="flag-icon" src="./assets/flags/fr.svg" alt=""><span>Français</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="de-DE">
+                        <img class="flag-icon" src="./assets/flags/de.svg" alt=""><span>Deutsch</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="es-ES">
+                        <img class="flag-icon" src="./assets/flags/es.svg" alt=""><span>Español</span><i aria-hidden="true">✓</i>
+                      </button>
+                      <button class="language-picker__option" type="button" role="option" data-locale="es-419">
+                        <img class="flag-icon" src="./assets/flags/mx.svg" alt=""><span>Español (Latinoamérica)</span><i aria-hidden="true">✓</i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <label class="source-field">
                   <span data-i18n="themeLabel">Theme</span>
                   <select id="interface-theme">

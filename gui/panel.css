@@ -225,6 +225,22 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
+.utility-button__value {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.flag-icon {
+  display: block;
+  width: 20px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(127 127 127 / 28%);
+}
+
 .update-control {
   position: relative;
   margin-top: 6px;
@@ -1248,6 +1264,100 @@ textarea:focus {
   margin-top: 14px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.language-picker {
+  position: relative;
+  color: var(--ink);
+}
+
+.language-picker__button,
+.language-picker__option {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  color: var(--ink);
+  text-align: left;
+}
+
+.language-picker__button {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 40px;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--canvas);
+}
+
+.language-picker__button:hover,
+.language-picker__button[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.language-picker__button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.language-picker__button > svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 140ms ease;
+}
+
+.language-picker__button[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+.language-picker__options {
+  position: absolute;
+  z-index: 24;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 310px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 38px rgb(0 0 0 / 18%);
+  overflow: auto;
+}
+
+.language-picker__option {
+  grid-template-columns: auto minmax(0, 1fr) 16px;
+  min-height: 37px;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.language-picker__option:hover,
+.language-picker__option:focus-visible,
+.language-picker__option[aria-selected="true"] {
+  background: var(--surface-subtle);
+}
+
+.language-picker__option i {
+  color: var(--accent);
+  font-size: 13px;
+  font-style: normal;
+  opacity: 0;
+}
+
+.language-picker__option[aria-selected="true"] i {
+  opacity: 1;
 }
 
 .transport {
