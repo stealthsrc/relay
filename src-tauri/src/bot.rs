@@ -7,10 +7,11 @@ use anyhow::{Context as _, Result, bail};
 use serenity::{
     all::{
         Channel, ChannelId, ChannelType, Command, CommandDataOptionValue, CommandInteraction,
-        CommandOptionType, Context, CreateCommand, CreateCommandOption, CreateInteractionResponse,
-        CreateInteractionResponseMessage, EventHandler, GatewayIntents, GetMessages, GuildId,
-        Interaction, Message, MessageId, MessageUpdateEvent, OnlineStatus, PermissionOverwrite,
-        PermissionOverwriteType, Permissions, Ready, StickerFormatType, User, UserId,
+        CommandOptionType, Context, CreateAllowedMentions, CreateCommand, CreateCommandOption,
+        CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
+        GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent, OnlineStatus,
+        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, StickerFormatType, User,
+        UserId,
     },
     async_trait,
     cache::Cache,
@@ -24,11 +25,13 @@ use crate::{
     commands::emit_output_test,
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_or_create_relay_secret},
+    custom_commands,
     model::{
         AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
         OutputConnectionStatus, OutputTestTarget, ServerStatus, StickerEvent, TtsRequest,
         VisualSegment,
     },
+    privacy,
     state::{AppCore, BotRuntime},
 };
 
@@ -64,7 +67,8 @@ impl EventHandler for Handler {
         *self.core.channels.write().await = channels;
         warn_if_watched_channel_missing(&self.core).await;
 
-        if let Err(error) = Command::set_global_commands(&context.http, vec![relay_command()]).await
+        if let Err(error) =
+            Command::set_global_commands(&context.http, vec![relay_command(&config)]).await
         {
             // Non-fatal: the gateway stays connected, so keep the online status.
             self.core.bot_status.write().await.error =
@@ -72,28 +76,74 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, _context: Context, message: Message) {
+    async fn message(&self, context: Context, message: Message) {
         if message.author.bot {
             return;
         }
         let config = self.core.config.read().await.clone();
+        let role_ids = message_role_ids(&message);
+        let scoped_config = privacy::scoped_config_for_roles(&config, &role_ids);
         let channel_id = message.channel_id.to_string();
 
         if !config.tts_channel_id.is_empty() && channel_id == config.tts_channel_id {
+            let text_report = classify_message_privacy(&message, &scoped_config);
+            if block_and_delete_message_if_needed(
+                &self.core,
+                &context.http,
+                &message,
+                &text_report,
+                &scoped_config,
+            )
+            .await
+            {
+                return;
+            }
+            if privacy::privacy_rules_enabled(&scoped_config) {
+                let action = privacy::action_for(&text_report, &scoped_config);
+                if matches!(action, privacy::PrivacyAction::Review) {
+                    privacy::log_decision(&text_report, action);
+                    return;
+                }
+            }
             let author = message_author(&message);
             let guild_tag = guild_tag_from_user(&message.author);
-            let mut sticker_segments = message
-                .sticker_items
-                .iter()
-                .take(3)
-                .map(|sticker| {
-                    sticker_visual_segment(
-                        sticker.name.clone(),
-                        sticker.image_url(),
-                        sticker.format_type,
-                    )
-                })
-                .collect::<Vec<_>>();
+            let mut sticker_segments = Vec::new();
+            for sticker in message.sticker_items.iter().take(3) {
+                let Some(url) = sticker.image_url() else {
+                    continue;
+                };
+                let (format, _) = sticker_format(sticker.format_type);
+                let sticker_text = format!("{}\n{}", message.content, sticker.name);
+                let (mut report, _) =
+                    inspect_sticker(&url, format, Some(&sticker_text), &scoped_config).await;
+                let current_config = self.core.config.read().await.clone();
+                let current_scoped_config =
+                    privacy::scoped_config_for_roles(&current_config, &role_ids);
+                report = reclassify_privacy_report(report, &sticker_text, &current_scoped_config);
+                if block_and_delete_message_if_needed(
+                    &self.core,
+                    &context.http,
+                    &message,
+                    &report,
+                    &current_scoped_config,
+                )
+                .await
+                {
+                    return;
+                }
+                if privacy::privacy_rules_enabled(&current_scoped_config) {
+                    let action = privacy::action_for(&report, &current_scoped_config);
+                    if matches!(action, privacy::PrivacyAction::Review) {
+                        privacy::log_decision(&report, action);
+                        return;
+                    }
+                }
+                sticker_segments.push(sticker_visual_segment(
+                    sticker.name.clone(),
+                    Some(url),
+                    sticker.format_type,
+                ));
+            }
             if !sticker_segments.is_empty() {
                 let mut segments = match message.content.trim() {
                     "" => Vec::new(),
@@ -101,37 +151,46 @@ impl EventHandler for Handler {
                         .unwrap_or_else(|| plain_text_segments(content.into())),
                 };
                 segments.append(&mut sticker_segments);
-                self.core.publish_visual_tts(
-                    message.id.to_string(),
-                    message.content.clone(),
-                    author,
-                    guild_tag,
-                    message_timestamp(&message),
-                    segments,
-                );
+                self.core
+                    .publish_visual_tts_if_allowed_with_roles(
+                        message.id.to_string(),
+                        message.content.clone(),
+                        author,
+                        guild_tag,
+                        message_timestamp(&message),
+                        segments,
+                        &role_ids,
+                    )
+                    .await;
                 return;
             }
             if let Some(segments) = parse_visual_segments(&message.content) {
-                self.core.publish_visual_tts(
-                    message.id.to_string(),
-                    message.content.clone(),
-                    author,
-                    guild_tag,
-                    message_timestamp(&message),
-                    segments,
-                );
+                self.core
+                    .publish_visual_tts_if_allowed_with_roles(
+                        message.id.to_string(),
+                        message.content.clone(),
+                        author,
+                        guild_tag,
+                        message_timestamp(&message),
+                        segments,
+                        &role_ids,
+                    )
+                    .await;
                 return;
             }
             if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit) {
                 if !config.tts_speech_enabled {
-                    self.core.publish_visual_tts(
-                        message.id.to_string(),
-                        text.clone(),
-                        author,
-                        guild_tag,
-                        message_timestamp(&message),
-                        plain_text_segments(text),
-                    );
+                    self.core
+                        .publish_visual_tts_if_allowed_with_roles(
+                            message.id.to_string(),
+                            text.clone(),
+                            author,
+                            guild_tag,
+                            message_timestamp(&message),
+                            plain_text_segments(text),
+                            &role_ids,
+                        )
+                        .await;
                     return;
                 }
                 let request = TtsRequest {
@@ -141,15 +200,22 @@ impl EventHandler for Handler {
                     guild_tag,
                     timestamp: message_timestamp(&message),
                 };
-                if let Err(error) = self.core.publish_tts(request.clone()).await {
-                    self.core.publish_visual_tts(
-                        request.id,
-                        request.text.clone(),
-                        request.author,
-                        request.guild_tag,
-                        request.timestamp,
-                        plain_text_segments(request.text),
-                    );
+                if let Err(error) = self
+                    .core
+                    .publish_tts_with_roles(request.clone(), &role_ids)
+                    .await
+                {
+                    self.core
+                        .publish_visual_tts_if_allowed_with_roles(
+                            request.id,
+                            request.text.clone(),
+                            request.author,
+                            request.guild_tag,
+                            request.timestamp,
+                            plain_text_segments(request.text),
+                            &role_ids,
+                        )
+                        .await;
                     self.core.bot_status.write().await.error =
                         Some(format!("Windows TTS failed: {error}"));
                 } else {
@@ -162,34 +228,62 @@ impl EventHandler for Handler {
         if config.watched_channel_id.is_empty() || channel_id != config.watched_channel_id {
             return;
         }
+        let message_report = classify_message_privacy(&message, &scoped_config);
+        if block_and_delete_message_if_needed(
+            &self.core,
+            &context.http,
+            &message,
+            &message_report,
+            &scoped_config,
+        )
+        .await
+        {
+            return;
+        }
         let media_text = prepare_media_text(&message.content);
 
         for sticker in message.sticker_items.iter().take(3) {
             let Some(url) = sticker.image_url() else {
                 continue;
             };
-            let (format, content_type) = sticker_format(sticker.format_type);
-            let cache_id = format!("sticker-{}", sticker.id);
-            let cached_media_id =
-                match artwork::download_bounded(&url, artwork::MAX_ARTWORK_BYTES).await {
-                    Ok(bytes) => {
-                        self.core
-                            .cache_media(cache_id.clone(), content_type.into(), bytes)
-                            .await;
-                        Some(cache_id)
-                    }
-                    Err(_) => None,
-                };
-            self.core.publish_sticker(StickerEvent {
-                id: sticker.id.to_string(),
-                name: sticker.name.clone(),
-                format: format.into(),
-                url,
-                cached_media_id,
-                author: message_author(&message),
-                timestamp: message_timestamp(&message),
-                message_id: message.id.to_string(),
-            });
+            let (format, _) = sticker_format(sticker.format_type);
+            let sticker_text = format!("{}\n{}", message.content, sticker.name);
+            let (privacy_report, bytes) =
+                inspect_sticker(&url, format, Some(&sticker_text), &scoped_config).await;
+            let current_config = self.core.config.read().await.clone();
+            let current_scoped_config =
+                privacy::scoped_config_for_roles(&current_config, &role_ids);
+            let privacy_report =
+                reclassify_privacy_report(privacy_report, &sticker_text, &current_scoped_config);
+            if block_and_delete_message_if_needed(
+                &self.core,
+                &context.http,
+                &message,
+                &privacy_report,
+                &current_scoped_config,
+            )
+            .await
+            {
+                return;
+            }
+            self.core
+                .submit_sticker_with_roles(
+                    StickerEvent {
+                        id: sticker.id.to_string(),
+                        name: sticker.name.clone(),
+                        format: format.into(),
+                        url,
+                        cached_media_id: None,
+                        author: message_author(&message),
+                        timestamp: message_timestamp(&message),
+                        message_id: message.id.to_string(),
+                    },
+                    Some(&sticker_text),
+                    bytes,
+                    Some(privacy_report),
+                    &role_ids,
+                )
+                .await;
         }
 
         for attachment in message
@@ -204,17 +298,91 @@ impl EventHandler for Handler {
             } else {
                 None
             };
-            let artwork_id = if let Some(embedded) = audio_metadata
+            let mut event = MediaEvent {
+                kind,
+                url: attachment.url.clone(),
+                proxy_url: attachment.proxy_url.clone(),
+                filename: attachment.filename.clone(),
+                content_type: attachment.content_type.clone().unwrap_or_default(),
+                artwork_id: None,
+                audio_id: None,
+                cached_media_id: None,
+                title: audio_metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.title.clone()),
+                artist: audio_metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.artist.clone()),
+                text: media_text.clone(),
+                author: AuthorIdentity {
+                    username: message.author.name.clone(),
+                    display_avatar_url: message
+                        .author
+                        .avatar_url()
+                        .unwrap_or_else(|| message.author.default_avatar_url()),
+                },
+                timestamp: message.timestamp.unix_timestamp().max(0) as u64 * 1_000,
+                message_id: message.id.to_string(),
+            };
+            let attachment_text = format!(
+                "{}\n{}\n{}",
+                attachment_privacy_text(&message.content, &event.filename),
+                event.title.as_deref().unwrap_or_default(),
+                event.artist.as_deref().unwrap_or_default()
+            );
+            let mut privacy_report = if matches!(kind, MediaKind::Image | MediaKind::Gif) {
+                if attachment.size as usize > privacy::MAX_IMAGE_BYTES {
+                    privacy::image_limit_report(Some(&attachment_text), &scoped_config)
+                } else {
+                    privacy::analyze_remote_image(
+                        &event.url,
+                        &event.proxy_url,
+                        Some(&attachment_text),
+                        &scoped_config,
+                    )
+                    .await
+                }
+            } else {
+                privacy::classify_text(Some(&attachment_text), &scoped_config)
+            };
+            if let Some(embedded) = audio_metadata
+                .as_ref()
+                .and_then(|metadata| metadata.artwork.as_ref())
+            {
+                privacy_report.merge(
+                    privacy::analyze_image_bytes_async(
+                        &embedded.bytes,
+                        Some(&attachment_text),
+                        &scoped_config,
+                    )
+                    .await,
+                );
+            }
+            let current_config = self.core.config.read().await.clone();
+            let current_scoped_config =
+                privacy::scoped_config_for_roles(&current_config, &role_ids);
+            let privacy_report =
+                reclassify_privacy_report(privacy_report, &attachment_text, &current_scoped_config);
+            if block_and_delete_message_if_needed(
+                &self.core,
+                &context.http,
+                &message,
+                &privacy_report,
+                &current_scoped_config,
+            )
+            .await
+            {
+                return;
+            }
+            if let Some(embedded) = audio_metadata
                 .as_mut()
                 .and_then(|metadata| metadata.artwork.take())
             {
                 let id = attachment.id.to_string();
                 self.core.cache_artwork(id.clone(), embedded).await;
-                Some(id)
-            } else {
-                None
-            };
-            let audio_id = if let Some(metadata) = audio_metadata.as_mut() {
+                event.artwork_id = Some(id);
+            }
+            if let Some(metadata) = audio_metadata.as_mut() {
                 let id = attachment.id.to_string();
                 let content_type = attachment
                     .content_type
@@ -227,38 +395,19 @@ impl EventHandler for Handler {
                         std::mem::take(&mut metadata.audio),
                     )
                     .await;
-                Some(id)
-            } else {
-                None
-            };
-            let event = MediaEvent {
-                kind,
-                url: attachment.url.clone(),
-                proxy_url: attachment.proxy_url.clone(),
-                filename: attachment.filename.clone(),
-                content_type: attachment.content_type.clone().unwrap_or_default(),
-                artwork_id,
-                audio_id,
-                cached_media_id: None,
-                title: audio_metadata
-                    .as_ref()
-                    .and_then(|metadata| metadata.title.clone()),
-                artist: audio_metadata.and_then(|metadata| metadata.artist),
-                text: media_text.clone(),
-                author: AuthorIdentity {
-                    username: message.author.name.clone(),
-                    display_avatar_url: message
-                        .author
-                        .avatar_url()
-                        .unwrap_or_else(|| message.author.default_avatar_url()),
-                },
-                timestamp: message.timestamp.unix_timestamp().max(0) as u64 * 1_000,
-                message_id: message.id.to_string(),
-            };
-            self.core.submit_media(event).await;
+                event.audio_id = Some(id);
+            }
+            self.core
+                .submit_analyzed_media_with_text_and_roles(
+                    event,
+                    Some(privacy_report),
+                    Some(&message.content),
+                    &role_ids,
+                )
+                .await;
         }
 
-        submit_embedded_gifs(&self.core, &message).await;
+        submit_embedded_gifs(&self.core, &context.http, &message).await;
     }
 
     async fn message_update(
@@ -269,7 +418,7 @@ impl EventHandler for Handler {
         event: MessageUpdateEvent,
     ) {
         if let Some(message) = new {
-            submit_embedded_gifs(&self.core, &message).await;
+            submit_embedded_gifs(&self.core, &context.http, &message).await;
             return;
         }
         let Some(embeds) = event.embeds else {
@@ -286,8 +435,9 @@ impl EventHandler for Handler {
                     .unwrap_or_else(current_timestamp_ms),
                 content: event.content.unwrap_or_default(),
                 embeds,
+                role_ids: Vec::new(),
             };
-            submit_deferred_embeds(&self.core, message).await;
+            submit_deferred_embeds(&self.core, &context.http, message).await;
             return;
         }
 
@@ -296,15 +446,37 @@ impl EventHandler for Handler {
             return;
         }
         if let Ok(message) = context.http.get_message(event.channel_id, event.id).await {
-            submit_embedded_gifs(&self.core, &message).await;
+            submit_embedded_gifs(&self.core, &context.http, &message).await;
         }
     }
 
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
-        let Interaction::Command(command) = interaction else {
-            return;
+        let command = match interaction {
+            Interaction::Component(component) => {
+                custom_commands::handle_custom_component(&self.core, &context, &component).await;
+                return;
+            }
+            Interaction::Command(command) => command,
+            _ => return,
         };
         if command.data.name != "relay" {
+            return;
+        }
+
+        if let Some(response) =
+            custom_commands::handle_custom_command(&self.core, &context, &command).await
+        {
+            if command
+                .create_response(
+                    &context.http,
+                    CreateInteractionResponse::Message(response.into_message()),
+                )
+                .await
+                .is_err()
+            {
+                self.core.bot_status.write().await.error =
+                    Some("Discord did not accept a custom command response.".into());
+            }
             return;
         }
 
@@ -314,7 +486,8 @@ impl EventHandler for Handler {
         let response = CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
                 .content(content)
-                .ephemeral(true),
+                .ephemeral(true)
+                .allowed_mentions(CreateAllowedMentions::new()),
         );
         if let Err(error) = command.create_response(&context.http, response).await {
             // Non-fatal: the gateway stays connected, so keep the online status.
@@ -322,6 +495,157 @@ impl EventHandler for Handler {
                 Some(format!("Discord response failed: {error}"));
         }
     }
+}
+
+fn bounded_privacy_text(value: &str) -> String {
+    let value = value.trim();
+    value
+        .char_indices()
+        .nth(privacy::PRIVACY_TEXT_LIMIT)
+        .map_or_else(|| value.to_owned(), |(index, _)| value[..index].to_owned())
+}
+
+fn message_role_ids(message: &Message) -> Vec<String> {
+    message
+        .member
+        .as_ref()
+        .map(|member| member.roles.iter().map(ToString::to_string).collect())
+        .unwrap_or_default()
+}
+
+fn classify_message_privacy(message: &Message, config: &AppConfig) -> privacy::PrivacyReport {
+    classify_privacy_values(
+        &message.content,
+        message
+            .sticker_items
+            .iter()
+            .take(3)
+            .map(|sticker| sticker.name.as_str()),
+        message
+            .attachments
+            .iter()
+            .take(3)
+            .map(|attachment| attachment.filename.as_str()),
+        config,
+    )
+}
+
+fn classify_privacy_values<'a>(
+    content: &str,
+    sticker_names: impl IntoIterator<Item = &'a str>,
+    attachment_names: impl IntoIterator<Item = &'a str>,
+    config: &AppConfig,
+) -> privacy::PrivacyReport {
+    if !privacy::privacy_rules_enabled(config) {
+        return privacy::PrivacyReport::safe();
+    }
+
+    let mut report = privacy::PrivacyReport::safe();
+    let mut classify = |value: &str| {
+        let value = bounded_privacy_text(value);
+        if !value.is_empty() {
+            report.merge(privacy::classify_text(Some(&value), config));
+        }
+    };
+    classify(content);
+    for sticker_name in sticker_names.into_iter().take(3) {
+        classify(sticker_name);
+    }
+    for attachment_name in attachment_names.into_iter().take(3) {
+        classify(attachment_name);
+        if let Some((stem, _extension)) = attachment_name.rsplit_once('.') {
+            classify(stem);
+        }
+    }
+    report.apply_score_policy(config);
+    report
+}
+
+fn attachment_privacy_text(content: &str, filename: &str) -> String {
+    let content = bounded_privacy_text(content);
+    let filename = bounded_privacy_text(filename);
+    if content.is_empty() {
+        filename
+    } else if filename.is_empty() {
+        content
+    } else {
+        format!("{content}\n{filename}")
+    }
+}
+
+fn reclassify_privacy_report(
+    report: privacy::PrivacyReport,
+    text: &str,
+    config: &AppConfig,
+) -> privacy::PrivacyReport {
+    let signature = privacy::config_signature(config);
+    if report
+        .config_signature
+        .is_some_and(|report_signature| report_signature != signature)
+    {
+        let mut current = privacy::classify_text(Some(text), config);
+        if current.classification == privacy::PrivacyClassification::Safe {
+            current.merge(privacy::PrivacyReport::suspicious("scan_config_changed"));
+        }
+        current.apply_score_policy(config);
+        return current;
+    }
+
+    let mut current = report;
+    current.merge(privacy::classify_text(Some(text), config));
+    current.apply_score_policy(config);
+    current
+}
+
+fn privacy_action_is_blocked(report: &privacy::PrivacyReport, config: &AppConfig) -> bool {
+    if !privacy::privacy_rules_enabled(config) {
+        return false;
+    }
+    let action = privacy::action_for(report, config);
+    if matches!(action, privacy::PrivacyAction::Block) {
+        privacy::log_decision(report, action);
+        true
+    } else {
+        false
+    }
+}
+
+fn should_auto_delete_blocked_message(report: &privacy::PrivacyReport, config: &AppConfig) -> bool {
+    config.privacy_auto_delete_blocked_messages
+        && config.privacy_scan_enabled
+        && matches!(
+            privacy::action_for(report, config),
+            privacy::PrivacyAction::Block
+        )
+        && report.categories.iter().any(|category| {
+            !matches!(
+                category,
+                privacy::PrivacyCategory::ContentFilter | privacy::PrivacyCategory::MediaSafety
+            )
+        })
+}
+
+async fn block_and_delete_message_if_needed(
+    core: &Arc<AppCore>,
+    http: &Http,
+    message: &Message,
+    report: &privacy::PrivacyReport,
+    config: &AppConfig,
+) -> bool {
+    if !privacy_action_is_blocked(report, config) {
+        return false;
+    }
+    if should_auto_delete_blocked_message(report, config)
+        && message
+            .channel_id
+            .delete_message(http, message.id)
+            .await
+            .is_err()
+    {
+        core.bot_status.write().await.error =
+            Some("Privacy deletion failed. Verify Manage Messages in this channel.".into());
+    }
+    true
 }
 
 fn message_author(message: &Message) -> AuthorIdentity {
@@ -362,6 +686,34 @@ fn sticker_format(format: StickerFormatType) -> (&'static str, &'static str) {
         StickerFormatType::Unknown(_) => ("unknown", "application/octet-stream"),
         _ => ("unknown", "application/octet-stream"),
     }
+}
+
+async fn inspect_sticker(
+    url: &str,
+    format: &str,
+    text: Option<&str>,
+    config: &AppConfig,
+) -> (privacy::PrivacyReport, Option<Vec<u8>>) {
+    let visual_bytes = matches!(format, "png" | "apng" | "gif");
+    let bytes = if visual_bytes {
+        artwork::download_bounded(url, artwork::MAX_ARTWORK_BYTES)
+            .await
+            .ok()
+    } else {
+        None
+    };
+    if !config.privacy_scan_enabled {
+        return (privacy::classify_text(text, config), bytes);
+    }
+    let mut report = match bytes.as_deref() {
+        Some(bytes) => privacy::analyze_image_bytes_async(bytes, text, config).await,
+        None => privacy::classify_text(text, config),
+    };
+    if !visual_bytes || bytes.is_none() {
+        report.merge(privacy::PrivacyReport::suspicious("scan_incomplete"));
+    }
+    report.apply_score_policy(config);
+    (report, bytes)
 }
 
 fn sticker_visual_segment(
@@ -632,21 +984,21 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
     core.channels.write().await.clear();
 }
 
-pub fn invite_url(client_id: &str) -> String {
+pub fn invite_url(client_id: &str, config: &AppConfig) -> String {
     let permissions = (Permissions::VIEW_CHANNEL
         | Permissions::READ_MESSAGE_HISTORY
         | Permissions::MANAGE_ROLES
-        | Permissions::MANAGE_MESSAGES)
-        .bits();
+        | Permissions::MANAGE_MESSAGES
+        | custom_commands::required_bot_permissions(&config.custom_commands))
+    .bits();
     format!(
         "https://discord.com/oauth2/authorize?client_id={client_id}&permissions={permissions}&scope=bot%20applications.commands"
     )
 }
 
-fn relay_command() -> CreateCommand {
-    CreateCommand::new("relay")
+fn relay_command(config: &AppConfig) -> CreateCommand {
+    let mut command = CreateCommand::new("relay")
         .description("Configure the local OBS media relay")
-        .default_member_permissions(Permissions::ADMINISTRATOR)
         .add_option(
             CreateCommandOption::new(
                 CommandOptionType::SubCommand,
@@ -745,7 +1097,32 @@ fn relay_command() -> CreateCommand {
                 .channel_types(vec![ChannelType::Text, ChannelType::News])
                 .required(true),
             ),
-        )
+        );
+    for custom in config
+        .custom_commands
+        .iter()
+        .filter(|command| command.enabled)
+    {
+        command = command.add_option(custom.command_option());
+    }
+    command
+}
+
+pub async fn sync_relay_command_schema(core: &Arc<AppCore>, config: &AppConfig) -> Result<()> {
+    let http = {
+        let runtime = core.bot_runtime.lock().await;
+        runtime
+            .as_ref()
+            .map(|runtime| runtime.http.clone())
+            .context("the Discord bot is not running")?
+    };
+    if !core.bot_status.read().await.connected {
+        bail!("the Discord bot is not connected");
+    }
+    Command::set_global_commands(&http, vec![relay_command(config)])
+        .await
+        .context("failed to synchronize the Relay command schema")?;
+    Ok(())
 }
 
 async fn handle_relay(
@@ -753,6 +1130,15 @@ async fn handle_relay(
     http: &Http,
     command: &CommandInteraction,
 ) -> Result<String> {
+    if !default_command_authorized(
+        command.guild_id,
+        command
+            .member
+            .as_deref()
+            .and_then(|member| member.permissions),
+    ) {
+        return Ok("Default Relay commands require Discord Administrator permission.".into());
+    }
     let Some(option) = command.data.options.first() else {
         return Ok("Choose a Relay subcommand.".into());
     };
@@ -912,7 +1298,7 @@ fn split_message_chunks(text: &str, limit: usize) -> Vec<String> {
     chunks
 }
 
-async fn clear_selected_channel(
+pub(crate) async fn clear_selected_channel(
     http: &Http,
     channel_id: ChannelId,
     count: usize,
@@ -981,6 +1367,11 @@ fn command_enabled(config: &AppConfig, command: &str) -> bool {
         "changelog" => config.command_changelog_enabled,
         _ => false,
     }
+}
+
+fn default_command_authorized(guild_id: Option<GuildId>, permissions: Option<Permissions>) -> bool {
+    guild_id.is_some()
+        && permissions.is_some_and(|permissions| permissions.contains(Permissions::ADMINISTRATOR))
 }
 
 async fn relay_status(core: &AppCore) -> Result<String> {
@@ -1283,11 +1674,13 @@ struct DeferredEmbedMessage {
     timestamp: u64,
     content: String,
     embeds: Vec<serenity::all::Embed>,
+    role_ids: Vec<String>,
 }
 
-async fn submit_embedded_gifs(core: &Arc<AppCore>, message: &Message) {
+async fn submit_embedded_gifs(core: &Arc<AppCore>, http: &Http, message: &Message) {
     submit_deferred_embeds(
         core,
+        http,
         DeferredEmbedMessage {
             channel_id: message.channel_id.to_string(),
             message_id: message.id.to_string(),
@@ -1295,20 +1688,32 @@ async fn submit_embedded_gifs(core: &Arc<AppCore>, message: &Message) {
             timestamp: message.timestamp.unix_timestamp().max(0) as u64 * 1_000,
             content: message.content.clone(),
             embeds: message.embeds.clone(),
+            role_ids: message_role_ids(message),
         },
     )
     .await;
 }
 
-async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessage) {
+async fn submit_deferred_embeds(core: &Arc<AppCore>, http: &Http, message: DeferredEmbedMessage) {
     if message.author.bot {
         return;
     }
-    let config = core.config.read().await;
+    let config = core.config.read().await.clone();
+    let scoped_config = privacy::scoped_config_for_roles(&config, &message.role_ids);
     if config.watched_channel_id.is_empty() || message.channel_id != config.watched_channel_id {
         return;
     }
-    drop(config);
+    let message_report = classify_privacy_values(
+        &message.content,
+        std::iter::empty::<&str>(),
+        std::iter::empty::<&str>(),
+        &scoped_config,
+    );
+    if privacy_action_is_blocked(&message_report, &scoped_config) {
+        delete_deferred_message_if_needed(core, http, &message, &message_report, &scoped_config)
+            .await;
+        return;
+    }
     let media_text = prepare_media_text(&message.content);
     for (index, embed) in message.embeds.iter().filter_map(embedded_gif).enumerate() {
         let event_id = format!("{}-embed-{index}", message.message_id);
@@ -1326,15 +1731,10 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
                 Err(_) => None,
             };
         let mut content_type = embed.content_type;
-        let cached_media_id = if let Some(bytes) = downloaded {
-            content_type = sniff_media_type(&bytes, content_type);
-            core.cache_media(event_id.clone(), content_type.into(), bytes)
-                .await;
-            Some(event_id.clone())
-        } else {
-            None
-        };
-        core.submit_media(MediaEvent {
+        if let Some(bytes) = downloaded.as_deref() {
+            content_type = sniff_media_type(bytes, content_type);
+        }
+        let event = MediaEvent {
             kind: MediaKind::Gif,
             url: embed.url,
             proxy_url: embed.proxy_url,
@@ -1342,7 +1742,7 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
             content_type: content_type.into(),
             artwork_id: None,
             audio_id: None,
-            cached_media_id,
+            cached_media_id: None,
             title: None,
             artist: None,
             text: media_text.clone(),
@@ -1355,8 +1755,81 @@ async fn submit_deferred_embeds(core: &Arc<AppCore>, message: DeferredEmbedMessa
             },
             timestamp: message.timestamp,
             message_id: message.message_id.clone(),
-        })
+        };
+        let privacy_report = if event
+            .content_type
+            .to_ascii_lowercase()
+            .starts_with("image/")
+        {
+            match downloaded.as_deref() {
+                Some(bytes) => {
+                    privacy::analyze_image_bytes_async(
+                        bytes,
+                        Some(&message.content),
+                        &scoped_config,
+                    )
+                    .await
+                }
+                None => {
+                    privacy::analyze_remote_image(
+                        &event.url,
+                        &event.proxy_url,
+                        Some(&message.content),
+                        &scoped_config,
+                    )
+                    .await
+                }
+            }
+        } else {
+            privacy::classify_text(Some(&message.content), &scoped_config)
+        };
+        let current_config = core.config.read().await.clone();
+        let current_scoped_config =
+            privacy::scoped_config_for_roles(&current_config, &message.role_ids);
+        let privacy_report =
+            reclassify_privacy_report(privacy_report, &message.content, &current_scoped_config);
+        if privacy_action_is_blocked(&privacy_report, &current_scoped_config) {
+            delete_deferred_message_if_needed(
+                core,
+                http,
+                &message,
+                &privacy_report,
+                &current_scoped_config,
+            )
+            .await;
+            return;
+        }
+        core.submit_analyzed_media_with_text_and_roles(
+            event,
+            Some(privacy_report),
+            Some(&message.content),
+            &message.role_ids,
+        )
         .await;
+    }
+}
+
+async fn delete_deferred_message_if_needed(
+    core: &Arc<AppCore>,
+    http: &Http,
+    message: &DeferredEmbedMessage,
+    report: &privacy::PrivacyReport,
+    config: &AppConfig,
+) {
+    let (Ok(channel_id), Ok(message_id)) = (
+        message.channel_id.parse::<u64>(),
+        message.message_id.parse::<u64>(),
+    ) else {
+        return;
+    };
+    if should_auto_delete_blocked_message(report, config)
+        && ChannelId::new(channel_id)
+            .delete_message(http, MessageId::new(message_id))
+            .await
+            .is_err()
+    {
+        core.bot_status.write().await.error =
+            Some("Privacy deletion failed. Verify Manage Messages in this channel.".into());
     }
 }
 
@@ -1650,7 +2123,7 @@ mod tests {
     #[test]
     fn builds_invite_url_with_required_scopes_and_permissions() {
         assert_eq!(
-            invite_url("123456789012345678"),
+            invite_url("123456789012345678", &AppConfig::default()),
             "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands"
         );
     }
@@ -1668,6 +2141,23 @@ mod tests {
         assert!(!command_enabled(&config, "test"));
         assert!(command_enabled(&config, "lock"));
         assert!(!command_enabled(&config, "unknown"));
+    }
+
+    #[test]
+    fn default_commands_still_require_an_administrator_inside_a_guild() {
+        let guild_id = Some(GuildId::new(123_456_789_012_345_678));
+        assert!(default_command_authorized(
+            guild_id,
+            Some(Permissions::ADMINISTRATOR)
+        ));
+        assert!(!default_command_authorized(
+            guild_id,
+            Some(Permissions::MANAGE_MESSAGES)
+        ));
+        assert!(!default_command_authorized(
+            None,
+            Some(Permissions::ADMINISTRATOR)
+        ));
     }
 
     #[test]
@@ -1707,7 +2197,7 @@ mod tests {
 
     #[test]
     fn clear_command_requires_a_bounded_message_count() {
-        let command = serde_json::to_value(relay_command()).unwrap();
+        let command = serde_json::to_value(relay_command(&AppConfig::default())).unwrap();
         let clear = command["options"]
             .as_array()
             .unwrap()
@@ -1725,8 +2215,33 @@ mod tests {
     }
 
     #[test]
+    fn custom_commands_share_the_relay_schema_without_a_global_admin_gate() {
+        let config = AppConfig {
+            custom_commands: vec![custom_commands::CustomCommandDefinition {
+                name: "rules".into(),
+                description: "Show the configured rules".into(),
+                action: custom_commands::CustomCommandAction::Reply {
+                    text: "Rules".into(),
+                    ephemeral: true,
+                },
+                ..custom_commands::CustomCommandDefinition::default()
+            }],
+            ..AppConfig::default()
+        };
+        let command = serde_json::to_value(relay_command(&config)).unwrap();
+        assert!(command.get("default_member_permissions").is_none());
+        assert!(
+            command["options"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|option| option["name"] == "rules")
+        );
+    }
+
+    #[test]
     fn test_command_exposes_every_local_output() {
-        let command = serde_json::to_value(relay_command()).unwrap();
+        let command = serde_json::to_value(relay_command(&AppConfig::default())).unwrap();
         let test = command["options"]
             .as_array()
             .unwrap()
@@ -1971,6 +2486,43 @@ mod tests {
         let caption = prepare_media_text(&"é".repeat(MEDIA_TEXT_LIMIT + 1)).unwrap();
         assert_eq!(caption.chars().count(), MEDIA_TEXT_LIMIT);
         assert!(caption.ends_with('…'));
+    }
+
+    #[test]
+    fn automatic_privacy_filter_covers_sticker_and_attachment_names_without_scan() {
+        let config = AppConfig {
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            ..AppConfig::default()
+        };
+        let report = classify_privacy_values(
+            "ordinary message",
+            ["safe sticker"],
+            ["hitler.png"],
+            &config,
+        );
+        assert!(privacy_action_is_blocked(&report, &config));
+        assert!(report.reasons.contains(&"forbidden_concept"));
+    }
+
+    #[test]
+    fn auto_deletes_blocked_postal_addresses_but_not_filter_words() {
+        let mut config = AppConfig {
+            privacy_scan_enabled: true,
+            ..AppConfig::default()
+        };
+        let address = privacy::classify_text(Some("1 rue canot massy"), &config);
+        assert!(should_auto_delete_blocked_message(&address, &config));
+        assert!(!should_auto_delete_blocked_message(
+            &privacy::PrivacyReport::sensitive("forbidden_concept"),
+            &config,
+        ));
+        config.privacy_auto_delete_blocked_messages = false;
+        assert!(!should_auto_delete_blocked_message(&address, &config));
     }
 
     #[test]

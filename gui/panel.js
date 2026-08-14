@@ -406,6 +406,103 @@ Object.assign(translations.de, {
 });
 
 Object.assign(translations.en, {
+  defaultCommands: "Default Commands", customCommands: "Custom Commands",
+  customCommandsHelp: "Create local /relay subcommands backed by one predefined Discord action. The same list is used on every server where this bot is installed.",
+  customCommandsEmpty: "No custom commands configured.", addCustomCommand: "Add command", customCommandEditor: "Command editor",
+  customCommandName: "Command name", customCommandAction: "Predefined action", customCommandDescription: "Discord description",
+  customCommandEnabled: "Register this command in Discord", customActionParameters: "Action parameters", customAccessRestrictions: "Access restrictions",
+  customAdminOnly: "Require Discord Administrator in addition to the action permission", customExtraPermissions: "Additional required permissions",
+  permissionManageGuild: "Manage Server", permissionManageMessages: "Manage Messages", permissionManageRoles: "Manage Roles",
+  permissionBanMembers: "Ban Members", permissionKickMembers: "Kick Members", permissionModerateMembers: "Moderate Members",
+  customAllowedUsers: "Allowed user IDs", customAllowedRoles: "Allowed role IDs", customAllowedChannels: "Allowed invocation channel IDs",
+  discordIdsPlaceholder: "One Discord ID or mention per line", cancel: "Cancel", saveCommandDraft: "Save command",
+  syncCustomCommands: "Save and sync with Discord", edit: "Edit", delete: "Delete", active: "Active", disabled: "Disabled",
+  customActionBan: "Ban member or user ID", customActionUnban: "Unban user", customActionKick: "Kick member",
+  customActionTimeout: "Timeout member", customActionRemoveTimeout: "Remove timeout", customActionClearMessages: "Clear messages",
+  customActionAddRole: "Add role", customActionRemoveRole: "Remove role", customActionReply: "Predefined reply",
+  customParameterMode: "Mode", customParameterValue: "Fallback or fixed value", parameterRequired: "Required", parameterOptional: "Optional", parameterFixed: "Fixed locally",
+  customReason: "Audit log reason", customDeleteDays: "Recent message deletion (days)", customDurationMinutes: "Timeout duration (minutes)",
+  customChannelId: "Discord channel ID", customMessageCount: "Message count", customRoleId: "Discord role ID",
+  customReplyText: "Reply text", customReplyVisibility: "Reply visibility", customReplyEphemeral: "Ephemeral", customReplyPublic: "Public",
+  customRequiredPermission: "Minimum enforced permission: {permission}. Destructive actions always require a one-time confirmation.",
+  customUnsaved: "Unsaved", customValidating: "Validating", customSyncing: "Syncing with Discord", customActive: "Active in Discord",
+  customMaxReached: "Relay supports at most 16 custom commands.", customDuplicateName: "Command names must be unique and cannot use a default Relay command name.",
+  customInvalidIds: "Use one valid Discord ID or mention per line.", customDraftSaved: "Command saved locally. Sync to activate it.",
+});
+Object.assign(translations.fr, {
+  defaultCommands: "Commandes par défaut", customCommands: "Commandes personnalisées",
+  customCommandsHelp: "Créez des sous-commandes /relay locales associées à une seule action Discord prédéfinie. La même liste est utilisée sur tous les serveurs où ce bot est installé.",
+  customCommandsEmpty: "Aucune commande personnalisée configurée.", addCustomCommand: "Ajouter une commande", customCommandEditor: "Éditeur de commande",
+  customCommandName: "Nom de la commande", customCommandAction: "Action prédéfinie", customCommandDescription: "Description Discord",
+  customCommandEnabled: "Enregistrer cette commande dans Discord", customActionParameters: "Paramètres de l’action", customAccessRestrictions: "Restrictions d’accès",
+  customAdminOnly: "Exiger Administrateur Discord en plus de la permission de l’action", customExtraPermissions: "Permissions supplémentaires requises",
+  permissionManageGuild: "Gérer le serveur", permissionManageMessages: "Gérer les messages", permissionManageRoles: "Gérer les rôles",
+  permissionBanMembers: "Bannir des membres", permissionKickMembers: "Expulser des membres", permissionModerateMembers: "Exclure temporairement des membres",
+  customAllowedUsers: "ID utilisateurs autorisés", customAllowedRoles: "ID rôles autorisés", customAllowedChannels: "ID salons autorisés pour l’appel",
+  discordIdsPlaceholder: "Un ID ou une mention Discord par ligne", cancel: "Annuler", saveCommandDraft: "Enregistrer la commande",
+  syncCustomCommands: "Enregistrer et synchroniser avec Discord", edit: "Modifier", delete: "Supprimer", active: "Active", disabled: "Désactivée",
+  customActionBan: "Bannir un membre ou un ID", customActionUnban: "Débannir un utilisateur", customActionKick: "Expulser un membre",
+  customActionTimeout: "Exclure temporairement", customActionRemoveTimeout: "Retirer l’exclusion", customActionClearMessages: "Supprimer des messages",
+  customActionAddRole: "Ajouter un rôle", customActionRemoveRole: "Retirer un rôle", customActionReply: "Réponse prédéfinie",
+  customParameterMode: "Mode", customParameterValue: "Valeur de repli ou fixe", parameterRequired: "Obligatoire", parameterOptional: "Facultatif", parameterFixed: "Fixe localement",
+  customReason: "Motif du journal d’audit", customDeleteDays: "Suppression des messages récents (jours)", customDurationMinutes: "Durée de l’exclusion (minutes)",
+  customChannelId: "ID du salon Discord", customMessageCount: "Nombre de messages", customRoleId: "ID du rôle Discord",
+  customReplyText: "Texte de réponse", customReplyVisibility: "Visibilité de la réponse", customReplyEphemeral: "Éphémère", customReplyPublic: "Publique",
+  customRequiredPermission: "Permission minimale imposée : {permission}. Les actions destructrices exigent toujours une confirmation à usage unique.",
+  customUnsaved: "Non synchronisé", customValidating: "Validation", customSyncing: "Synchronisation avec Discord", customActive: "Active dans Discord",
+  customMaxReached: "Relay prend en charge au maximum 16 commandes personnalisées.", customDuplicateName: "Les noms doivent être uniques et ne peuvent pas reprendre une commande Relay par défaut.",
+  customInvalidIds: "Utilisez un ID ou une mention Discord valide par ligne.", customDraftSaved: "Commande enregistrée localement. Synchronisez-la pour l’activer.",
+});
+Object.assign(translations.es, {
+  defaultCommands: "Comandos predeterminados", customCommands: "Comandos personalizados",
+  customCommandsHelp: "Crea subcomandos /relay locales asociados a una única acción predefinida de Discord. La misma lista se usa en todos los servidores donde está instalado este bot.",
+  customCommandsEmpty: "No hay comandos personalizados configurados.", addCustomCommand: "Añadir comando", customCommandEditor: "Editor de comandos",
+  customCommandName: "Nombre del comando", customCommandAction: "Acción predefinida", customCommandDescription: "Descripción de Discord",
+  customCommandEnabled: "Registrar este comando en Discord", customActionParameters: "Parámetros de la acción", customAccessRestrictions: "Restricciones de acceso",
+  customAdminOnly: "Exigir Administrador de Discord además del permiso de la acción", customExtraPermissions: "Permisos adicionales requeridos",
+  permissionManageGuild: "Gestionar servidor", permissionManageMessages: "Gestionar mensajes", permissionManageRoles: "Gestionar roles",
+  permissionBanMembers: "Banear miembros", permissionKickMembers: "Expulsar miembros", permissionModerateMembers: "Moderar miembros",
+  customAllowedUsers: "ID de usuarios permitidos", customAllowedRoles: "ID de roles permitidos", customAllowedChannels: "ID de canales permitidos para invocar",
+  discordIdsPlaceholder: "Un ID o mención de Discord por línea", cancel: "Cancelar", saveCommandDraft: "Guardar comando",
+  syncCustomCommands: "Guardar y sincronizar con Discord", edit: "Editar", delete: "Eliminar", active: "Activo", disabled: "Desactivado",
+  customActionBan: "Banear miembro o ID", customActionUnban: "Desbanear usuario", customActionKick: "Expulsar miembro",
+  customActionTimeout: "Silenciar temporalmente", customActionRemoveTimeout: "Quitar silencio", customActionClearMessages: "Borrar mensajes",
+  customActionAddRole: "Añadir rol", customActionRemoveRole: "Quitar rol", customActionReply: "Respuesta predefinida",
+  customParameterMode: "Modo", customParameterValue: "Valor alternativo o fijo", parameterRequired: "Obligatorio", parameterOptional: "Opcional", parameterFixed: "Fijo localmente",
+  customReason: "Motivo del registro de auditoría", customDeleteDays: "Borrado de mensajes recientes (días)", customDurationMinutes: "Duración del silencio (minutos)",
+  customChannelId: "ID del canal de Discord", customMessageCount: "Número de mensajes", customRoleId: "ID del rol de Discord",
+  customReplyText: "Texto de respuesta", customReplyVisibility: "Visibilidad de la respuesta", customReplyEphemeral: "Efímera", customReplyPublic: "Pública",
+  customRequiredPermission: "Permiso mínimo aplicado: {permission}. Las acciones destructivas siempre requieren una confirmación de un solo uso.",
+  customUnsaved: "Sin sincronizar", customValidating: "Validando", customSyncing: "Sincronizando con Discord", customActive: "Activo en Discord",
+  customMaxReached: "Relay admite como máximo 16 comandos personalizados.", customDuplicateName: "Los nombres deben ser únicos y no pueden usar un comando predeterminado de Relay.",
+  customInvalidIds: "Usa un ID o mención de Discord válido por línea.", customDraftSaved: "Comando guardado localmente. Sincronízalo para activarlo.",
+});
+Object.assign(translations.de, {
+  defaultCommands: "Standardbefehle", customCommands: "Benutzerdefinierte Befehle",
+  customCommandsHelp: "Erstelle lokale /relay-Unterbefehle mit genau einer vordefinierten Discord-Aktion. Dieselbe Liste gilt auf allen Servern, auf denen dieser Bot installiert ist.",
+  customCommandsEmpty: "Keine benutzerdefinierten Befehle konfiguriert.", addCustomCommand: "Befehl hinzufügen", customCommandEditor: "Befehlseditor",
+  customCommandName: "Befehlsname", customCommandAction: "Vordefinierte Aktion", customCommandDescription: "Discord-Beschreibung",
+  customCommandEnabled: "Diesen Befehl in Discord registrieren", customActionParameters: "Aktionsparameter", customAccessRestrictions: "Zugriffsbeschränkungen",
+  customAdminOnly: "Zusätzlich zur Aktionsberechtigung Discord-Administrator verlangen", customExtraPermissions: "Zusätzlich erforderliche Berechtigungen",
+  permissionManageGuild: "Server verwalten", permissionManageMessages: "Nachrichten verwalten", permissionManageRoles: "Rollen verwalten",
+  permissionBanMembers: "Mitglieder bannen", permissionKickMembers: "Mitglieder kicken", permissionModerateMembers: "Mitglieder moderieren",
+  customAllowedUsers: "Erlaubte Benutzer-IDs", customAllowedRoles: "Erlaubte Rollen-IDs", customAllowedChannels: "Erlaubte Kanal-IDs für Aufrufe",
+  discordIdsPlaceholder: "Eine Discord-ID oder Erwähnung pro Zeile", cancel: "Abbrechen", saveCommandDraft: "Befehl speichern",
+  syncCustomCommands: "Speichern und mit Discord synchronisieren", edit: "Bearbeiten", delete: "Löschen", active: "Aktiv", disabled: "Deaktiviert",
+  customActionBan: "Mitglied oder Benutzer-ID bannen", customActionUnban: "Benutzer entbannen", customActionKick: "Mitglied kicken",
+  customActionTimeout: "Mitglied aussetzen", customActionRemoveTimeout: "Aussetzung entfernen", customActionClearMessages: "Nachrichten löschen",
+  customActionAddRole: "Rolle hinzufügen", customActionRemoveRole: "Rolle entfernen", customActionReply: "Vordefinierte Antwort",
+  customParameterMode: "Modus", customParameterValue: "Ersatz- oder fester Wert", parameterRequired: "Erforderlich", parameterOptional: "Optional", parameterFixed: "Lokal festgelegt",
+  customReason: "Grund für das Audit-Protokoll", customDeleteDays: "Löschen neuer Nachrichten (Tage)", customDurationMinutes: "Dauer der Aussetzung (Minuten)",
+  customChannelId: "Discord-Kanal-ID", customMessageCount: "Nachrichtenanzahl", customRoleId: "Discord-Rollen-ID",
+  customReplyText: "Antworttext", customReplyVisibility: "Sichtbarkeit der Antwort", customReplyEphemeral: "Ephemer", customReplyPublic: "Öffentlich",
+  customRequiredPermission: "Erzwungene Mindestberechtigung: {permission}. Destruktive Aktionen benötigen immer eine einmalige Bestätigung.",
+  customUnsaved: "Nicht synchronisiert", customValidating: "Wird geprüft", customSyncing: "Wird mit Discord synchronisiert", customActive: "In Discord aktiv",
+  customMaxReached: "Relay unterstützt höchstens 16 benutzerdefinierte Befehle.", customDuplicateName: "Namen müssen eindeutig sein und dürfen keinen Relay-Standardbefehl verwenden.",
+  customInvalidIds: "Verwende pro Zeile eine gültige Discord-ID oder Erwähnung.", customDraftSaved: "Befehl lokal gespeichert. Zum Aktivieren synchronisieren.",
+});
+
+Object.assign(translations.en, {
   sizeAndCrop: "Size and crop", sizeAndCropHelp: "Adjust each output independently. OBS keeps control of the Browser Source canvas size.",
   mediaObsOutput: "Media in OBS", mediaWidgetOutput: "Media Windows widget", notificationObsOutput: "Notifications in OBS", notificationWidgetOutput: "Notifications Windows widget",
   contentScale: "Content scale", cropTop: "Crop top", cropRight: "Crop right", cropBottom: "Crop bottom", cropLeft: "Crop left",
@@ -563,6 +660,95 @@ Object.assign(translations.de, {
   anthropicDesignCopy: "Warm, literarisch und menschlich.", neoDesignCopy: "Mutig, redaktionell und verspielt.",
 });
 
+Object.assign(translations.en, {
+  automaticFilterWords: "Automatic filter words",
+  automaticFilterWordsHelp: "Filter words save automatically after you stop typing. They run even when manual moderation and the local image scan are off. Exact matches and existing regexes block immediately and never enter the manual moderation queue.",
+  manualModeration: "Manual moderation",
+  manualModerationHelp: "Hold media for approval independently from automatic filter words.",
+  privacyScanEnabled: "Local privacy scan",
+  privacyScanEnabledHelp: "Inspect image metadata and local OCR before history or OBS.",
+  privacySuspiciousPolicy: "Suspicious media policy",
+  privacySuspiciousPolicyHelp: "Choose whether weak signals are allowed, reviewed, or blocked.",
+  privacyPolicyAllow: "Allow",
+  privacyPolicyReview: "Review",
+  privacyPolicyBlock: "Block",
+  privacySuspiciousThreshold: "Review threshold",
+  privacySensitiveThreshold: "Sensitive threshold",
+  privacySimilarityBoost: "Similarity boost",
+  privacyConcepts: "Filter words or phrases",
+  privacyExemptRoles: "Exempt Discord roles",
+  privacyExemptRolesHelp: "Enter role IDs or Discord role mentions separated by commas or new lines. These roles bypass filter words only; local privacy signals and manual moderation still apply.",
+  unsaved: "Unsaved changes",
+  privacyConceptsHelp: "Enter comma-separated words or phrases, for example: fdp, hitler. Relay handles case, punctuation and separators, leetspeak, supported homoglyphs, repeated letters, and cautious similarity. Existing aliases and regexes are preserved when the same canonical remains.",
+  privacyReviewQueueEmpty: "Filter matches using Review appear here even when manual moderation is off.",
+  privacyPendingManual: "Manual review",
+  privacyProtection: "Anti-doxxing protection",
+  privacyProtectionHelp: "Scan locally before media, text, history, WebSocket or OBS publication. Detected values are never copied into logs.",
+  privacyProtectionLevel: "Protection level",
+  privacyProtectionLevelHelp: "Balanced limits false positives. Strict and Paranoid raise weak signals more quickly.",
+  privacyBlockThreshold: "Automatic block threshold",
+  privacyBlockThresholdHelp: "HIGH blocks by default. CRITICAL sends HIGH cases to local review instead.",
+  privacyReviewIntermediate: "Review MEDIUM cases",
+  privacyReviewIntermediateHelp: "Put intermediate-risk media in the existing local moderation queue.",
+  privacyAutoDeleteBlockedMessages: "Delete blocked Discord messages",
+  privacyAutoDeleteBlockedMessagesHelp: "Delete only messages blocked by the selected privacy threshold. Requires Manage Messages.",
+  privacyCategories: "Enabled detection categories",
+  privacyCategoryEmail: "Email", privacyCategoryPhone: "Phone", privacyCategoryIp: "IP addresses",
+  privacyCategoryGps: "GPS and coordinates", privacyCategoryAddress: "Postal addresses",
+  privacyCategoryFinancial: "IBAN and payment cards", privacyCategoryPlate: "License plates",
+  privacyCategoryUrl: "Sensitive URLs", privacyCategoryCustom: "Protected private strings",
+  privacyCategoryMetadata: "EXIF metadata", privacyCategoryOcr: "Local OCR",
+  privacyCategoryDocument: "Administrative documents",
+  privacyCustomPatterns: "Private data to protect",
+  privacyCustomPatternsHelp: "Add names, old usernames, address variants, streets, cities, emails, phone numbers or other private strings. Values stay in the local Relay configuration.",
+  privacyAllowlist: "Allowlist",
+  privacyAllowlistHelp: "Exact public values listed here are masked before automatic detection.",
+});
+Object.assign(translations.fr, {
+  privacySimilarityBoost: "Boost de similarité",
+  automaticFilterWords: "Mots de filtrage automatiques",
+  automaticFilterWordsHelp: "Les mots de filtrage sont enregistres automatiquement apres la saisie. Ils s appliquent meme si la moderation manuelle et le scan local sont desactives. Les correspondances exactes et regexes bloquent immediatement, sans passer par la file manuelle.",
+  manualModeration: "Moderation manuelle",
+  manualModerationHelp: "Place les medias en attente independamment des mots de filtrage automatiques.",
+  privacyConcepts: "Mots ou phrases de filtrage",
+  privacyExemptRoles: "Rôles Discord exemptés",
+  privacyExemptRolesHelp: "Saisis des IDs de rôle ou des mentions Discord séparés par des virgules ou des retours à la ligne. Ces rôles contournent uniquement les mots de filtrage ; les signaux de vie privée et la modération manuelle restent actifs.",
+  unsaved: "Modifications non enregistrées",
+  privacyConceptsHelp: "Saisis des mots ou phrases séparés par des virgules, par exemple : fdp, hitler. Relay gère la casse, la ponctuation et les séparateurs, le leetspeak, les homoglyphes pris en charge, les lettres répétées et une similarité prudente. Les alias et regexes existants sont conservés si le même canonical reste présent.",
+});
+Object.assign(translations.fr, {
+  automaticFilterWordsHelp: "Les mots de filtrage sont enregistres automatiquement apres la saisie. Ils s appliquent meme si la moderation manuelle et le scan local sont desactives. Les correspondances exactes et regexes existantes bloquent immediatement, sans passer par la file manuelle.",
+  privacyConceptsHelp: "Saisis des mots ou phrases séparés par des virgules, par exemple : fdp, hitler. Relay gère la casse, la ponctuation et les séparateurs, le leetspeak, les homoglyphes pris en charge, les lettres répétées et une similarité prudente. Les alias et regexes existants sont conservés si le même canonical reste présent.",
+});
+Object.assign(translations.fr, {
+  privacyProtection: "Protection anti-doxxing",
+  privacyProtectionHelp: "Analyse locale avant toute publication vers les medias, le texte, l historique, WebSocket ou OBS. Les valeurs detectees ne sont jamais copiees dans les journaux.",
+  privacyProtectionLevel: "Niveau de protection",
+  privacyProtectionLevelHelp: "Balanced limite les faux positifs. Strict et Paranoid font remonter plus vite les signaux faibles.",
+  privacyBlockThreshold: "Seuil de blocage automatique",
+  privacyBlockThresholdHelp: "HIGH bloque par defaut. CRITICAL envoie les cas HIGH en revue locale.",
+  privacyReviewIntermediate: "Revoir les cas MEDIUM",
+  privacyReviewIntermediateHelp: "Place les medias a risque intermediaire dans la file de moderation locale existante.",
+  privacyAutoDeleteBlockedMessages: "Supprimer les messages Discord bloques",
+  privacyAutoDeleteBlockedMessagesHelp: "Supprime uniquement les messages bloques par le seuil de confidentialite. Necessite Gerer les messages.",
+  privacyCategories: "Categories de detection actives",
+  privacyCategoryEmail: "E-mail", privacyCategoryPhone: "Telephone", privacyCategoryIp: "Adresses IP",
+  privacyCategoryGps: "GPS et coordonnees", privacyCategoryAddress: "Adresses postales",
+  privacyCategoryFinancial: "IBAN et cartes bancaires", privacyCategoryPlate: "Plaques d immatriculation",
+  privacyCategoryUrl: "URL sensibles", privacyCategoryCustom: "Chaines privees protegees",
+  privacyCategoryMetadata: "Metadonnees EXIF", privacyCategoryOcr: "OCR local",
+  privacyCategoryDocument: "Documents administratifs",
+  privacyCustomPatterns: "Donnees privees a proteger",
+  privacyCustomPatternsHelp: "Ajoute noms, anciens pseudos, variantes, adresse, rue, ville, e-mail, telephone ou autres chaines privees. Ces valeurs restent dans la configuration locale de Relay.",
+  privacyAllowlist: "Liste autorisee",
+  privacyAllowlistHelp: "Les valeurs publiques exactes de cette liste sont masquees avant la detection automatique.",
+});
+for (const dictionary of Object.values(translations)) {
+  for (const [key, value] of Object.entries(translations.en)) {
+    dictionary[key] ??= value;
+  }
+}
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -594,6 +780,9 @@ const dirtyForms = new Set();
 for (const form of [botPresenceForm, routingForm, mediaForm, moderationForm, commandsForm]) {
   form.addEventListener("input", () => dirtyForms.add(form));
 }
+moderationForm.addEventListener("input", () => {
+  moderationSaveStateElement.textContent = t("unsaved");
+});
 const commandsSaveStateElement = $("#commands-save-state");
 const channelLockStateElement = $("#channel-lock-state");
 const commandInputs = {
@@ -601,6 +790,33 @@ const commandInputs = {
   status: $("#command-status"), test: $("#command-test"), regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
   changelog: $("#command-changelog"),
 };
+const customCommandForm = $("#custom-command-form");
+const customCommandListElement = $("#custom-command-list");
+const customCommandsEmptyElement = $("#custom-commands-empty");
+const customCommandCountElement = $("#custom-command-count");
+const customCommandsSaveStateElement = $("#custom-commands-save-state");
+const customCommandEditorStateElement = $("#custom-command-editor-state");
+const customCommandPreviewElement = $("#custom-command-preview");
+const customCommandNameElement = $("#custom-command-name");
+const customCommandDescriptionElement = $("#custom-command-description");
+const customCommandActionElement = $("#custom-command-action");
+const customCommandEnabledElement = $("#custom-command-enabled");
+const customActionFieldsElement = $("#custom-action-fields");
+const customCommandAdminOnlyElement = $("#custom-command-admin-only");
+const customCommandUsersElement = $("#custom-command-users");
+const customCommandRolesElement = $("#custom-command-roles");
+const customCommandChannelsElement = $("#custom-command-channels");
+const customRequiredPermissionsElement = $("#custom-required-permissions");
+const customPermissionInputs = $$('input[name="custom-permission"]');
+const addCustomCommandButton = $("#add-custom-command");
+const cancelCustomCommandButton = $("#cancel-custom-command");
+const syncCustomCommandsButton = $("#sync-custom-commands");
+const defaultRelayCommandNames = new Set([
+  "channel", "url", "show", "status", "test", "regenerate", "clear", "lock", "changelog",
+]);
+let customCommands = [];
+let customCommandsDirty = false;
+let editingCustomCommandIndex = null;
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
 const credentialStateElement = $("#credential-state");
@@ -633,6 +849,16 @@ const moderationEnabledElement = $("#moderation-enabled");
 const moderationAllowImagesElement = $("#moderation-allow-images");
 const moderationAllowVideosElement = $("#moderation-allow-videos");
 const moderationAllowAudioElement = $("#moderation-allow-audio");
+const privacyScanEnabledElement = $("#privacy-scan-enabled");
+const privacyProtectionLevelElement = $("#privacy-protection-level");
+const privacyBlockThresholdElement = $("#privacy-block-threshold");
+const privacyReviewIntermediateElement = $("#privacy-review-intermediate");
+const privacyAutoDeleteBlockedMessagesElement = $("#privacy-auto-delete-blocked-messages");
+const privacyCategoryElements = $$('input[name="privacy-category"]');
+const privacyCustomPatternsElement = $("#privacy-custom-patterns");
+const privacyAllowlistElement = $("#privacy-allowlist");
+const privacyConceptsElement = $("#privacy-concepts");
+const privacyExemptRoleIdsElement = $("#privacy-exempt-role-ids");
 const moderationSaveStateElement = $("#moderation-save-state");
 const moderationCountElement = $("#moderation-count");
 const moderationListElement = $("#moderation-list");
@@ -736,10 +962,13 @@ let theme = localStorage.getItem("relay-theme")
 let accentRgb = parseStoredAccent();
 let fontScale = clamp(Number(localStorage.getItem("relay-font-scale")) || 100, 80, 140);
 let personalizationTimer;
+let privacyFilterSaveTimer;
+let privacyFilterSaveGeneration = 0;
+let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.2.1";
+let currentAppVersion = "1.2.5";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
 
@@ -750,6 +979,9 @@ function t(key) {
 function applyTranslations(root = document) {
   for (const element of $$("[data-i18n]", root)) {
     element.textContent = t(element.dataset.i18n);
+  }
+  for (const element of $$("[data-i18n-placeholder]", root)) {
+    element.placeholder = t(element.dataset.i18nPlaceholder);
   }
 }
 
@@ -803,6 +1035,16 @@ function applyLanguage() {
   renderUpdateStatus();
   updatePageHeading();
   renderNowPlaying();
+  renderCustomCommands();
+  if (!customCommandForm.hidden) {
+    let action;
+    try {
+      action = readCustomAction();
+    } catch {
+      action = defaultCustomAction(customCommandActionElement.value);
+    }
+    renderCustomActionFields(action);
+  }
   if (bootstrap) {
     setBotStatus(bootstrap.bot);
     setServerStatus(bootstrap.server);
@@ -1263,6 +1505,413 @@ function setServerStatus(status) {
   }
 }
 
+function filterWordKey(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .trim()
+    .replace(/[\s._-]+/g, "");
+}
+
+function filterConceptsToLines(concepts) {
+  return (Array.isArray(concepts) ? concepts : [])
+    .map((concept) => typeof concept?.canonical === "string" ? concept.canonical.trim() : "")
+    .filter(Boolean)
+    .join(", ");
+}
+
+function filterRoleIdsToInput(roleIds) {
+  return (Array.isArray(roleIds) ? roleIds : [])
+    .filter((roleId) => typeof roleId === "string" && /^\d{17,20}$/.test(roleId))
+    .join(", ");
+}
+
+function filterRoleIds(value) {
+  const seen = new Set();
+  return String(value || "")
+    .split(/[\r\n,]+/)
+    .map((entry) => entry.trim())
+    .map((entry) => entry.match(/^<@&(\d{17,20})>$/)?.[1] || entry)
+    .reduce((roleIds, entry) => {
+      if (entry && !seen.has(entry)) {
+        seen.add(entry);
+        roleIds.push(entry);
+      }
+      return roleIds;
+    }, []);
+}
+
+function filterWordsToConcepts(value, existingConcepts) {
+  const existing = new Map(
+    (Array.isArray(existingConcepts) ? existingConcepts : [])
+      .filter((concept) => concept && typeof concept.canonical === "string")
+      .map((concept) => [filterWordKey(concept.canonical), concept]),
+  );
+  const seen = new Set();
+  const words = String(value || "")
+    .split(/[\r\n,]+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+  return words.reduce((concepts, word) => {
+    const key = filterWordKey(word);
+    if (!key || seen.has(key)) {
+      return concepts;
+    }
+    seen.add(key);
+    const previous = existing.get(key);
+    concepts.push({
+      canonical: word,
+      aliases: Array.isArray(previous?.aliases)
+        ? previous.aliases.filter((alias) => typeof alias === "string")
+        : [],
+      regexes: Array.isArray(previous?.regexes)
+        ? previous.regexes.filter((pattern) => typeof pattern === "string")
+        : [],
+    });
+    return concepts;
+  }, []);
+}
+
+function filterWordsAreSaveable(value) {
+  return String(value || "")
+    .split(/[\r\n,]+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .every((word) => {
+      const normalized = filterWordKey(word);
+      return /\p{L}/u.test(word)
+        && normalized.length >= 3
+        && normalized.length <= 64;
+    });
+}
+
+function privacyListToInput(values) {
+  return (Array.isArray(values) ? values : [])
+    .filter((value) => typeof value === "string" && value.trim())
+    .join("\n");
+}
+
+function privacyListFromInput(value) {
+  const seen = new Set();
+  return String(value || "")
+    .split(/[\r\n]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => {
+      const key = entry.normalize("NFKC").toLocaleLowerCase();
+      if (!entry || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function cloneCustomCommands(commands) {
+  return JSON.parse(JSON.stringify(Array.isArray(commands) ? commands : []));
+}
+
+function defaultCustomAction(type) {
+  const reason = () => ({ mode: "optional", fixedValue: "" });
+  const entity = () => ({ mode: "required", fixedValue: "" });
+  switch (type) {
+    case "ban": return { type, reason: reason(), deleteMessageDays: { mode: "fixed", fixedValue: 0 } };
+    case "unban": return { type, reason: reason() };
+    case "kick": return { type, reason: reason() };
+    case "timeout": return { type, durationMinutes: { mode: "fixed", fixedValue: 60 }, reason: reason() };
+    case "removeTimeout": return { type, reason: reason() };
+    case "clearMessages": return {
+      type,
+      channel: { mode: "optional", fixedValue: "" },
+      count: { mode: "fixed", fixedValue: 10 },
+    };
+    case "addRole": return { type, role: entity(), reason: reason() };
+    case "removeRole": return { type, role: entity(), reason: reason() };
+    case "reply": return { type, text: "Relay", ephemeral: true };
+    default: return defaultCustomAction("ban");
+  }
+}
+
+function customActionTranslationKey(type) {
+  return {
+    ban: "customActionBan", unban: "customActionUnban", kick: "customActionKick",
+    timeout: "customActionTimeout", removeTimeout: "customActionRemoveTimeout",
+    clearMessages: "customActionClearMessages", addRole: "customActionAddRole",
+    removeRole: "customActionRemoveRole", reply: "customActionReply",
+  }[type] || "customActionReply";
+}
+
+function customActionPermissionKey(type) {
+  return {
+    ban: "permissionBanMembers", unban: "permissionBanMembers", kick: "permissionKickMembers",
+    timeout: "permissionModerateMembers", removeTimeout: "permissionModerateMembers",
+    clearMessages: "permissionManageMessages", addRole: "permissionManageRoles",
+    removeRole: "permissionManageRoles",
+  }[type];
+}
+
+function customParameterMarkup(key, labelKey, kind, minimum = "", maximum = "") {
+  const inputAttributes = kind === "integer"
+    ? `type="number" min="${minimum}" max="${maximum}" step="1"`
+    : `type="text" maxlength="512" autocomplete="off" spellcheck="false"`;
+  return `
+    <div class="custom-parameter" data-custom-parameter="${key}" data-kind="${kind}" data-min="${minimum}" data-max="${maximum}">
+      <strong>${t(labelKey)}</strong>
+      <label class="field">
+        <span>${t("customParameterMode")}</span>
+        <select data-custom-parameter-mode>
+          <option value="required">${t("parameterRequired")}</option>
+          <option value="optional">${t("parameterOptional")}</option>
+          <option value="fixed">${t("parameterFixed")}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>${t("customParameterValue")}</span>
+        <input data-custom-parameter-value ${inputAttributes}>
+      </label>
+    </div>`;
+}
+
+function setCustomParameterValue(key, parameter) {
+  const root = customActionFieldsElement.querySelector(`[data-custom-parameter="${key}"]`);
+  if (!root) return;
+  root.querySelector("[data-custom-parameter-mode]").value = parameter?.mode || "optional";
+  root.querySelector("[data-custom-parameter-value]").value = String(parameter?.fixedValue ?? "");
+}
+
+function updateCustomParameterAvailability(root = customActionFieldsElement) {
+  const parameters = root.matches?.("[data-custom-parameter]")
+    ? [root]
+    : $$('[data-custom-parameter]', root);
+  for (const parameter of parameters) {
+    const mode = parameter.querySelector("[data-custom-parameter-mode]").value;
+    const value = parameter.querySelector("[data-custom-parameter-value]");
+    value.disabled = mode === "required";
+    value.required = mode === "fixed" || (mode === "optional" && parameter.dataset.kind === "entity-role");
+  }
+}
+
+function renderCustomRequiredPermissions() {
+  const permissionKey = customActionPermissionKey(customCommandActionElement.value);
+  const permission = permissionKey ? t(permissionKey) : "—";
+  customRequiredPermissionsElement.textContent = formatTranslation("customRequiredPermission", { permission });
+}
+
+function renderCustomActionFields(action = defaultCustomAction(customCommandActionElement.value)) {
+  const type = customCommandActionElement.value;
+  if (action.type !== type) action = defaultCustomAction(type);
+  switch (type) {
+    case "ban":
+      customActionFieldsElement.innerHTML = customParameterMarkup("reason", "customReason", "text")
+        + customParameterMarkup("deleteMessageDays", "customDeleteDays", "integer", 0, 7);
+      setCustomParameterValue("reason", action.reason);
+      setCustomParameterValue("deleteMessageDays", action.deleteMessageDays);
+      break;
+    case "unban":
+    case "kick":
+    case "removeTimeout":
+      customActionFieldsElement.innerHTML = customParameterMarkup("reason", "customReason", "text");
+      setCustomParameterValue("reason", action.reason);
+      break;
+    case "timeout":
+      customActionFieldsElement.innerHTML = customParameterMarkup("durationMinutes", "customDurationMinutes", "integer", 1, 40320)
+        + customParameterMarkup("reason", "customReason", "text");
+      setCustomParameterValue("durationMinutes", action.durationMinutes);
+      setCustomParameterValue("reason", action.reason);
+      break;
+    case "clearMessages":
+      customActionFieldsElement.innerHTML = customParameterMarkup("channel", "customChannelId", "entity-channel")
+        + customParameterMarkup("count", "customMessageCount", "integer", 1, 1000);
+      setCustomParameterValue("channel", action.channel);
+      setCustomParameterValue("count", action.count);
+      break;
+    case "addRole":
+    case "removeRole":
+      customActionFieldsElement.innerHTML = customParameterMarkup("role", "customRoleId", "entity-role")
+        + customParameterMarkup("reason", "customReason", "text");
+      setCustomParameterValue("role", action.role);
+      setCustomParameterValue("reason", action.reason);
+      break;
+    case "reply":
+      customActionFieldsElement.innerHTML = `
+        <label class="field field--full">
+          <span>${t("customReplyText")}</span>
+          <textarea id="custom-reply-text" minlength="1" maxlength="1900" required></textarea>
+        </label>
+        <label class="field field--full">
+          <span>${t("customReplyVisibility")}</span>
+          <select id="custom-reply-visibility">
+            <option value="ephemeral">${t("customReplyEphemeral")}</option>
+            <option value="public">${t("customReplyPublic")}</option>
+          </select>
+        </label>`;
+      $("#custom-reply-text").value = action.text || "";
+      $("#custom-reply-visibility").value = action.ephemeral === false ? "public" : "ephemeral";
+      break;
+  }
+  updateCustomParameterAvailability();
+  renderCustomRequiredPermissions();
+}
+
+function normalizeDiscordId(value) {
+  const match = String(value || "").trim().match(/^(?:\d{17,20}|<@!?(\d{17,20})>|<@&(\d{17,20})>|<#(\d{17,20})>)$/);
+  if (!match) return null;
+  return match[1] || match[2] || match[3] || match[0];
+}
+
+function discordIdListFromInput(value) {
+  const tokens = String(value || "").split(/[\s,]+/).filter(Boolean);
+  const ids = tokens.map(normalizeDiscordId);
+  if (ids.some((id) => !id) || ids.length > 100) throw new Error(t("customInvalidIds"));
+  return [...new Set(ids)];
+}
+
+function readCustomParameter(key) {
+  const root = customActionFieldsElement.querySelector(`[data-custom-parameter="${key}"]`);
+  const mode = root.querySelector("[data-custom-parameter-mode]").value;
+  const input = root.querySelector("[data-custom-parameter-value]");
+  let fixedValue = input.value.trim();
+  if (root.dataset.kind === "integer") {
+    fixedValue = Number(fixedValue || root.dataset.min || 0);
+    if (mode !== "required"
+      && (!Number.isInteger(fixedValue)
+        || fixedValue < Number(root.dataset.min)
+        || fixedValue > Number(root.dataset.max))) {
+      input.setCustomValidity(t("customParameterValue"));
+      input.reportValidity();
+      input.setCustomValidity("");
+      throw new Error(t("customParameterValue"));
+    }
+  } else if (root.dataset.kind.startsWith("entity") && fixedValue) {
+    const id = normalizeDiscordId(fixedValue);
+    if (!id) throw new Error(t("customInvalidIds"));
+    fixedValue = id;
+  }
+  if (root.dataset.kind === "entity-role" && mode !== "required" && !fixedValue) {
+    throw new Error(t("customInvalidIds"));
+  }
+  if (root.dataset.kind === "entity-channel" && mode === "fixed" && !fixedValue) {
+    throw new Error(t("customInvalidIds"));
+  }
+  return { mode, fixedValue };
+}
+
+function readCustomAction() {
+  const type = customCommandActionElement.value;
+  switch (type) {
+    case "ban": return { type, reason: readCustomParameter("reason"), deleteMessageDays: readCustomParameter("deleteMessageDays") };
+    case "unban": return { type, reason: readCustomParameter("reason") };
+    case "kick": return { type, reason: readCustomParameter("reason") };
+    case "timeout": return { type, durationMinutes: readCustomParameter("durationMinutes"), reason: readCustomParameter("reason") };
+    case "removeTimeout": return { type, reason: readCustomParameter("reason") };
+    case "clearMessages": return { type, channel: readCustomParameter("channel"), count: readCustomParameter("count") };
+    case "addRole": return { type, role: readCustomParameter("role"), reason: readCustomParameter("reason") };
+    case "removeRole": return { type, role: readCustomParameter("role"), reason: readCustomParameter("reason") };
+    case "reply": return {
+      type,
+      text: $("#custom-reply-text").value,
+      ephemeral: $("#custom-reply-visibility").value !== "public",
+    };
+    default: throw new Error(t("customCommandAction"));
+  }
+}
+
+function collectCustomCommandDraft() {
+  if (!customCommandForm.reportValidity()) return null;
+  const name = customCommandNameElement.value.trim().toLowerCase();
+  if (defaultRelayCommandNames.has(name)
+    || customCommands.some((command, index) => command.name === name && index !== editingCustomCommandIndex)) {
+    throw new Error(t("customDuplicateName"));
+  }
+  return {
+    name,
+    description: customCommandDescriptionElement.value.trim(),
+    enabled: customCommandEnabledElement.checked,
+    action: readCustomAction(),
+    access: {
+      administratorOnly: customCommandAdminOnlyElement.checked,
+      requiredPermissions: customPermissionInputs.filter((input) => input.checked).map((input) => input.value),
+      allowedUserIds: discordIdListFromInput(customCommandUsersElement.value),
+      allowedRoleIds: discordIdListFromInput(customCommandRolesElement.value),
+      allowedChannelIds: discordIdListFromInput(customCommandChannelsElement.value),
+    },
+  };
+}
+
+function renderCustomCommands() {
+  customCommandListElement.replaceChildren();
+  customCommandCountElement.textContent = `${customCommands.length} / 16`;
+  customCommandsEmptyElement.hidden = customCommands.length !== 0;
+  addCustomCommandButton.disabled = customCommands.length >= 16;
+  for (const [index, command] of customCommands.entries()) {
+    const item = document.createElement("li");
+    item.className = "custom-command-card";
+    const identity = document.createElement("div");
+    identity.className = "custom-command-card__identity";
+    const title = document.createElement("span");
+    const code = document.createElement("strong");
+    code.className = "command-code";
+    code.textContent = `/relay ${command.name}`;
+    const badge = document.createElement("span");
+    badge.className = "custom-command-card__badge";
+    badge.dataset.active = String(command.enabled !== false);
+    badge.textContent = t(command.enabled !== false ? "active" : "disabled");
+    title.append(code, badge);
+    const details = document.createElement("small");
+    details.textContent = `${t(customActionTranslationKey(command.action?.type))} · ${command.description}`;
+    identity.append(title, details);
+    const actions = document.createElement("div");
+    actions.className = "custom-command-card__actions";
+    for (const [action, key] of [["edit", "edit"], ["delete", "delete"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "button button--quiet";
+      button.dataset.customCommandAction = action;
+      button.dataset.customCommandIndex = String(index);
+      button.textContent = t(key);
+      actions.append(button);
+    }
+    item.append(identity, actions);
+    customCommandListElement.append(item);
+  }
+}
+
+function closeCustomCommandEditor() {
+  customCommandForm.hidden = true;
+  editingCustomCommandIndex = null;
+  customCommandEditorStateElement.textContent = "";
+  syncCustomCommandsButton.disabled = false;
+}
+
+function openCustomCommandEditor(index = null) {
+  if (index === null && customCommands.length >= 16) {
+    customCommandsSaveStateElement.textContent = t("customMaxReached");
+    return;
+  }
+  editingCustomCommandIndex = index;
+  const definition = index === null ? {
+    name: "",
+    description: "",
+    enabled: true,
+    action: defaultCustomAction("ban"),
+    access: { administratorOnly: true, requiredPermissions: [], allowedUserIds: [], allowedRoleIds: [], allowedChannelIds: [] },
+  } : cloneCustomCommands([customCommands[index]])[0];
+  customCommandNameElement.value = definition.name;
+  customCommandDescriptionElement.value = definition.description;
+  customCommandEnabledElement.checked = definition.enabled !== false;
+  customCommandActionElement.value = definition.action.type;
+  customCommandAdminOnlyElement.checked = definition.access?.administratorOnly !== false;
+  const requiredPermissions = new Set(definition.access?.requiredPermissions || []);
+  for (const input of customPermissionInputs) input.checked = requiredPermissions.has(input.value);
+  customCommandUsersElement.value = (definition.access?.allowedUserIds || []).join("\n");
+  customCommandRolesElement.value = (definition.access?.allowedRoleIds || []).join("\n");
+  customCommandChannelsElement.value = (definition.access?.allowedChannelIds || []).join("\n");
+  customCommandPreviewElement.textContent = `/relay ${definition.name || "command"}`;
+  renderCustomActionFields(definition.action);
+  customCommandForm.hidden = false;
+  syncCustomCommandsButton.disabled = true;
+  customCommandNameElement.focus();
+}
+
 function applyConfig(config) {
   durationElement.value = String(config.displayDurationMs / 1000);
   gifDurationElement.value = String((config.gifDurationMs ?? config.displayDurationMs) / 1000);
@@ -1289,6 +1938,21 @@ function applyConfig(config) {
   moderationAllowImagesElement.checked = config.moderationAllowImages !== false;
   moderationAllowVideosElement.checked = config.moderationAllowVideos !== false;
   moderationAllowAudioElement.checked = config.moderationAllowAudio !== false;
+  privacyScanEnabledElement.checked = Boolean(config.privacyScanEnabled);
+  privacyProtectionLevelElement.value = config.privacyProtectionLevel || "balanced";
+  privacyBlockThresholdElement.value = config.privacyBlockThreshold || "high";
+  privacyReviewIntermediateElement.checked = config.privacyReviewIntermediate !== false;
+  privacyAutoDeleteBlockedMessagesElement.checked = config.privacyAutoDeleteBlockedMessages !== false;
+  const enabledCategories = new Set(
+    config.privacyEnabledCategories || privacyCategoryElements.map((input) => input.value),
+  );
+  for (const input of privacyCategoryElements) {
+    input.checked = enabledCategories.has(input.value);
+  }
+  privacyCustomPatternsElement.value = privacyListToInput(config.privacyCustomPatterns);
+  privacyAllowlistElement.value = privacyListToInput(config.privacyAllowlist);
+  privacyConceptsElement.value = filterConceptsToLines(config.privacyConcepts);
+  privacyExemptRoleIdsElement.value = filterRoleIdsToInput(config.privacyFilterExemptRoleIds);
   channelElement.value = config.watchedChannelId;
   if (channelElement.value !== config.watchedChannelId) {
     populateChannels(channelElement, bootstrap?.channels || [], config.watchedChannelId, t("selectChannel"));
@@ -1309,6 +1973,10 @@ function applyConfig(config) {
   commandInputs.lock.disabled = Boolean(config.channelLock);
   channelLockStateElement.dataset.i18n = config.channelLock ? "commandLockActive" : "commandLockInactive";
   channelLockStateElement.textContent = t(channelLockStateElement.dataset.i18n);
+  if (!customCommandsDirty) {
+    customCommands = cloneCustomCommands(config.customCommands);
+    renderCustomCommands();
+  }
   applyOutputGeometryConfig(config);
 }
 
@@ -1443,8 +2111,16 @@ function renderModeration() {
   moderationListElement.replaceChildren();
   moderationCountElement.textContent = `${pending.length} / 50`;
   moderationEmptyElement.hidden = pending.length > 0;
+  const config = bootstrap?.config;
+  const filterWordsActive = Array.isArray(config?.privacyConcepts)
+    && config.privacyConcepts.length > 0;
+  const privacyReviewQueue = config?.privacyScanEnabled || filterWordsActive;
   moderationEmptyElement.textContent = t(
-    bootstrap?.config?.moderationEnabled ? "moderationEmpty" : "moderationDisabled",
+    config?.moderationEnabled
+      ? "moderationEmpty"
+      : privacyReviewQueue
+        ? "privacyReviewQueueEmpty"
+        : "moderationDisabled",
   );
   clearPendingMediaButton.disabled = pending.length === 0;
 
@@ -1456,6 +2132,18 @@ function renderModeration() {
     item.querySelector(".history-item__type").textContent = kind.toUpperCase();
     item.querySelector(".history-item__filename").textContent = mediaEvent.filename || kind;
     item.querySelector(".history-item__author").textContent = mediaEvent.author?.username || t("unknownAuthor");
+    const classification = pendingItem.privacyClassification
+      || t("privacyPendingManual");
+    const categories = Array.isArray(pendingItem.privacyCategories)
+      ? pendingItem.privacyCategories.map((category) => String(category)
+        .replace(/([A-Z])/g, " $1")
+        .trim()
+        .toUpperCase())
+      : [];
+    const detected = categories.length > 0
+      ? categories.join(" + ")
+      : (pendingItem.privacyReason || "manual_review").toUpperCase();
+    item.querySelector(".moderation-item__privacy").textContent = `${String(classification).toUpperCase()} · ${detected}`;
     const time = item.querySelector(".history-item__time");
     time.dateTime = new Date(mediaEvent.timestamp).toISOString();
     time.textContent = new Date(mediaEvent.timestamp).toLocaleTimeString(language, {
@@ -1606,6 +2294,11 @@ async function saveConfig(stateElement) {
   stateElement.textContent = t("saving");
   const previousPort = bootstrap.config.port;
   try {
+    const privacyConcepts = filterWordsToConcepts(
+      privacyConceptsElement.value,
+      bootstrap.config.privacyConcepts,
+    );
+    const privacyFilterExemptRoleIds = filterRoleIds(privacyExemptRoleIdsElement.value);
     const nextBootstrap = await invoke("apply_config", {
       config: {
         watchedChannelId: channelElement.value,
@@ -1631,6 +2324,22 @@ async function saveConfig(stateElement) {
         moderationAllowImages: moderationAllowImagesElement.checked,
         moderationAllowVideos: moderationAllowVideosElement.checked,
         moderationAllowAudio: moderationAllowAudioElement.checked,
+        privacyScanEnabled: privacyScanEnabledElement.checked,
+        privacySuspiciousPolicy: bootstrap.config.privacySuspiciousPolicy || "review",
+        privacySuspiciousThreshold: Number(bootstrap.config.privacySuspiciousThreshold ?? 2),
+        privacySensitiveThreshold: Number(bootstrap.config.privacySensitiveThreshold ?? 4),
+        privacySimilarityBoost: Number(bootstrap.config.privacySimilarityBoost ?? 4),
+        privacyConcepts,
+        privacyFilterExemptRoleIds,
+        privacyProtectionLevel: privacyProtectionLevelElement.value,
+        privacyEnabledCategories: privacyCategoryElements
+          .filter((input) => input.checked)
+          .map((input) => input.value),
+        privacyBlockThreshold: privacyBlockThresholdElement.value,
+        privacyReviewIntermediate: privacyReviewIntermediateElement.checked,
+        privacyAutoDeleteBlockedMessages: privacyAutoDeleteBlockedMessagesElement.checked,
+        privacyAllowlist: privacyListFromInput(privacyAllowlistElement.value),
+        privacyCustomPatterns: privacyListFromInput(privacyCustomPatternsElement.value),
       },
     });
     applyBootstrap(nextBootstrap, previousPort !== nextBootstrap.config.port);
@@ -1640,6 +2349,32 @@ async function saveConfig(stateElement) {
     stateElement.textContent = String(error);
     return false;
   }
+}
+
+function schedulePrivacyFilterSave() {
+  privacyFilterDraft = privacyConceptsElement.value;
+  const generation = ++privacyFilterSaveGeneration;
+  window.clearTimeout(privacyFilterSaveTimer);
+  privacyFilterSaveTimer = window.setTimeout(() => {
+    privacyFilterSaveTimer = undefined;
+    void savePrivacyFiltersAutomatically(generation);
+  }, 750);
+}
+
+async function savePrivacyFiltersAutomatically(generation) {
+  if (generation !== privacyFilterSaveGeneration
+    || !bootstrap?.config
+    || !filterWordsAreSaveable(privacyFilterDraft)) {
+    return;
+  }
+
+  const saved = await saveConfig(moderationSaveStateElement);
+  if (!saved || generation === privacyFilterSaveGeneration) {
+    return;
+  }
+
+  privacyConceptsElement.value = privacyFilterDraft;
+  schedulePrivacyFilterSave();
 }
 
 let statusRefreshInFlight = false;
@@ -1879,6 +2614,8 @@ moderationForm.addEventListener("submit", async (event) => {
   await saveConfig(moderationSaveStateElement);
 });
 
+privacyConceptsElement.addEventListener("input", schedulePrivacyFilterSave);
+
 commandsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   commandsSaveStateElement.textContent = t("saving");
@@ -1892,6 +2629,100 @@ commandsForm.addEventListener("submit", async (event) => {
     commandsSaveStateElement.textContent = t("commandsSaved");
   } catch (error) {
     commandsSaveStateElement.textContent = String(error);
+  }
+});
+
+addCustomCommandButton.addEventListener("click", () => openCustomCommandEditor());
+cancelCustomCommandButton.addEventListener("click", closeCustomCommandEditor);
+
+customCommandNameElement.addEventListener("input", () => {
+  const normalized = customCommandNameElement.value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "");
+  if (normalized !== customCommandNameElement.value) customCommandNameElement.value = normalized;
+  customCommandPreviewElement.textContent = `/relay ${normalized || "command"}`;
+  customCommandEditorStateElement.textContent = "";
+});
+
+customCommandActionElement.addEventListener("change", () => {
+  renderCustomActionFields(defaultCustomAction(customCommandActionElement.value));
+  customCommandEditorStateElement.textContent = "";
+});
+
+customActionFieldsElement.addEventListener("change", (event) => {
+  if (event.target.matches("[data-custom-parameter-mode]")) {
+    updateCustomParameterAvailability(event.target.closest("[data-custom-parameter]"));
+  }
+  customCommandEditorStateElement.textContent = "";
+});
+
+customCommandForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  customCommandEditorStateElement.textContent = "";
+  try {
+    const definition = collectCustomCommandDraft();
+    if (!definition) return;
+    if (editingCustomCommandIndex === null) customCommands.push(definition);
+    else customCommands[editingCustomCommandIndex] = definition;
+    customCommandsDirty = true;
+    renderCustomCommands();
+    closeCustomCommandEditor();
+    customCommandsSaveStateElement.textContent = t("customDraftSaved");
+  } catch (error) {
+    customCommandEditorStateElement.textContent = String(error.message || error);
+  }
+});
+
+customCommandListElement.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-custom-command-action]");
+  if (!button) return;
+  const index = Number(button.dataset.customCommandIndex);
+  if (!Number.isInteger(index) || !customCommands[index]) return;
+  if (button.dataset.customCommandAction === "edit") {
+    openCustomCommandEditor(index);
+    return;
+  }
+  customCommands.splice(index, 1);
+  customCommandsDirty = true;
+  closeCustomCommandEditor();
+  renderCustomCommands();
+  customCommandsSaveStateElement.textContent = t("customUnsaved");
+});
+
+syncCustomCommandsButton.addEventListener("click", async () => {
+  customCommandsSaveStateElement.textContent = t("customValidating");
+  const names = new Set();
+  const invalidName = customCommands.some((command) => {
+    if (defaultRelayCommandNames.has(command.name) || names.has(command.name)) return true;
+    names.add(command.name);
+    return false;
+  });
+  if (customCommands.length > 16 || invalidName) {
+    customCommandsSaveStateElement.textContent = t("customDuplicateName");
+    return;
+  }
+  syncCustomCommandsButton.disabled = true;
+  addCustomCommandButton.disabled = true;
+  customCommandsSaveStateElement.textContent = t("customSyncing");
+  try {
+    const config = await invoke("save_custom_commands", { commands: cloneCustomCommands(customCommands) });
+    customCommandsDirty = false;
+    customCommands = cloneCustomCommands(config.customCommands);
+    bootstrap.config = config;
+    applyConfig(config);
+    try {
+      applyBootstrap(await invoke("get_bootstrap"));
+    } catch {
+      renderCustomCommands();
+    }
+    customCommandsSaveStateElement.textContent = t("customActive");
+  } catch (error) {
+    customCommandsDirty = true;
+    customCommandsSaveStateElement.textContent = String(error);
+  } finally {
+    syncCustomCommandsButton.disabled = false;
+    addCustomCommandButton.disabled = customCommands.length >= 16;
   }
 });
 

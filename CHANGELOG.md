@@ -11,6 +11,66 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-08-14
+
+### English
+
+#### Added
+
+- Added a fully local anti-doxxing scanner with `SAFE`, `LOW`, `MEDIUM`, `HIGH`, and `CRITICAL` risk levels for Discord text, attachment names, images, and metadata.
+- Added configurable Balanced, Strict, and Paranoid protection levels, per-category controls, an automatic block threshold, a local review option, an allowlist, and a private-data protection list.
+- Added detection for email addresses, phone numbers, IP addresses, GPS coordinates, postal addresses, IBANs, validated payment cards, license plates, sensitive URLs, administrative-document signals, and user-protected strings.
+- Added local Windows OCR and EXIF/GPS inspection for supported images without sending detected content to an external service.
+- Added automatic deletion of Discord messages blocked by the selected privacy threshold when the bot has the **Manage Messages** permission.
+- Added automatic filter words and phrases with configurable aliases, bounded regular expressions, cautious obfuscation handling, and role-based exemptions.
+- Split the Commands page into **Default Commands** and **Custom Commands**, with up to 16 locally configured `/relay <name>` subcommands synchronized for the Relay bot.
+- Added predefined Ban, Unban, Kick, Timeout, Remove timeout, Clear messages, Add role, Remove role, and Reply actions with required, optional, or fixed parameters and user, role, channel, and permission restrictions.
+
+#### Security
+
+- Privacy checks now run before sensitive Discord content can enter visible history, WebSocket or OBS output, Windows widgets, media caches, replay, or moderation approval paths.
+- Image inspection now enforces trusted Discord CDN hosts, bounded downloads, file-signature checks, size, pixel and frame limits, concurrency limits, and timeouts.
+- Privacy logs contain only the risk level, detected category codes, and action; detected addresses, contact details, OCR text, metadata values, and protected strings are not copied into logs.
+- Custom moderation actions derive non-disableable Discord permissions, require a one-time 60-second confirmation, recheck authorization and role hierarchy before execution, and suppress mentions in predefined replies.
+- Custom-command synchronization validates Discord's candidate schema before local persistence, restores the previous schema if persistence fails, and logs only the command name, action code, and sanitized outcome.
+
+#### Fixed
+
+- Postal addresses are now recognized across punctuation, unusual separators, obfuscated street types, and multiline layouts, including probable addresses without a postcode.
+- Intermediate-risk media now uses the existing local moderation queue even when general manual moderation is disabled.
+- OCR, malformed metadata, and image-decoder failures no longer interrupt Relay or expose scanned private values in errors.
+- Custom Ban and Timeout commands now accept the camelCase action fields sent by the desktop editor while retaining compatibility with previously serialized snake_case fields.
+- Custom Ban commands now accept either a current member or a verified Discord user ID that is not yet in the server, allowing a preemptive ban without bypassing hierarchy checks for present members.
+
+### Français
+
+#### Ajouté
+
+- Ajout d'un scanner anti-doxxing entièrement local avec les niveaux de risque `SAFE`, `LOW`, `MEDIUM`, `HIGH` et `CRITICAL` pour le texte Discord, les noms de pièces jointes, les images et leurs métadonnées.
+- Ajout des niveaux de protection Balanced, Strict et Paranoid, de catégories configurables, d'un seuil de blocage automatique, d'une option de révision locale, d'une allowlist et d'une liste de données privées à protéger.
+- Ajout de la détection des adresses e-mail, numéros de téléphone, adresses IP, coordonnées GPS, adresses postales, IBAN, cartes de paiement validées, plaques d'immatriculation, URL sensibles, indices de documents administratifs et chaînes protégées par l'utilisateur.
+- Ajout de l'OCR Windows local et de l'analyse EXIF/GPS pour les images prises en charge, sans transmettre le contenu détecté à un service externe.
+- Ajout de la suppression automatique des messages Discord bloqués par le seuil de confidentialité choisi lorsque le bot possède la permission **Gérer les messages**.
+- Ajout de mots et expressions filtrés automatiquement avec alias configurables, expressions régulières limitées, gestion prudente de l'obfuscation et exemptions par rôle.
+- Séparation de la page Commandes entre **Commandes par défaut** et **Commandes personnalisées**, avec jusqu'à 16 sous-commandes `/relay <nom>` configurées localement et synchronisées pour le bot Relay.
+- Ajout des actions prédéfinies Bannir, Débannir, Expulser, Timeout, Retirer le timeout, Effacer des messages, Ajouter un rôle, Retirer un rôle et Réponse, avec paramètres requis, optionnels ou fixes et restrictions par utilisateur, rôle, salon et permission.
+
+#### Sécurité
+
+- Les contrôles de confidentialité s'exécutent désormais avant qu'un contenu Discord sensible puisse atteindre l'historique visible, les sorties WebSocket ou OBS, les widgets Windows, les caches média, le replay ou l'approbation de modération.
+- L'analyse des images impose désormais des hôtes CDN Discord approuvés, des téléchargements limités, une vérification de signature, des limites de taille, de pixels et d'images, ainsi que des limites de concurrence et de durée.
+- Les journaux de confidentialité contiennent uniquement le niveau de risque, les codes des catégories détectées et l'action ; les adresses, coordonnées, textes OCR, valeurs de métadonnées et chaînes protégées ne sont jamais recopiés.
+- Les actions de modération personnalisées imposent les permissions Discord minimales, une confirmation unique de 60 secondes et une nouvelle vérification des autorisations et de la hiérarchie avant exécution ; les mentions sont neutralisées dans les réponses prédéfinies.
+- La synchronisation valide le schéma Discord candidat avant la sauvegarde locale, restaure l'ancien schéma si la sauvegarde échoue et ne journalise que le nom de commande, le code d'action et un résultat assaini.
+
+#### Corrigé
+
+- Les adresses postales sont désormais reconnues malgré la ponctuation, les séparateurs inhabituels, les types de voie obfusqués et les présentations multilignes, y compris les adresses probables sans code postal.
+- Les médias présentant un risque intermédiaire utilisent désormais la file de modération locale existante même lorsque la modération manuelle générale est désactivée.
+- Les échecs OCR, les métadonnées malformées et les erreurs du décodeur d'image n'interrompent plus Relay et n'exposent aucune valeur privée analysée dans les erreurs.
+- Les commandes personnalisées Ban et Timeout acceptent désormais les champs camelCase envoyés par l'éditeur tout en restant compatibles avec les anciens champs snake_case sérialisés.
+- Les commandes Ban acceptent désormais soit un membre présent, soit l'ID Discord vérifié d'un utilisateur absent du serveur, afin de permettre un bannissement préventif sans contourner la hiérarchie des membres présents.
+
 ## [1.2.1] - 2026-07-28
 
 ### English
@@ -281,7 +341,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/stealthsrc/relay/compare/v1.2.1...v1.2.5
 [1.2.1]: https://github.com/stealthsrc/relay/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/stealthsrc/relay/compare/v1.1.23...v1.2.0
 [1.1.23]: https://github.com/stealthsrc/relay/compare/v1.1.22...v1.1.23

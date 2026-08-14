@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::config::AppConfig;
+use crate::privacy::PrivacyClassification;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,6 +91,16 @@ pub struct AudioControlEvent {
 pub struct PendingMedia {
     pub id: u64,
     pub media: MediaEvent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sticker: Option<StickerEvent>,
+    #[serde(skip)]
+    pub sticker_bytes: Option<Arc<Vec<u8>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_classification: Option<PrivacyClassification>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub privacy_categories: Vec<crate::privacy::PrivacyCategory>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

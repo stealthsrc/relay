@@ -4,13 +4,15 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::{
-    artwork,
-    bot::{apply_bot_presence, invite_url, refresh_channel_list, start_bot},
+    bot::{
+        apply_bot_presence, invite_url, refresh_channel_list, start_bot, sync_relay_command_schema,
+    },
     config::{AppConfig, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
         save_discord_credentials,
     },
+    custom_commands::CustomCommandDefinition,
     model::{
         AudioControlAction, AudioControlEvent, AuthorIdentity, BotStatus, ChannelSummary,
         GuildTagIdentity, InterfacePreferences, MediaEvent, MediaKind, OutputTestEvent,
@@ -88,6 +90,21 @@ pub struct PanelConfig {
     moderation_allow_images: bool,
     moderation_allow_videos: bool,
     moderation_allow_audio: bool,
+    privacy_scan_enabled: bool,
+    privacy_suspicious_policy: crate::privacy::SuspiciousPolicy,
+    privacy_suspicious_threshold: u8,
+    privacy_sensitive_threshold: u8,
+    privacy_similarity_boost: u8,
+    privacy_concepts: Vec<crate::privacy::ForbiddenConcept>,
+    #[serde(default)]
+    privacy_filter_exempt_role_ids: Vec<String>,
+    privacy_protection_level: crate::privacy::ProtectionLevel,
+    privacy_enabled_categories: Vec<crate::privacy::PrivacyCategory>,
+    privacy_block_threshold: crate::privacy::PrivacyClassification,
+    privacy_review_intermediate: bool,
+    privacy_auto_delete_blocked_messages: bool,
+    privacy_allowlist: Vec<String>,
+    privacy_custom_patterns: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -303,6 +320,21 @@ pub async fn apply_config(
             current.moderation_allow_images = config.moderation_allow_images;
             current.moderation_allow_videos = config.moderation_allow_videos;
             current.moderation_allow_audio = config.moderation_allow_audio;
+            current.privacy_scan_enabled = config.privacy_scan_enabled;
+            current.privacy_suspicious_policy = config.privacy_suspicious_policy;
+            current.privacy_suspicious_threshold = config.privacy_suspicious_threshold;
+            current.privacy_sensitive_threshold = config.privacy_sensitive_threshold;
+            current.privacy_similarity_boost = config.privacy_similarity_boost;
+            current.privacy_concepts = config.privacy_concepts;
+            current.privacy_filter_exempt_role_ids = config.privacy_filter_exempt_role_ids;
+            current.privacy_protection_level = config.privacy_protection_level;
+            current.privacy_enabled_categories = config.privacy_enabled_categories;
+            current.privacy_block_threshold = config.privacy_block_threshold;
+            current.privacy_review_intermediate = config.privacy_review_intermediate;
+            current.privacy_auto_delete_blocked_messages =
+                config.privacy_auto_delete_blocked_messages;
+            current.privacy_allowlist = config.privacy_allowlist;
+            current.privacy_custom_patterns = config.privacy_custom_patterns;
         })
         .await
         .map_err(display_error)?;
@@ -358,6 +390,41 @@ pub async fn save_command_settings(
 }
 
 #[tauri::command]
+pub async fn save_custom_commands(
+    core: State<'_, Arc<AppCore>>,
+    commands: Vec<CustomCommandDefinition>,
+) -> Result<AppConfig, String> {
+    let _sync = core.custom_command_sync.lock().await;
+    let previous = core.config.read().await.clone();
+    let mut candidate = previous.clone();
+    candidate.custom_commands = commands.clone();
+    candidate.validate().map_err(display_error)?;
+
+    sync_relay_command_schema(&core, &candidate)
+        .await
+        .map_err(|_| "Unable to synchronize custom commands with Discord.".to_string())?;
+
+    match core
+        .update_config(|config| config.custom_commands = commands)
+        .await
+    {
+        Ok(config) => Ok(config),
+        Err(_) => {
+            if sync_relay_command_schema(&core, &previous).await.is_err() {
+                core.bot_status.write().await.error = Some(
+                    "Custom command rollback failed. Reconnect the Discord bot before retrying."
+                        .into(),
+                );
+                return Err(
+                    "Unable to save custom commands or restore the previous Discord schema.".into(),
+                );
+            }
+            Err("Unable to save custom commands. The previous Discord schema was restored.".into())
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn replay_media(core: State<'_, Arc<AppCore>>, message_id: String) -> Result<(), String> {
     if message_id.is_empty()
         || message_id.len() > 64
@@ -378,26 +445,10 @@ pub async fn replay_media(core: State<'_, Arc<AppCore>>, message_id: String) -> 
     if events.is_empty() {
         return Err("The media is no longer in history.".into());
     }
-    for mut event in events.into_iter().rev() {
-        if matches!(event.kind, crate::model::MediaKind::Gif) && event.cached_media_id.is_none() {
-            let cache_id = format!("{}-replay", event.message_id);
-            let bytes =
-                match artwork::download_bounded(&event.url, artwork::MAX_EMBED_MEDIA_BYTES).await {
-                    Ok(bytes) => Some(bytes),
-                    Err(_) if event.proxy_url != event.url => {
-                        artwork::download_bounded(&event.proxy_url, artwork::MAX_EMBED_MEDIA_BYTES)
-                            .await
-                            .ok()
-                    }
-                    Err(_) => None,
-                };
-            if let Some(bytes) = bytes {
-                core.cache_media(cache_id.clone(), event.content_type.clone(), bytes)
-                    .await;
-                event.cached_media_id = Some(cache_id);
-            }
-        }
-        let _ = core.relay_tx.send(RelayEvent::Media(event));
+    for event in events.into_iter().rev() {
+        core.replay_media_event(event)
+            .await
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -789,7 +840,10 @@ pub async fn set_notification_widget_locked(
 async fn build_bootstrap(app: &AppHandle, core: &Arc<AppCore>) -> anyhow::Result<Bootstrap> {
     let config = core.config.read().await.clone();
     let credentials = credential_status()?;
-    let invite_url = credentials.client_id.as_deref().map(invite_url);
+    let invite_url = credentials
+        .client_id
+        .as_deref()
+        .map(|client_id| invite_url(client_id, &config));
     Ok(Bootstrap {
         overlay_url: short_overlay_url(config.port, "medias"),
         audio_url: short_overlay_url(config.port, "audios"),

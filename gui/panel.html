@@ -77,7 +77,7 @@
               aria-expanded="false"
               aria-controls="update-menu"
             >
-              <span>Windows · v<span data-app-version>1.2.1</span></span>
+              <span>Windows · v<span data-app-version>1.2.5</span></span>
               <span id="update-available-dot" class="update-available-dot" hidden></span>
               <svg class="update-check__icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.3-2.1L20 11M4 13l2.6 4.1A7 7 0 0 0 17.9 15"/>
@@ -682,6 +682,32 @@
                 <span id="moderation-save-state" class="save-state" role="status"></span>
               </div>
               <form id="moderation-form" class="settings-list">
+                <section class="panel-section panel-section--wide automatic-filter-words">
+                  <div class="section-heading">
+                    <div>
+                      <span class="section-number">04A</span>
+                      <h3 data-i18n="automaticFilterWords">Automatic filter words</h3>
+                    </div>
+                  </div>
+                  <p class="section-copy" data-i18n="automaticFilterWordsHelp">Filter words save automatically after you stop typing. They run even when manual moderation and the local image scan are off. Exact matches and existing regexes block immediately and never enter the manual moderation queue.</p>
+                  <label class="field field--full">
+                    <span data-i18n="privacyConcepts">Filter words or phrases</span>
+                    <input id="privacy-concepts" type="text" autocomplete="off" spellcheck="false" placeholder="fdp, hitler, ...">
+                    <small data-i18n="privacyConceptsHelp">Enter comma-separated words or phrases, for example: fdp, hitler. Relay handles case, punctuation and separators, leetspeak, supported homoglyphs, repeated letters, and cautious similarity. Existing aliases and regexes are preserved when the same canonical remains.</small>
+                  </label>
+                  <label class="field field--full">
+                    <span data-i18n="privacyExemptRoles">Exempt Discord roles</span>
+                    <input id="privacy-exempt-role-ids" type="text" autocomplete="off" spellcheck="false" placeholder="&lt;@&amp;123456789012345678&gt;, 123456789012345678">
+                    <small data-i18n="privacyExemptRolesHelp">Enter role IDs or Discord role mentions separated by commas or new lines. These roles bypass filter words only; local privacy signals and manual moderation still apply.</small>
+                  </label>
+                </section>
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">04B</span>
+                    <h3 data-i18n="manualModeration">Manual moderation</h3>
+                  </div>
+                </div>
+                <p class="section-copy" data-i18n="manualModerationHelp">Hold media for approval independently from automatic filter words.</p>
                 <label class="setting-row setting-row--switch">
                   <span>
                     <strong data-i18n="enableModeration">Enable manual moderation</strong>
@@ -722,6 +748,89 @@
                     <span class="switch__track" aria-hidden="true"></span>
                   </span>
                 </label>
+                <div class="section-heading">
+                  <div>
+                    <span class="section-number">04C</span>
+                    <h3 data-i18n="privacyProtection">Anti-doxxing protection</h3>
+                  </div>
+                </div>
+                <p class="section-copy" data-i18n="privacyProtectionHelp">Scan locally before media, text, history, WebSocket or OBS publication. Detected values are never copied into logs.</p>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="privacyScanEnabled">Local privacy scan</strong>
+                    <small data-i18n="privacyScanEnabledHelp">Inspect image metadata and local OCR before history or OBS.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="privacy-scan-enabled" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="privacyProtectionLevel">Protection level</strong>
+                    <small data-i18n="privacyProtectionLevelHelp">Balanced limits false positives. Strict and Paranoid raise weak signals more quickly.</small>
+                  </span>
+                  <select id="privacy-protection-level">
+                    <option value="balanced">Balanced</option>
+                    <option value="strict">Strict</option>
+                    <option value="paranoid">Paranoid</option>
+                  </select>
+                </label>
+                <label class="setting-row">
+                  <span>
+                    <strong data-i18n="privacyBlockThreshold">Automatic block threshold</strong>
+                    <small data-i18n="privacyBlockThresholdHelp">HIGH blocks by default. CRITICAL sends HIGH cases to local review instead.</small>
+                  </span>
+                  <select id="privacy-block-threshold">
+                    <option value="high">HIGH</option>
+                    <option value="critical">CRITICAL</option>
+                  </select>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="privacyReviewIntermediate">Review MEDIUM cases</strong>
+                    <small data-i18n="privacyReviewIntermediateHelp">Put intermediate-risk media in the existing local moderation queue.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="privacy-review-intermediate" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="setting-row setting-row--switch">
+                  <span>
+                    <strong data-i18n="privacyAutoDeleteBlockedMessages">Delete blocked Discord messages</strong>
+                    <small data-i18n="privacyAutoDeleteBlockedMessagesHelp">Delete only messages blocked by the selected privacy threshold. Requires Manage Messages.</small>
+                  </span>
+                  <span class="switch">
+                    <input id="privacy-auto-delete-blocked-messages" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <fieldset class="privacy-categories">
+                  <legend data-i18n="privacyCategories">Enabled detection categories</legend>
+                  <label><input type="checkbox" name="privacy-category" value="email"><span data-i18n="privacyCategoryEmail">Email</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="phone"><span data-i18n="privacyCategoryPhone">Phone</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="ipAddress"><span data-i18n="privacyCategoryIp">IP addresses</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="gpsLocation"><span data-i18n="privacyCategoryGps">GPS and coordinates</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="postalAddress"><span data-i18n="privacyCategoryAddress">Postal addresses</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="financial"><span data-i18n="privacyCategoryFinancial">IBAN and payment cards</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="licensePlate"><span data-i18n="privacyCategoryPlate">License plates</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="sensitiveUrl"><span data-i18n="privacyCategoryUrl">Sensitive URLs</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="customPattern"><span data-i18n="privacyCategoryCustom">Protected private strings</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="imageMetadata"><span data-i18n="privacyCategoryMetadata">EXIF metadata</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="ocr"><span data-i18n="privacyCategoryOcr">Local OCR</span></label>
+                  <label><input type="checkbox" name="privacy-category" value="document"><span data-i18n="privacyCategoryDocument">Administrative documents</span></label>
+                </fieldset>
+                <label class="field field--full">
+                  <span data-i18n="privacyCustomPatterns">Private data to protect</span>
+                  <textarea id="privacy-custom-patterns" rows="5" autocomplete="off" spellcheck="false" placeholder="One value per line"></textarea>
+                  <small data-i18n="privacyCustomPatternsHelp">Add names, old usernames, address variants, streets, cities, emails, phone numbers or other private strings. Values stay in the local Relay configuration.</small>
+                </label>
+                <label class="field field--full">
+                  <span data-i18n="privacyAllowlist">Allowlist</span>
+                  <textarea id="privacy-allowlist" rows="3" autocomplete="off" spellcheck="false" placeholder="One public value per line"></textarea>
+                  <small data-i18n="privacyAllowlistHelp">Exact public values listed here are masked before automatic detection.</small>
+                </label>
                 <div class="settings-actions">
                   <p data-i18n="moderationLocalOnly">Decisions stay local and never notify Discord users.</p>
                   <button class="button button--primary" type="submit" data-i18n="saveModeration">Save moderation</button>
@@ -750,8 +859,8 @@
             <section class="panel-section panel-section--wide">
               <div class="section-heading">
                 <div>
-                  <span class="section-number">05</span>
-                  <h3 data-i18n="commandsSettings">Command availability</h3>
+                  <span class="section-number">05A</span>
+                  <h3 data-i18n="defaultCommands">Default Commands</h3>
                 </div>
                 <span id="commands-save-state" class="save-state" role="status"></span>
               </div>
@@ -799,6 +908,107 @@
               </form>
             </section>
             <p class="fine-print" data-i18n="commandsPermission">Channel locking requires Manage Roles; clearing requires Manage Messages. Commands are restricted to Discord administrators.</p>
+
+            <section class="panel-section panel-section--wide custom-commands-section">
+              <div class="section-heading custom-commands-heading">
+                <div>
+                  <span class="section-number">05B</span>
+                  <h3 data-i18n="customCommands">Custom Commands</h3>
+                </div>
+                <div class="section-actions">
+                  <strong id="custom-command-count" class="custom-command-count">0 / 16</strong>
+                  <button id="add-custom-command" class="button button--quiet" type="button" data-i18n="addCustomCommand">Add command</button>
+                </div>
+              </div>
+              <p class="section-copy" data-i18n="customCommandsHelp">Create local /relay subcommands backed by one predefined Discord action. The same list is used on every server where this bot is installed.</p>
+              <p id="custom-commands-empty" class="empty-state" data-i18n="customCommandsEmpty">No custom commands configured.</p>
+              <ol id="custom-command-list" class="custom-command-list"></ol>
+
+              <form id="custom-command-form" class="custom-command-editor" hidden>
+                <div class="custom-command-editor__heading">
+                  <div>
+                    <span class="kicker" data-i18n="customCommandEditor">Command editor</span>
+                    <strong id="custom-command-preview" class="command-code">/relay command</strong>
+                  </div>
+                  <span id="custom-command-editor-state" class="save-state" role="status"></span>
+                </div>
+                <div class="form-grid">
+                  <label class="field">
+                    <span data-i18n="customCommandName">Command name</span>
+                    <input id="custom-command-name" type="text" minlength="1" maxlength="32" pattern="[a-z0-9_-]{1,32}" autocomplete="off" spellcheck="false" required>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="customCommandAction">Predefined action</span>
+                    <select id="custom-command-action" required>
+                      <option value="ban" data-i18n="customActionBan">Ban member or user ID</option>
+                      <option value="unban" data-i18n="customActionUnban">Unban user</option>
+                      <option value="kick" data-i18n="customActionKick">Kick member</option>
+                      <option value="timeout" data-i18n="customActionTimeout">Timeout member</option>
+                      <option value="removeTimeout" data-i18n="customActionRemoveTimeout">Remove timeout</option>
+                      <option value="clearMessages" data-i18n="customActionClearMessages">Clear messages</option>
+                      <option value="addRole" data-i18n="customActionAddRole">Add role</option>
+                      <option value="removeRole" data-i18n="customActionRemoveRole">Remove role</option>
+                      <option value="reply" data-i18n="customActionReply">Predefined reply</option>
+                    </select>
+                  </label>
+                  <label class="field field--full">
+                    <span data-i18n="customCommandDescription">Discord description</span>
+                    <input id="custom-command-description" type="text" minlength="1" maxlength="100" autocomplete="off" required>
+                  </label>
+                  <label class="custom-check field--full">
+                    <input id="custom-command-enabled" type="checkbox" checked>
+                    <span data-i18n="customCommandEnabled">Register this command in Discord</span>
+                  </label>
+                </div>
+
+                <fieldset class="custom-command-fieldset">
+                  <legend data-i18n="customActionParameters">Action parameters</legend>
+                  <div id="custom-action-fields" class="form-grid"></div>
+                </fieldset>
+
+                <fieldset class="custom-command-fieldset">
+                  <legend data-i18n="customAccessRestrictions">Access restrictions</legend>
+                  <label class="custom-check">
+                    <input id="custom-command-admin-only" type="checkbox" checked>
+                    <span data-i18n="customAdminOnly">Require Discord Administrator in addition to the action permission</span>
+                  </label>
+                  <span class="field-label" data-i18n="customExtraPermissions">Additional required permissions</span>
+                  <div class="custom-permission-grid">
+                    <label class="custom-check"><input name="custom-permission" value="manageGuild" type="checkbox"><span data-i18n="permissionManageGuild">Manage Server</span></label>
+                    <label class="custom-check"><input name="custom-permission" value="manageMessages" type="checkbox"><span data-i18n="permissionManageMessages">Manage Messages</span></label>
+                    <label class="custom-check"><input name="custom-permission" value="manageRoles" type="checkbox"><span data-i18n="permissionManageRoles">Manage Roles</span></label>
+                    <label class="custom-check"><input name="custom-permission" value="banMembers" type="checkbox"><span data-i18n="permissionBanMembers">Ban Members</span></label>
+                    <label class="custom-check"><input name="custom-permission" value="kickMembers" type="checkbox"><span data-i18n="permissionKickMembers">Kick Members</span></label>
+                    <label class="custom-check"><input name="custom-permission" value="moderateMembers" type="checkbox"><span data-i18n="permissionModerateMembers">Moderate Members</span></label>
+                  </div>
+                  <div class="form-grid custom-access-grid">
+                    <label class="field">
+                      <span data-i18n="customAllowedUsers">Allowed user IDs</span>
+                      <textarea id="custom-command-users" rows="3" autocomplete="off" spellcheck="false" data-i18n-placeholder="discordIdsPlaceholder" placeholder="One Discord ID or mention per line"></textarea>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="customAllowedRoles">Allowed role IDs</span>
+                      <textarea id="custom-command-roles" rows="3" autocomplete="off" spellcheck="false" data-i18n-placeholder="discordIdsPlaceholder" placeholder="One Discord ID or mention per line"></textarea>
+                    </label>
+                    <label class="field field--full">
+                      <span data-i18n="customAllowedChannels">Allowed invocation channel IDs</span>
+                      <textarea id="custom-command-channels" rows="3" autocomplete="off" spellcheck="false" data-i18n-placeholder="discordIdsPlaceholder" placeholder="One Discord ID or mention per line"></textarea>
+                    </label>
+                  </div>
+                  <p id="custom-required-permissions" class="fine-print"></p>
+                </fieldset>
+
+                <div class="settings-actions">
+                  <button id="cancel-custom-command" class="button button--quiet" type="button" data-i18n="cancel">Cancel</button>
+                  <button class="button button--primary" type="submit" data-i18n="saveCommandDraft">Save command</button>
+                </div>
+              </form>
+
+              <div class="settings-actions custom-command-sync-actions">
+                <p id="custom-commands-save-state" class="save-state" role="status"></p>
+                <button id="sync-custom-commands" class="button button--primary" type="button" data-i18n="syncCustomCommands">Save and sync with Discord</button>
+              </div>
+            </section>
           </section>
 
           <section class="page" data-page="history" hidden>
@@ -1061,7 +1271,7 @@
                 <div>
                   <span class="kicker">Relay</span>
                   <strong>Relay</strong>
-                  <small>Windows · v<span data-app-version>1.2.1</span></small>
+                  <small>Windows · v<span data-app-version>1.2.5</span></small>
                 </div>
               </div>
               <div class="about-card__statement">
@@ -1134,6 +1344,7 @@
         <div class="history-item__meta">
           <strong class="history-item__filename"></strong>
           <span class="history-item__author"></span>
+          <span class="moderation-item__privacy"></span>
         </div>
         <time class="history-item__time"></time>
         <div class="moderation-item__actions">

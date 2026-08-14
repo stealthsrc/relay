@@ -7,6 +7,13 @@ use std::{
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::custom_commands::{CustomCommandDefinition, validate_custom_commands};
+use crate::privacy::{
+    ForbiddenConcept, MAX_CONFIGURED_REGEXES, MAX_PRIVACY_LIST_ENTRIES,
+    MAX_PRIVACY_LIST_VALUE_CHARS, PrivacyCategory, PrivacyClassification, ProtectionLevel,
+    SuspiciousPolicy, default_privacy_categories,
+};
+
 pub const DEFAULT_PORT: u16 = 4590;
 pub const DEFAULT_DISPLAY_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_GIF_DURATION_MS: u64 = 8_000;
@@ -16,6 +23,7 @@ pub const DEFAULT_WIDGET_WIDTH: f64 = 640.0;
 pub const DEFAULT_WIDGET_HEIGHT: f64 = 360.0;
 pub const DEFAULT_NOTIFICATION_WIDGET_WIDTH: f64 = 510.0;
 pub const DEFAULT_NOTIFICATION_WIDGET_HEIGHT: f64 = 130.0;
+pub const MAX_PRIVACY_EXEMPT_ROLE_IDS: usize = 100;
 pub const MIN_WIDGET_WIDTH: f64 = 160.0;
 pub const MIN_WIDGET_HEIGHT: f64 = 90.0;
 const MAX_WIDGET_DIMENSION: f64 = 16_384.0;
@@ -106,6 +114,20 @@ pub struct AppConfig {
     pub moderation_allow_images: bool,
     pub moderation_allow_videos: bool,
     pub moderation_allow_audio: bool,
+    pub privacy_scan_enabled: bool,
+    pub privacy_suspicious_policy: SuspiciousPolicy,
+    pub privacy_suspicious_threshold: u8,
+    pub privacy_sensitive_threshold: u8,
+    pub privacy_similarity_boost: u8,
+    pub privacy_concepts: Vec<ForbiddenConcept>,
+    pub privacy_filter_exempt_role_ids: Vec<String>,
+    pub privacy_protection_level: ProtectionLevel,
+    pub privacy_enabled_categories: Vec<PrivacyCategory>,
+    pub privacy_block_threshold: PrivacyClassification,
+    pub privacy_review_intermediate: bool,
+    pub privacy_auto_delete_blocked_messages: bool,
+    pub privacy_allowlist: Vec<String>,
+    pub privacy_custom_patterns: Vec<String>,
     pub command_channel_enabled: bool,
     pub command_url_enabled: bool,
     pub command_show_enabled: bool,
@@ -115,6 +137,7 @@ pub struct AppConfig {
     pub command_clear_enabled: bool,
     pub command_lock_enabled: bool,
     pub command_changelog_enabled: bool,
+    pub custom_commands: Vec<CustomCommandDefinition>,
     pub channel_lock: Option<ChannelLockSnapshot>,
     pub widget_x: Option<i32>,
     pub widget_y: Option<i32>,
@@ -164,6 +187,20 @@ impl Default for AppConfig {
             moderation_allow_images: true,
             moderation_allow_videos: true,
             moderation_allow_audio: true,
+            privacy_scan_enabled: false,
+            privacy_suspicious_policy: SuspiciousPolicy::Review,
+            privacy_suspicious_threshold: 2,
+            privacy_sensitive_threshold: 4,
+            privacy_similarity_boost: 4,
+            privacy_concepts: Vec::new(),
+            privacy_filter_exempt_role_ids: Vec::new(),
+            privacy_protection_level: ProtectionLevel::Balanced,
+            privacy_enabled_categories: default_privacy_categories(),
+            privacy_block_threshold: PrivacyClassification::High,
+            privacy_review_intermediate: true,
+            privacy_auto_delete_blocked_messages: true,
+            privacy_allowlist: Vec::new(),
+            privacy_custom_patterns: Vec::new(),
             command_channel_enabled: true,
             command_url_enabled: true,
             command_show_enabled: true,
@@ -173,6 +210,7 @@ impl Default for AppConfig {
             command_clear_enabled: true,
             command_lock_enabled: true,
             command_changelog_enabled: true,
+            custom_commands: Vec::new(),
             channel_lock: None,
             widget_x: None,
             widget_y: None,
@@ -227,6 +265,57 @@ impl AppConfig {
         if !(1..=50).contains(&self.tts_queue_limit) {
             bail!("The TTS queue limit must be between 1 and 50.");
         }
+        if !(1..=100).contains(&self.privacy_suspicious_threshold)
+            || !(1..=100).contains(&self.privacy_sensitive_threshold)
+            || self.privacy_sensitive_threshold <= self.privacy_suspicious_threshold
+        {
+            bail!("Privacy score thresholds are invalid.");
+        }
+        if !(1..=100).contains(&self.privacy_similarity_boost) {
+            bail!("Privacy similarity boost must be between 1 and 100.");
+        }
+        if self.privacy_concepts.len() > 100 {
+            bail!("At most 100 forbidden concepts may be configured.");
+        }
+        if self
+            .privacy_concepts
+            .iter()
+            .map(|concept| concept.regexes.len())
+            .sum::<usize>()
+            > MAX_CONFIGURED_REGEXES
+        {
+            bail!("At most {MAX_CONFIGURED_REGEXES} filter regular expressions may be configured.");
+        }
+        for concept in &self.privacy_concepts {
+            concept.validate()?;
+        }
+        if self.privacy_filter_exempt_role_ids.len() > MAX_PRIVACY_EXEMPT_ROLE_IDS {
+            bail!(
+                "At most {MAX_PRIVACY_EXEMPT_ROLE_IDS} privacy filter exempt roles may be configured."
+            );
+        }
+        for role_id in &self.privacy_filter_exempt_role_ids {
+            validate_snowflake_id(role_id, "privacy filter exempt role")?;
+        }
+        if !matches!(
+            self.privacy_block_threshold,
+            PrivacyClassification::High | PrivacyClassification::Critical
+        ) {
+            bail!("The privacy block threshold must be HIGH or CRITICAL.");
+        }
+        if self.privacy_enabled_categories.len() > PrivacyCategory::USER_CONFIGURABLE.len() {
+            bail!("Too many privacy detection categories were configured.");
+        }
+        let mut unique_categories = std::collections::HashSet::new();
+        for category in &self.privacy_enabled_categories {
+            if !PrivacyCategory::USER_CONFIGURABLE.contains(category)
+                || !unique_categories.insert(*category)
+            {
+                bail!("Privacy detection categories are invalid or duplicated.");
+            }
+        }
+        validate_privacy_list(&self.privacy_allowlist, "privacy allowlist")?;
+        validate_privacy_list(&self.privacy_custom_patterns, "private data list")?;
         if !matches!(
             self.bot_online_status.as_str(),
             "online" | "idle" | "dnd" | "invisible"
@@ -244,6 +333,7 @@ impl AppConfig {
         {
             bail!("The Discord bot activity must contain at most 128 printable characters.");
         }
+        validate_custom_commands(&self.custom_commands)?;
         validate_widget_size(self.widget_width, self.widget_height)?;
         validate_widget_size(
             self.notification_widget_width,
@@ -255,6 +345,23 @@ impl AppConfig {
         self.notification_widget_geometry.validate()?;
         Ok(())
     }
+}
+
+fn validate_privacy_list(values: &[String], label: &str) -> Result<()> {
+    if values.len() > MAX_PRIVACY_LIST_ENTRIES {
+        bail!("The {label} may contain at most {MAX_PRIVACY_LIST_ENTRIES} entries.");
+    }
+    for value in values {
+        let value = value.trim();
+        if !(3..=MAX_PRIVACY_LIST_VALUE_CHARS).contains(&value.chars().count())
+            || value.chars().any(char::is_control)
+        {
+            bail!(
+                "Each {label} entry must contain 3 to {MAX_PRIVACY_LIST_VALUE_CHARS} printable characters."
+            );
+        }
+    }
+    Ok(())
 }
 
 fn validate_widget_size(width: f64, height: f64) -> Result<()> {
@@ -276,6 +383,16 @@ fn validate_channel_id(channel_id: &str, label: &str) -> Result<()> {
                 .all(|character| character.is_ascii_digit()))
     {
         bail!("The {label} channel ID is invalid.");
+    }
+    Ok(())
+}
+
+fn validate_snowflake_id(value: &str, label: &str) -> Result<()> {
+    if !(17..=20).contains(&value.len())
+        || !value.chars().all(|character| character.is_ascii_digit())
+        || value.parse::<u64>().map_or(true, |id| id == 0)
+    {
+        bail!("The {label} ID is invalid.");
     }
     Ok(())
 }
@@ -429,6 +546,20 @@ mod tests {
             moderation_allow_images: true,
             moderation_allow_videos: false,
             moderation_allow_audio: true,
+            privacy_scan_enabled: true,
+            privacy_suspicious_policy: SuspiciousPolicy::Review,
+            privacy_suspicious_threshold: 2,
+            privacy_sensitive_threshold: 4,
+            privacy_similarity_boost: 4,
+            privacy_concepts: Vec::new(),
+            privacy_filter_exempt_role_ids: Vec::new(),
+            privacy_protection_level: ProtectionLevel::Strict,
+            privacy_enabled_categories: default_privacy_categories(),
+            privacy_block_threshold: PrivacyClassification::Critical,
+            privacy_review_intermediate: true,
+            privacy_auto_delete_blocked_messages: false,
+            privacy_allowlist: vec!["public@example.com".into()],
+            privacy_custom_patterns: vec!["private alias".into()],
             command_channel_enabled: true,
             command_url_enabled: false,
             command_show_enabled: true,
@@ -438,6 +569,15 @@ mod tests {
             command_clear_enabled: true,
             command_lock_enabled: true,
             command_changelog_enabled: false,
+            custom_commands: vec![CustomCommandDefinition {
+                name: "announce".into(),
+                description: "Post the configured announcement".into(),
+                action: crate::custom_commands::CustomCommandAction::Reply {
+                    text: "Configured locally".into(),
+                    ephemeral: false,
+                },
+                ..CustomCommandDefinition::default()
+            }],
             channel_lock: None,
             widget_x: Some(-640),
             widget_y: Some(120),
@@ -538,6 +678,61 @@ mod tests {
             ..AppConfig::default()
         };
         assert!(activity_too_long.validate().is_err());
+
+        let invalid_similarity_boost = AppConfig {
+            privacy_similarity_boost: 0,
+            ..AppConfig::default()
+        };
+        assert!(invalid_similarity_boost.validate().is_err());
+
+        let invalid_exempt_role = AppConfig {
+            privacy_filter_exempt_role_ids: vec!["123".into()],
+            ..AppConfig::default()
+        };
+        assert!(invalid_exempt_role.validate().is_err());
+        let zero_exempt_role = AppConfig {
+            privacy_filter_exempt_role_ids: vec!["00000000000000000".into()],
+            ..AppConfig::default()
+        };
+        assert!(zero_exempt_role.validate().is_err());
+
+        let valid_exempt_role = AppConfig {
+            privacy_filter_exempt_role_ids: vec!["123456789012345678".into()],
+            ..AppConfig::default()
+        };
+        assert!(valid_exempt_role.validate().is_ok());
+
+        let too_many_exempt_roles = AppConfig {
+            privacy_filter_exempt_role_ids: (0..=MAX_PRIVACY_EXEMPT_ROLE_IDS)
+                .map(|index| format!("{index:017}"))
+                .collect(),
+            ..AppConfig::default()
+        };
+        assert!(too_many_exempt_roles.validate().is_err());
+
+        let invalid_block_threshold = AppConfig {
+            privacy_block_threshold: PrivacyClassification::Medium,
+            ..AppConfig::default()
+        };
+        assert!(invalid_block_threshold.validate().is_err());
+
+        let duplicate_categories = AppConfig {
+            privacy_enabled_categories: vec![PrivacyCategory::Email, PrivacyCategory::Email],
+            ..AppConfig::default()
+        };
+        assert!(duplicate_categories.validate().is_err());
+
+        let invalid_private_value = AppConfig {
+            privacy_custom_patterns: vec!["ab".into()],
+            ..AppConfig::default()
+        };
+        assert!(invalid_private_value.validate().is_err());
+
+        let invalid_allowlist_value = AppConfig {
+            privacy_allowlist: vec!["public\nvalue".into()],
+            ..AppConfig::default()
+        };
+        assert!(invalid_allowlist_value.validate().is_err());
     }
 
     #[test]

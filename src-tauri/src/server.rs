@@ -1103,6 +1103,21 @@ mod tests {
     }
 
     #[test]
+    fn output_config_never_serializes_private_scanner_values() {
+        let config = AppConfig {
+            privacy_custom_patterns: vec!["private-value-marker".into()],
+            privacy_allowlist: vec!["allowlist-value-marker".into()],
+            ..AppConfig::default()
+        };
+        let serialized = serde_json::to_string(&OverlayConfig::from(&config)).unwrap();
+
+        assert!(!serialized.contains("private-value-marker"));
+        assert!(!serialized.contains("allowlist-value-marker"));
+        assert!(!serialized.contains("privacyCustomPatterns"));
+        assert!(!serialized.contains("privacyAllowlist"));
+    }
+
+    #[test]
     fn classifies_valid_output_sources_and_client_contexts() {
         let visual_preview =
             output_connection("overlay", &access_query(Some("visual"), Some("preview")))

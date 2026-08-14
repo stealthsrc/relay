@@ -3,8 +3,10 @@ mod bot;
 mod commands;
 mod config;
 mod credentials;
+mod custom_commands;
 mod model;
 mod notification_widget;
+mod privacy;
 mod server;
 mod state;
 mod tts;
@@ -25,7 +27,7 @@ use crate::{
         clear_pending_media, control_audio, get_bootstrap, get_media_artwork, get_runtime_status,
         get_widget_bootstrap, pick_notification_sound, refresh_channels, regenerate_secret,
         reject_pending_media, replay_media, save_command_settings, save_credentials,
-        set_interface_preferences, set_notification_sound_enabled,
+        save_custom_commands, set_interface_preferences, set_notification_sound_enabled,
         set_notification_sound_obs_enabled, set_notification_widget_locked,
         set_notification_widget_visible, set_output_geometry, set_widget_locked, skip_media,
         test_output, toggle_widget,
@@ -132,6 +134,7 @@ pub fn run() {
             save_credentials,
             apply_config,
             save_command_settings,
+            save_custom_commands,
             clear_overlay,
             replay_media,
             skip_media,

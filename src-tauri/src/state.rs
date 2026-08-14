@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     path::PathBuf,
     sync::{
         Arc,
@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use axum::body::Bytes;
 use serenity::{cache::Cache, gateway::ShardManager, http::Http};
 use tokio::{
@@ -17,12 +17,15 @@ use tokio::{
 };
 
 use crate::{
+    artwork,
     artwork::EmbeddedArtwork,
     config::{AppConfig, ConfigStore},
+    custom_commands::CustomCommandConfirmations,
     model::{
         BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, MediaKind, PendingMedia,
         RelayEvent, ServerStatus, StickerEvent, TtsEvent, TtsRequest, VisualSegment,
     },
+    privacy::{self, PrivacyAction, PrivacyReport},
     tts,
 };
 
@@ -101,6 +104,8 @@ pub struct AppCore {
     pub tts_synthesis_lock: Mutex<()>,
     pub relay_tx: broadcast::Sender<RelayEvent>,
     pub bot_runtime: Mutex<Option<BotRuntime>>,
+    pub custom_command_sync: Mutex<()>,
+    pub custom_command_confirmations: Mutex<CustomCommandConfirmations>,
     pub server_runtime: Mutex<Option<ServerRuntime>>,
     pub panel_token: String,
     pub widget_move_generation: AtomicU64,
@@ -110,6 +115,7 @@ pub struct AppCore {
     pub interface_preferences: RwLock<InterfacePreferences>,
     pub processed_embed_ids: RwLock<VecDeque<String>>,
     pub cached_media: RwLock<VecDeque<CachedMedia>>,
+    pending_privacy_roles: RwLock<HashMap<u64, Vec<String>>>,
     media_delivery: RwLock<Option<mpsc::UnboundedSender<MediaDeliveryRequest>>>,
     next_moderation_id: AtomicU64,
 }
@@ -135,6 +141,8 @@ impl AppCore {
             tts_synthesis_lock: Mutex::new(()),
             relay_tx,
             bot_runtime: Mutex::new(None),
+            custom_command_sync: Mutex::new(()),
+            custom_command_confirmations: Mutex::new(CustomCommandConfirmations::default()),
             server_runtime: Mutex::new(None),
             panel_token: random_session_token(),
             widget_move_generation: AtomicU64::new(0),
@@ -144,6 +152,7 @@ impl AppCore {
             interface_preferences: RwLock::new(InterfacePreferences::default()),
             processed_embed_ids: RwLock::new(VecDeque::with_capacity(PROCESSED_EMBED_LIMIT)),
             cached_media: RwLock::new(VecDeque::with_capacity(MEDIA_CACHE_ITEM_LIMIT)),
+            pending_privacy_roles: RwLock::new(HashMap::new()),
             media_delivery: RwLock::new(None),
             next_moderation_id: AtomicU64::new(1),
         }))
@@ -179,48 +188,385 @@ impl AppCore {
         *self.config.write().await = config.clone();
         let mut pending = self.pending_media.write().await;
         if config.moderation_enabled {
-            pending.retain(|item| media_type_allowed(&config, item.media.kind));
+            pending.retain(|item| {
+                item.privacy_classification.is_some()
+                    || media_type_allowed(&config, item.media.kind)
+            });
         } else {
-            pending.clear();
+            // A privacy Review item is independent from manual moderation and
+            // must remain actionable when the manual switch is turned off.
+            pending.retain(|item| item.privacy_classification.is_some());
         }
         drop(pending);
+        let pending_ids = self
+            .pending_media
+            .read()
+            .await
+            .iter()
+            .map(|item| item.id)
+            .collect::<std::collections::HashSet<_>>();
+        self.pending_privacy_roles
+            .write()
+            .await
+            .retain(|pending_id, _| pending_ids.contains(pending_id));
         let _ = self.relay_tx.send(RelayEvent::Config(config));
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn submit_media(&self, media: MediaEvent) {
-        let config = self.config.read().await;
-        if !config.moderation_enabled {
+        self.submit_analyzed_media_with_text(media, None, None)
+            .await;
+    }
+
+    #[allow(dead_code)]
+    pub async fn submit_analyzed_media(&self, media: MediaEvent, report: Option<PrivacyReport>) {
+        self.submit_analyzed_media_with_text(media, report, None)
+            .await;
+    }
+
+    pub async fn submit_analyzed_media_with_text(
+        &self,
+        media: MediaEvent,
+        report: Option<PrivacyReport>,
+        full_text: Option<&str>,
+    ) {
+        self.submit_analyzed_media_with_text_and_roles(media, report, full_text, &[])
+            .await;
+    }
+
+    pub async fn submit_analyzed_media_with_text_and_roles(
+        &self,
+        media: MediaEvent,
+        report: Option<PrivacyReport>,
+        full_text: Option<&str>,
+        role_ids: &[String],
+    ) {
+        let config = self.config.read().await.clone();
+        let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
+        let role_exempt = privacy::has_exempt_role(&config, role_ids);
+        let analysis_text = privacy_media_text(&media, full_text);
+        // Always classify the message text again at this boundary. The bot's
+        // asynchronous report is advisory, while this state gate is the last
+        // decision point before history and relay publication.
+        let mut authoritative_report = privacy::classify_text(Some(&analysis_text), &scoped_config);
+        if let Some(report) = report {
+            let mut report = if role_exempt {
+                report.without_filter_signals()
+            } else {
+                report
+            };
+            if role_exempt {
+                report.config_signature = Some(privacy::config_signature(&scoped_config));
+            }
+            let report_is_stale = privacy::privacy_rules_enabled(&scoped_config)
+                && report
+                    .config_signature
+                    .is_none_or(|signature| signature != privacy::config_signature(&scoped_config));
+            authoritative_report.merge(report);
+            if report_is_stale
+                && authoritative_report.classification == privacy::PrivacyClassification::Safe
+            {
+                authoritative_report.merge(PrivacyReport::suspicious("scan_config_changed"));
+            }
+        } else if config.privacy_scan_enabled
+            && media_requires_image_scan(&media)
+            && authoritative_report.classification == privacy::PrivacyClassification::Safe
+        {
+            authoritative_report = PrivacyReport::suspicious("image_scan_unavailable");
+        }
+        authoritative_report.apply_score_policy(&scoped_config);
+        let privacy_action = if privacy::privacy_rules_enabled(&scoped_config) {
+            privacy::action_for(&authoritative_report, &scoped_config)
+        } else {
+            PrivacyAction::Allow
+        };
+        privacy::log_decision(&authoritative_report, privacy_action);
+        if matches!(privacy_action, PrivacyAction::Block) {
+            return;
+        }
+        let manually_moderated = config.moderation_enabled;
+        let type_allowed = media_type_allowed(&config, media.kind);
+        let requires_review =
+            matches!(privacy_action, PrivacyAction::Review) || (manually_moderated && type_allowed);
+        if manually_moderated && !type_allowed {
+            return;
+        }
+        if !requires_review {
             drop(config);
             self.publish_media(media).await;
             return;
         }
-        if !media_type_allowed(&config, media.kind) {
-            return;
-        }
         let mut pending = self.pending_media.write().await;
         // Evict the oldest unreviewed item instead of silently dropping new media.
-        if pending.len() >= MODERATION_QUEUE_LIMIT {
-            pending.pop_front();
-        }
+        let evicted_pending_id = if pending.len() >= MODERATION_QUEUE_LIMIT {
+            pending.pop_front().map(|item| item.id)
+        } else {
+            None
+        };
+        let pending_id = self.next_moderation_id.fetch_add(1, Ordering::Relaxed);
         pending.push_back(PendingMedia {
-            id: self.next_moderation_id.fetch_add(1, Ordering::Relaxed),
+            id: pending_id,
             media,
+            sticker: None,
+            sticker_bytes: None,
+            privacy_classification: (authoritative_report.classification
+                != privacy::PrivacyClassification::Safe)
+                .then_some(authoritative_report.classification),
+            privacy_categories: authoritative_report.categories.clone(),
+            privacy_reason: authoritative_report.primary_reason().map(str::to_owned),
         });
+        drop(pending);
+        if let Some(evicted_pending_id) = evicted_pending_id {
+            self.pending_privacy_roles
+                .write()
+                .await
+                .remove(&evicted_pending_id);
+        }
+        if !role_ids.is_empty() {
+            self.pending_privacy_roles
+                .write()
+                .await
+                .insert(pending_id, role_ids.to_vec());
+        }
+    }
+
+    #[allow(dead_code)]
+    pub async fn submit_sticker(
+        &self,
+        sticker: StickerEvent,
+        text: Option<&str>,
+        bytes: Option<Vec<u8>>,
+        report: Option<PrivacyReport>,
+    ) {
+        self.submit_sticker_with_roles(sticker, text, bytes, report, &[])
+            .await;
+    }
+
+    pub async fn submit_sticker_with_roles(
+        &self,
+        mut sticker: StickerEvent,
+        text: Option<&str>,
+        bytes: Option<Vec<u8>>,
+        report: Option<PrivacyReport>,
+        role_ids: &[String],
+    ) {
+        let config = self.config.read().await;
+        let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
+        let role_exempt = privacy::has_exempt_role(&config, role_ids);
+        let analysis_text = format!("{}\n{}", text.unwrap_or_default(), sticker.name);
+        let mut authoritative_report = privacy::classify_text(Some(&analysis_text), &scoped_config);
+        if let Some(report) = report {
+            let mut report = if role_exempt {
+                report.without_filter_signals()
+            } else {
+                report
+            };
+            if role_exempt {
+                report.config_signature = Some(privacy::config_signature(&scoped_config));
+            }
+            let report_is_stale = privacy::privacy_rules_enabled(&scoped_config)
+                && report
+                    .config_signature
+                    .is_none_or(|signature| signature != privacy::config_signature(&scoped_config));
+            authoritative_report.merge(report);
+            if report_is_stale
+                && authoritative_report.classification == privacy::PrivacyClassification::Safe
+            {
+                authoritative_report.merge(PrivacyReport::suspicious("scan_config_changed"));
+            }
+        } else if config.privacy_scan_enabled {
+            match bytes.as_deref() {
+                Some(bytes) => authoritative_report.merge(
+                    privacy::analyze_image_bytes_async(bytes, Some(&analysis_text), &scoped_config)
+                        .await,
+                ),
+                None => authoritative_report.merge(PrivacyReport::suspicious("scan_incomplete")),
+            }
+        }
+        if config.privacy_scan_enabled
+            && bytes.is_none()
+            && authoritative_report.classification == privacy::PrivacyClassification::Safe
+        {
+            authoritative_report.merge(PrivacyReport::suspicious("scan_incomplete"));
+        }
+        authoritative_report.apply_score_policy(&scoped_config);
+        let privacy_action = if privacy::privacy_rules_enabled(&scoped_config) {
+            privacy::action_for(&authoritative_report, &scoped_config)
+        } else {
+            PrivacyAction::Allow
+        };
+        privacy::log_decision(&authoritative_report, privacy_action);
+        if matches!(privacy_action, PrivacyAction::Block) {
+            return;
+        }
+        let media_kind = if sticker.format == "gif" {
+            MediaKind::Gif
+        } else {
+            MediaKind::Image
+        };
+        let content_type = match sticker.format.as_str() {
+            "gif" => "image/gif",
+            "apng" => "image/apng",
+            _ => "image/png",
+        };
+        let media = MediaEvent {
+            kind: media_kind,
+            url: sticker.url.clone(),
+            proxy_url: sticker.url.clone(),
+            filename: sticker.name.clone(),
+            content_type: content_type.into(),
+            artwork_id: None,
+            audio_id: None,
+            cached_media_id: None,
+            title: None,
+            artist: None,
+            text: None,
+            author: sticker.author.clone(),
+            timestamp: sticker.timestamp,
+            message_id: sticker.message_id.clone(),
+        };
+        let manually_moderated = config.moderation_enabled;
+        let type_allowed = media_type_allowed(&config, media.kind);
+        if manually_moderated && !type_allowed {
+            return;
+        }
+        let requires_review =
+            matches!(privacy_action, PrivacyAction::Review) || (manually_moderated && type_allowed);
+        if requires_review {
+            let mut pending = self.pending_media.write().await;
+            let evicted_pending_id = if pending.len() >= MODERATION_QUEUE_LIMIT {
+                pending.pop_front().map(|item| item.id)
+            } else {
+                None
+            };
+            let pending_id = self.next_moderation_id.fetch_add(1, Ordering::Relaxed);
+            pending.push_back(PendingMedia {
+                id: pending_id,
+                media,
+                sticker: Some(sticker),
+                sticker_bytes: bytes.map(Arc::new),
+                privacy_classification: (authoritative_report.classification
+                    != privacy::PrivacyClassification::Safe)
+                    .then_some(authoritative_report.classification),
+                privacy_categories: authoritative_report.categories.clone(),
+                privacy_reason: authoritative_report.primary_reason().map(str::to_owned),
+            });
+            drop(pending);
+            if let Some(evicted_pending_id) = evicted_pending_id {
+                self.pending_privacy_roles
+                    .write()
+                    .await
+                    .remove(&evicted_pending_id);
+            }
+            if !role_ids.is_empty() {
+                self.pending_privacy_roles
+                    .write()
+                    .await
+                    .insert(pending_id, role_ids.to_vec());
+            }
+            return;
+        }
+        if let Some(bytes) = bytes {
+            let cache_id = format!("sticker-{}", sticker.id);
+            self.cache_media(cache_id.clone(), content_type.into(), bytes)
+                .await;
+            sticker.cached_media_id = Some(cache_id);
+        }
+        self.publish_sticker(sticker);
     }
 
     pub async fn approve_media(&self, id: u64) -> bool {
-        let media = {
+        let item = {
+            let pending = self.pending_media.read().await;
+            pending.iter().find(|item| item.id == id).cloned()
+        };
+        let Some(item) = item else {
+            return false;
+        };
+        let config = self.config.read().await.clone();
+        let role_ids = self
+            .pending_privacy_roles
+            .read()
+            .await
+            .get(&item.id)
+            .cloned()
+            .unwrap_or_default();
+        let scoped_config = privacy::scoped_config_for_roles(&config, &role_ids);
+        if privacy::privacy_rules_enabled(&scoped_config) {
+            let analysis_text = privacy_media_text(&item.media, None);
+            let mut report = if scoped_config.privacy_scan_enabled
+                && media_requires_image_scan(&item.media)
+            {
+                if let Some(bytes) = item.sticker_bytes.as_deref() {
+                    privacy::analyze_image_bytes_async(bytes, Some(&analysis_text), &scoped_config)
+                        .await
+                } else {
+                    privacy::analyze_remote_image(
+                        &item.media.url,
+                        &item.media.proxy_url,
+                        Some(&analysis_text),
+                        &scoped_config,
+                    )
+                    .await
+                }
+            } else {
+                privacy::classify_text(Some(&analysis_text), &scoped_config)
+            };
+            if scoped_config.privacy_scan_enabled
+                && let Some(artwork_id) = item.media.artwork_id.as_deref()
+            {
+                if let Some(bytes) = self.cached_artwork_bytes(artwork_id).await {
+                    report.merge(
+                        privacy::analyze_image_bytes_async(
+                            &bytes,
+                            Some(&analysis_text),
+                            &scoped_config,
+                        )
+                        .await,
+                    );
+                } else {
+                    report.merge(PrivacyReport::low("scan_incomplete"));
+                }
+            }
+            report.apply_score_policy(&scoped_config);
+            let action = privacy::action_for(&report, &scoped_config);
+            if matches!(action, PrivacyAction::Block) {
+                privacy::log_decision(&report, action);
+                return false;
+            }
+        }
+        let Some((media, sticker, sticker_bytes)) = ({
             let mut pending = self.pending_media.write().await;
             pending
                 .iter()
-                .position(|item| item.id == id)
+                .position(|pending_item| pending_item.id == id)
                 .and_then(|index| pending.remove(index))
-                .map(|item| item.media)
-        };
-        let Some(media) = media else {
+                .map(|pending_item| {
+                    (
+                        pending_item.media,
+                        pending_item.sticker,
+                        pending_item.sticker_bytes,
+                    )
+                })
+        }) else {
             return false;
         };
+        self.pending_privacy_roles.write().await.remove(&item.id);
+        if let Some(mut sticker_event) = sticker {
+            if let Some(bytes) = sticker_bytes {
+                let cache_id = format!("sticker-{}", sticker_event.id);
+                self.cache_media(
+                    cache_id.clone(),
+                    media.content_type.clone(),
+                    (*bytes).clone(),
+                )
+                .await;
+                sticker_event.cached_media_id = Some(cache_id);
+            }
+            self.publish_sticker(sticker_event);
+            return true;
+        }
         self.publish_media(media).await;
         true
     }
@@ -230,12 +576,16 @@ impl AppCore {
         let Some(index) = pending.iter().position(|item| item.id == id) else {
             return false;
         };
+        let pending_id = pending[index].id;
         pending.remove(index);
+        drop(pending);
+        self.pending_privacy_roles.write().await.remove(&pending_id);
         true
     }
 
     pub async fn clear_pending_media(&self) {
         self.pending_media.write().await.clear();
+        self.pending_privacy_roles.write().await.clear();
     }
 
     pub async fn cache_artwork(&self, id: String, artwork: EmbeddedArtwork) {
@@ -247,6 +597,15 @@ impl AppCore {
             bytes: Bytes::from(artwork.bytes),
         });
         cache.truncate(ARTWORK_CACHE_LIMIT);
+    }
+
+    async fn cached_artwork_bytes(&self, id: &str) -> Option<Vec<u8>> {
+        self.media_artwork
+            .read()
+            .await
+            .iter()
+            .find(|item| item.id == id)
+            .map(|item| item.bytes.to_vec())
     }
 
     pub async fn cache_audio(&self, id: String, content_type: String, bytes: Vec<u8>) {
@@ -301,6 +660,138 @@ impl AppCore {
         }
     }
 
+    pub async fn cached_media_bytes(&self, id: &str) -> Option<Vec<u8>> {
+        self.cached_media
+            .read()
+            .await
+            .iter()
+            .find(|item| item.id == id)
+            .map(|item| item.bytes.to_vec())
+    }
+
+    pub async fn replay_media_event(&self, mut event: MediaEvent) -> Result<()> {
+        let initial_config = self.config.read().await.clone();
+        let analysis_text = privacy_media_text(&event, None);
+        let mut scanned_bytes = None;
+        if privacy::privacy_rules_enabled(&initial_config) {
+            let mut report = if media_requires_image_scan(&event) {
+                if let Some(cache_id) = event.cached_media_id.as_deref() {
+                    if let Some(bytes) = self.cached_media_bytes(cache_id).await {
+                        privacy::analyze_image_bytes_async(
+                            &bytes,
+                            Some(&analysis_text),
+                            &initial_config,
+                        )
+                        .await
+                    } else {
+                        let bytes = download_replay_bytes(&event).await;
+                        if let Some(bytes) = bytes {
+                            let report = privacy::analyze_image_bytes_async(
+                                &bytes,
+                                Some(&analysis_text),
+                                &initial_config,
+                            )
+                            .await;
+                            scanned_bytes = Some(bytes);
+                            report
+                        } else {
+                            privacy::analyze_remote_image(
+                                &event.url,
+                                &event.proxy_url,
+                                Some(&analysis_text),
+                                &initial_config,
+                            )
+                            .await
+                        }
+                    }
+                } else {
+                    let bytes = download_replay_bytes(&event).await;
+                    if let Some(bytes) = bytes {
+                        let report = privacy::analyze_image_bytes_async(
+                            &bytes,
+                            Some(&analysis_text),
+                            &initial_config,
+                        )
+                        .await;
+                        scanned_bytes = Some(bytes);
+                        report
+                    } else {
+                        privacy::analyze_remote_image(
+                            &event.url,
+                            &event.proxy_url,
+                            Some(&analysis_text),
+                            &initial_config,
+                        )
+                        .await
+                    }
+                }
+            } else {
+                privacy::classify_text(Some(&analysis_text), &initial_config)
+            };
+            if initial_config.privacy_scan_enabled
+                && let Some(artwork_id) = event.artwork_id.as_deref()
+            {
+                if let Some(bytes) = self.cached_artwork_bytes(artwork_id).await {
+                    report.merge(
+                        privacy::analyze_image_bytes_async(
+                            &bytes,
+                            Some(&analysis_text),
+                            &initial_config,
+                        )
+                        .await,
+                    );
+                } else {
+                    report.merge(PrivacyReport::low("scan_incomplete"));
+                }
+            }
+            let current_config = self.config.read().await.clone();
+            if !privacy::privacy_rules_enabled(&current_config) {
+                // The user explicitly disabled scanning while the async scan
+                // was in flight; preserve the documented bypass behavior.
+            } else {
+                let current_signature = privacy::config_signature(&current_config);
+                if report.config_signature != Some(current_signature)
+                    && report.classification == privacy::PrivacyClassification::Safe
+                {
+                    report.merge(PrivacyReport::suspicious("scan_config_changed"));
+                }
+                report.apply_score_policy(&current_config);
+                let action = privacy::action_for(&report, &current_config);
+                privacy::log_decision(&report, action);
+                match action {
+                    PrivacyAction::Allow => {}
+                    PrivacyAction::Review => {
+                        bail!("Media requires privacy review before replay.");
+                    }
+                    PrivacyAction::Block => {
+                        bail!("Media blocked by the local privacy scan.");
+                    }
+                }
+            }
+        }
+        if matches!(event.kind, MediaKind::Gif)
+            && event.cached_media_id.is_none()
+            && scanned_bytes.is_none()
+        {
+            let bytes = download_replay_bytes(&event).await;
+            if let Some(bytes) = bytes {
+                scanned_bytes = Some(bytes);
+            }
+        }
+        if let Some(bytes) = scanned_bytes {
+            if event.cached_media_id.is_none() {
+                let cache_id = format!("{}-replay", event.message_id);
+                self.cache_media(cache_id.clone(), event.content_type.clone(), bytes)
+                    .await;
+                event.cached_media_id = Some(cache_id);
+            } else {
+                drop(bytes);
+            }
+        }
+        let _ = self.relay_tx.send(RelayEvent::Media(event));
+        Ok(())
+    }
+
     pub async fn publish_media(&self, media: MediaEvent) {
         self.prepare_media_delivery(media.kind).await;
         {
@@ -325,11 +816,20 @@ impl AppCore {
         self.tts_pending_count.load(Ordering::SeqCst)
     }
 
-    pub fn publish_sticker(&self, sticker: StickerEvent) {
+    fn publish_sticker(&self, sticker: StickerEvent) {
         let _ = self.relay_tx.send(RelayEvent::Sticker(sticker));
     }
 
+    #[allow(dead_code)]
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
+        self.publish_tts_with_roles(request, &[]).await
+    }
+
+    pub async fn publish_tts_with_roles(
+        &self,
+        request: TtsRequest,
+        role_ids: &[String],
+    ) -> Result<()> {
         struct PendingGuard<'a>(&'a AtomicUsize);
         impl Drop for PendingGuard<'_> {
             fn drop(&mut self) {
@@ -343,6 +843,16 @@ impl AppCore {
             anyhow::bail!("the TTS queue is full");
         }
         let _synthesis = self.tts_synthesis_lock.lock().await;
+        let config = self.config.read().await;
+        let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
+        if privacy::privacy_rules_enabled(&scoped_config) {
+            let report = privacy::classify_text(Some(&request.text), &scoped_config);
+            let action = privacy::action_for(&report, &scoped_config);
+            if !matches!(action, PrivacyAction::Allow) {
+                privacy::log_decision(&report, action);
+                bail!("TTS privacy policy denied publication.");
+            }
+        }
         let speech =
             tokio::time::timeout(TTS_SYNTHESIS_TIMEOUT, tts::synthesize(request.text.clone()))
                 .await
@@ -384,6 +894,149 @@ impl AppCore {
         };
         let _ = self.relay_tx.send(RelayEvent::Tts(event));
     }
+
+    #[allow(dead_code)]
+    pub async fn publish_visual_tts_if_allowed(
+        &self,
+        id: String,
+        text: String,
+        author: crate::model::AuthorIdentity,
+        guild_tag: Option<crate::model::GuildTagIdentity>,
+        timestamp: u64,
+        segments: Vec<VisualSegment>,
+    ) -> bool {
+        self.publish_visual_tts_if_allowed_with_roles(
+            id,
+            text,
+            author,
+            guild_tag,
+            timestamp,
+            segments,
+            &[],
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn publish_visual_tts_if_allowed_with_roles(
+        &self,
+        id: String,
+        text: String,
+        author: crate::model::AuthorIdentity,
+        guild_tag: Option<crate::model::GuildTagIdentity>,
+        timestamp: u64,
+        segments: Vec<VisualSegment>,
+        role_ids: &[String],
+    ) -> bool {
+        let config = self.config.read().await;
+        let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
+        if privacy::privacy_rules_enabled(&scoped_config) {
+            let report = classify_tts_privacy(&text, &segments, &scoped_config);
+            let action = privacy::action_for(&report, &scoped_config);
+            if !matches!(action, PrivacyAction::Allow) {
+                privacy::log_decision(&report, action);
+                return false;
+            }
+        }
+        self.publish_visual_tts(id, text, author, guild_tag, timestamp, segments);
+        true
+    }
+}
+
+const MAX_TTS_PRIVACY_SEGMENTS: usize = 64;
+const MAX_TTS_PRIVACY_COMPOSITE_CHARS: usize = privacy::PRIVACY_TEXT_LIMIT + 1;
+
+fn classify_tts_privacy(
+    text: &str,
+    segments: &[VisualSegment],
+    config: &AppConfig,
+) -> privacy::PrivacyReport {
+    let mut composite = String::new();
+    let mut truncated = false;
+    append_tts_privacy_field(&mut composite, text, &mut truncated);
+    for segment in segments.iter().take(MAX_TTS_PRIVACY_SEGMENTS) {
+        append_tts_privacy_field(&mut composite, &segment.value, &mut truncated);
+    }
+    if segments.len() > MAX_TTS_PRIVACY_SEGMENTS {
+        truncated = true;
+    }
+    let mut report = privacy::classify_text(Some(&composite), config);
+    if truncated {
+        report.merge(privacy::PrivacyReport::suspicious("scan_incomplete"));
+    }
+    report
+}
+
+fn append_tts_privacy_field(target: &mut String, value: &str, truncated: &mut bool) {
+    if value.is_empty() {
+        return;
+    }
+    if !target.is_empty() {
+        append_tts_privacy_bounded(target, "\n", truncated);
+    }
+    append_tts_privacy_bounded(target, value, truncated);
+}
+
+fn append_tts_privacy_bounded(target: &mut String, value: &str, truncated: &mut bool) {
+    let current = target.chars().count();
+    if current >= MAX_TTS_PRIVACY_COMPOSITE_CHARS {
+        *truncated = true;
+        return;
+    }
+    let remaining = MAX_TTS_PRIVACY_COMPOSITE_CHARS - current;
+    let mut appended = 0;
+    for character in value.chars().take(remaining) {
+        target.push(character);
+        appended += 1;
+    }
+    if appended < value.chars().count() {
+        *truncated = true;
+    }
+}
+
+fn privacy_media_text(media: &MediaEvent, full_text: Option<&str>) -> String {
+    let mut fields = Vec::with_capacity(7);
+    if let Some(text) = full_text.filter(|text| !text.trim().is_empty()) {
+        fields.push(text.to_owned());
+    }
+    if let Some(text) = media.text.as_deref().filter(|text| !text.trim().is_empty()) {
+        fields.push(text.to_owned());
+    }
+    if !media.filename.trim().is_empty() {
+        fields.push(media.filename.clone());
+        if let Some(stem) = media.filename.rsplit_once('.').map(|(stem, _)| stem)
+            && !stem.trim().is_empty()
+        {
+            fields.push(stem.to_owned());
+        }
+    }
+    if let Some(title) = media
+        .title
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+    {
+        fields.push(title.to_owned());
+    }
+    if let Some(artist) = media
+        .artist
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+    {
+        fields.push(artist.to_owned());
+    }
+    fields.join("\n")
+}
+
+async fn download_replay_bytes(event: &MediaEvent) -> Option<Vec<u8>> {
+    match artwork::download_bounded(&event.url, artwork::MAX_EMBED_MEDIA_BYTES).await {
+        Ok(bytes) => Some(bytes),
+        Err(_) if event.proxy_url != event.url => {
+            artwork::download_bounded(&event.proxy_url, artwork::MAX_EMBED_MEDIA_BYTES)
+                .await
+                .ok()
+        }
+        Err(_) => None,
+    }
 }
 
 fn media_type_allowed(config: &AppConfig, kind: MediaKind) -> bool {
@@ -392,6 +1045,14 @@ fn media_type_allowed(config: &AppConfig, kind: MediaKind) -> bool {
         MediaKind::Video => config.moderation_allow_videos,
         MediaKind::Audio => config.moderation_allow_audio,
     }
+}
+
+fn media_requires_image_scan(media: &MediaEvent) -> bool {
+    matches!(media.kind, MediaKind::Image | MediaKind::Gif)
+        && media
+            .content_type
+            .to_ascii_lowercase()
+            .starts_with("image/")
 }
 
 fn random_session_token() -> String {
@@ -419,6 +1080,22 @@ mod tests {
             title: None,
             artist: None,
             text: None,
+            author: crate::model::AuthorIdentity {
+                username: "Moderator".into(),
+                display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
+            },
+            timestamp: 42,
+            message_id: message_id.into(),
+        }
+    }
+
+    fn sticker(message_id: &str) -> StickerEvent {
+        StickerEvent {
+            id: format!("sticker-{message_id}"),
+            name: "Test sticker".into(),
+            format: "png".into(),
+            url: "https://cdn.discordapp.com/stickers/test.png".into(),
+            cached_media_id: None,
             author: crate::model::AuthorIdentity {
                 username: "Moderator".into(),
                 display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
@@ -460,6 +1137,588 @@ mod tests {
         assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
         assert_eq!(core.history.read().await.len(), 1);
         assert!(!core.reject_media(id).await);
+    }
+
+    #[tokio::test]
+    async fn sensitive_media_never_reaches_history_or_relay() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        core.submit_analyzed_media(
+            media(MediaKind::Image, "sensitive"),
+            Some(PrivacyReport::sensitive("gps")),
+        )
+        .await;
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn medium_privacy_risk_uses_existing_queue_before_publication() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_review_intermediate: true,
+            moderation_enabled: false,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        core.submit_analyzed_media_with_text(
+            media(MediaKind::Image, "medium-phone"),
+            None,
+            Some("Call 06 12 34 56 78"),
+        )
+        .await;
+
+        let pending = core.pending_media.read().await;
+        assert_eq!(pending.len(), 1);
+        assert_eq!(
+            pending[0].privacy_classification,
+            Some(privacy::PrivacyClassification::Medium)
+        );
+        assert!(
+            pending[0]
+                .privacy_categories
+                .contains(&privacy::PrivacyCategory::Phone)
+        );
+        assert!(core.history.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn custom_private_value_is_blocked_before_history_and_relay() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_custom_patterns: vec!["private-room-42".into()],
+            moderation_enabled: false,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        core.submit_analyzed_media_with_text(
+            media(MediaKind::Image, "custom-pattern"),
+            None,
+            Some("private room 42"),
+        )
+        .await;
+
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(core.history.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn filter_words_block_without_scan_or_manual_moderation() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            moderation_enabled: false,
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: vec![r"\bsecret\b".into()],
+            }],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        core.submit_analyzed_media_with_text(
+            media(MediaKind::Image, "filter-exact"),
+            Some(PrivacyReport::safe()),
+            Some("hitler"),
+        )
+        .await;
+        core.submit_analyzed_media_with_text(
+            media(MediaKind::Image, "filter-regex"),
+            Some(PrivacyReport::safe()),
+            Some("a SECRET message"),
+        )
+        .await;
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+
+        core.submit_analyzed_media_with_text(
+            media(MediaKind::Image, "filter-safe"),
+            None,
+            Some("public monument"),
+        )
+        .await;
+        assert_eq!(core.history.read().await.len(), 1);
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
+    }
+
+    #[tokio::test]
+    async fn exempt_role_publishes_filter_word_media_and_tts_but_not_gps() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let role_id = "123456789012345678".to_owned();
+        core.set_config(AppConfig {
+            moderation_enabled: false,
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: vec![r"\bsecret\b".into()],
+            }],
+            privacy_filter_exempt_role_ids: vec![role_id.clone()],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        core.submit_analyzed_media_with_text_and_roles(
+            media(MediaKind::Image, "exempt-media"),
+            Some(PrivacyReport::sensitive("forbidden_concept")),
+            Some("hitler"),
+            std::slice::from_ref(&role_id),
+        )
+        .await;
+        assert_eq!(core.history.read().await.len(), 1);
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
+
+        core.submit_analyzed_media_with_text_and_roles(
+            media(MediaKind::Image, "exempt-regex"),
+            Some(PrivacyReport::sensitive("forbidden_regex")),
+            Some("secret"),
+            std::slice::from_ref(&role_id),
+        )
+        .await;
+        assert_eq!(core.history.read().await.len(), 2);
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
+
+        assert!(
+            core.publish_visual_tts_if_allowed_with_roles(
+                "exempt-tts".into(),
+                "hitler".into(),
+                crate::model::AuthorIdentity {
+                    username: "Moderator".into(),
+                    display_avatar_url: String::new(),
+                },
+                None,
+                42,
+                vec![VisualSegment {
+                    kind: "text".into(),
+                    value: "hitler".into(),
+                    url: None,
+                    animated: false,
+                }],
+                std::slice::from_ref(&role_id),
+            )
+            .await
+        );
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Tts(_)));
+
+        core.update_config(|config| config.privacy_scan_enabled = true)
+            .await
+            .unwrap();
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            RelayEvent::Config(_)
+        ));
+        core.submit_analyzed_media_with_text_and_roles(
+            media(MediaKind::Image, "exempt-gps"),
+            Some(PrivacyReport::sensitive("gps")),
+            None,
+            std::slice::from_ref(&role_id),
+        )
+        .await;
+        assert_eq!(core.history.read().await.len(), 2);
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn pending_role_scope_is_kept_per_moderation_item() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let role_id = "123456789012345678".to_owned();
+        core.set_config(AppConfig {
+            moderation_enabled: true,
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            privacy_filter_exempt_role_ids: vec![role_id.clone()],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let roles = std::slice::from_ref(&role_id);
+        core.submit_analyzed_media_with_text_and_roles(
+            media(MediaKind::Image, "shared-message"),
+            None,
+            Some("hitler"),
+            roles,
+        )
+        .await;
+        core.submit_analyzed_media_with_text_and_roles(
+            media(MediaKind::Image, "shared-message"),
+            None,
+            Some("hitler"),
+            roles,
+        )
+        .await;
+        let ids = core
+            .pending_media
+            .read()
+            .await
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids.len(), 2);
+        assert!(core.approve_media(ids[0]).await);
+        assert!(core.approve_media(ids[1]).await);
+        assert_eq!(core.history.read().await.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn state_gate_rechecks_text_before_publication() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut media = media(MediaKind::Image, "concept");
+        media.text = Some("h1tl3r".into());
+        let mut events = core.relay_tx.subscribe();
+        core.submit_analyzed_media(media, Some(PrivacyReport::safe()))
+            .await;
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn state_gate_uses_full_discord_text_beyond_caption_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut event = media(MediaKind::Image, "concept-after-caption");
+        event.text = Some("a".repeat(180));
+        let full_text = format!("{} h1tl3r", "a".repeat(180));
+        let mut events = core.relay_tx.subscribe();
+        core.submit_analyzed_media_with_text(event, Some(PrivacyReport::safe()), Some(&full_text))
+            .await;
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn state_gate_scans_untrusted_media_fields_for_concepts() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut filename_media = media(MediaKind::Image, "filename-concept");
+        filename_media.filename = "h1tl3r.png".into();
+        let mut title_media = media(MediaKind::Image, "title-concept");
+        title_media.title = Some("h1tl3r".into());
+        core.submit_analyzed_media(filename_media, Some(PrivacyReport::safe()))
+            .await;
+        core.submit_analyzed_media(title_media, Some(PrivacyReport::safe()))
+            .await;
+        core.submit_sticker(
+            StickerEvent {
+                name: "h1tl3r".into(),
+                ..sticker("sticker-concept")
+            },
+            None,
+            None,
+            Some(PrivacyReport::safe()),
+        )
+        .await;
+        assert!(core.history.read().await.is_empty());
+        assert!(core.pending_media.read().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn approval_rechecks_sensitive_pending_entries() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut pending_media = media(MediaKind::Image, "pending-sensitive");
+        pending_media.content_type = "image/png".into();
+        core.pending_media.write().await.push_back(PendingMedia {
+            id: 99,
+            media: pending_media,
+            sticker: None,
+            sticker_bytes: Some(Arc::new(b"not an image".to_vec())),
+            privacy_classification: Some(privacy::PrivacyClassification::Sensitive),
+            privacy_categories: vec![privacy::PrivacyCategory::GpsLocation],
+            privacy_reason: Some("gps".into()),
+        });
+        let mut events = core.relay_tx.subscribe();
+        assert!(!core.approve_media(99).await);
+        assert!(core.history.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn approval_rechecks_cached_audio_artwork_before_publication() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        core.cache_artwork(
+            "audio-artwork".into(),
+            EmbeddedArtwork {
+                content_type: "image/png".into(),
+                bytes: b"not an image".to_vec(),
+            },
+        )
+        .await;
+        let mut event = media(MediaKind::Audio, "pending-audio-artwork");
+        event.artwork_id = Some("audio-artwork".into());
+        core.pending_media.write().await.push_back(PendingMedia {
+            id: 100,
+            media: event,
+            sticker: None,
+            sticker_bytes: None,
+            privacy_classification: Some(privacy::PrivacyClassification::Medium),
+            privacy_categories: vec![privacy::PrivacyCategory::Ocr],
+            privacy_reason: Some("ocr_text".into()),
+        });
+        let mut events = core.relay_tx.subscribe();
+
+        assert!(!core.approve_media(100).await);
+        assert!(core.history.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn suspicious_media_uses_review_queue_even_when_manual_moderation_is_off() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
+            moderation_enabled: false,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        core.submit_analyzed_media(
+            media(MediaKind::Image, "suspicious"),
+            Some(PrivacyReport::suspicious("privacy_signal")),
+        )
+        .await;
+        assert_eq!(core.pending_media.read().await.len(), 1);
+        assert!(core.history.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn sensitive_sticker_never_reaches_cache_or_relay() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        core.submit_sticker(
+            sticker("sensitive"),
+            Some("h1tl3r"),
+            Some(vec![1, 2, 3]),
+            Some(PrivacyReport::sensitive("forbidden_concept")),
+        )
+        .await;
+        assert!(core.pending_media.read().await.is_empty());
+        assert!(core.cached_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn sticker_scan_review_uses_the_existing_queue() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
+            moderation_enabled: false,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        core.submit_sticker(
+            sticker("review"),
+            Some("safe caption"),
+            Some(vec![1, 2, 3]),
+            Some(PrivacyReport::suspicious("scan_incomplete")),
+        )
+        .await;
+        let pending = core.pending_media.read().await;
+        assert_eq!(pending.len(), 1);
+        assert!(pending[0].sticker.is_some());
+        assert!(pending[0].sticker_bytes.is_some());
+        assert!(core.cached_media.read().await.is_empty());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn privacy_review_pending_survives_manual_moderation_disable() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
+            moderation_enabled: true,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        core.submit_analyzed_media(
+            media(MediaKind::Image, "privacy-review"),
+            Some(PrivacyReport::suspicious("scan_incomplete")),
+        )
+        .await;
+        assert_eq!(core.pending_media.read().await.len(), 1);
+        core.update_config(|config| config.moderation_enabled = false)
+            .await
+            .unwrap();
+        assert_eq!(core.pending_media.read().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn replay_blocks_sensitive_media_when_filter_words_are_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut event = media(MediaKind::Video, "replay-sensitive");
+        event.text = Some("h1tl3r".into());
+        let mut events = core.relay_tx.subscribe();
+        assert!(core.replay_media_event(event).await.is_err());
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn replay_keeps_the_privacy_off_bypass() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let mut event = media(MediaKind::Video, "replay-disabled");
+        event.text = Some("h1tl3r".into());
+        let mut events = core.relay_tx.subscribe();
+        core.replay_media_event(event).await.unwrap();
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
+    }
+
+    #[tokio::test]
+    async fn stale_safe_report_enters_the_current_privacy_policy() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: true,
+            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let old_config = core.config.read().await.clone();
+        let report = privacy::classify_text(Some("landscape"), &old_config);
+        core.update_config(|config| config.privacy_suspicious_threshold = 3)
+            .await
+            .unwrap();
+        core.submit_analyzed_media(media(MediaKind::Image, "stale-safe"), Some(report))
+            .await;
+        let pending = core.pending_media.read().await;
+        assert_eq!(pending.len(), 1);
+        assert_eq!(
+            pending[0].privacy_reason.as_deref(),
+            Some("scan_config_changed")
+        );
+    }
+
+    #[tokio::test]
+    async fn disabled_privacy_scan_preserves_existing_immediate_flow() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: false,
+            privacy_concepts: Vec::new(),
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        core.submit_analyzed_media(
+            media(MediaKind::Image, "disabled"),
+            Some(PrivacyReport::sensitive("forbidden_concept")),
+        )
+        .await;
+        assert_eq!(core.history.read().await.len(), 1);
+        assert!(matches!(events.recv().await.unwrap(), RelayEvent::Media(_)));
     }
 
     #[tokio::test]
@@ -532,6 +1791,148 @@ mod tests {
         assert_eq!(event.guild_tag.unwrap().name, "RE");
         assert_eq!(event.segments.len(), 1);
         assert!(core.tts_audio.read().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn tts_privacy_gate_blocks_filter_concepts_and_holds_medium_risk() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            privacy_scan_enabled: false,
+            privacy_concepts: vec![privacy::ForbiddenConcept {
+                canonical: "hitler".into(),
+                aliases: Vec::new(),
+                regexes: Vec::new(),
+            }],
+            privacy_suspicious_policy: privacy::SuspiciousPolicy::Block,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        let mut events = core.relay_tx.subscribe();
+        let author = crate::model::AuthorIdentity {
+            username: "TTS tester".into(),
+            display_avatar_url: "https://cdn.discordapp.com/avatar.png".into(),
+        };
+        let blocked_concept = core
+            .publish_visual_tts_if_allowed(
+                "tts-concept".into(),
+                "sticker h1tl3r".into(),
+                author.clone(),
+                None,
+                42,
+                Vec::new(),
+            )
+            .await;
+        assert!(!blocked_concept);
+        let blocked_segment_concept = core
+            .publish_visual_tts_if_allowed(
+                "tts-segment-concept".into(),
+                "safe text".into(),
+                author.clone(),
+                None,
+                42,
+                vec![VisualSegment {
+                    kind: "text".into(),
+                    value: "h1tl3r".into(),
+                    url: None,
+                    animated: false,
+                }],
+            )
+            .await;
+        assert!(!blocked_segment_concept);
+        assert!(events.try_recv().is_err());
+        let blocked_cross_field_concept = core
+            .publish_visual_tts_if_allowed(
+                "tts-cross-field-concept".into(),
+                "hi".into(),
+                author.clone(),
+                None,
+                42,
+                vec![VisualSegment {
+                    kind: "sticker".into(),
+                    value: "tler".into(),
+                    url: None,
+                    animated: false,
+                }],
+            )
+            .await;
+        assert!(!blocked_cross_field_concept);
+        assert!(events.try_recv().is_err());
+        let blocked_cross_segment_concept = core
+            .publish_visual_tts_if_allowed(
+                "tts-cross-segment-concept".into(),
+                "safe".into(),
+                author.clone(),
+                None,
+                42,
+                vec![
+                    VisualSegment {
+                        kind: "text".into(),
+                        value: "hi".into(),
+                        url: None,
+                        animated: false,
+                    },
+                    VisualSegment {
+                        kind: "text".into(),
+                        value: "tler".into(),
+                        url: None,
+                        animated: false,
+                    },
+                ],
+            )
+            .await;
+        assert!(!blocked_cross_segment_concept);
+        assert!(events.try_recv().is_err());
+        let unrelated_split = core
+            .publish_visual_tts_if_allowed(
+                "tts-unrelated-split".into(),
+                "safe".into(),
+                author.clone(),
+                None,
+                42,
+                vec![VisualSegment {
+                    kind: "text".into(),
+                    value: "hello world".into(),
+                    url: None,
+                    animated: false,
+                }],
+            )
+            .await;
+        assert!(unrelated_split);
+        assert!(matches!(events.try_recv(), Ok(RelayEvent::Tts(_))));
+        core.update_config(|config| {
+            config.privacy_scan_enabled = true;
+            config.privacy_review_intermediate = true;
+        })
+        .await
+        .unwrap();
+        let held_for_review = core
+            .publish_visual_tts_if_allowed(
+                "tts-medium".into(),
+                "call 06 12 34 56 78".into(),
+                author.clone(),
+                None,
+                42,
+                Vec::new(),
+            )
+            .await;
+        assert!(!held_for_review);
+
+        core.update_config(|config| config.privacy_review_intermediate = false)
+            .await
+            .unwrap();
+        let allowed_medium = core
+            .publish_visual_tts_if_allowed(
+                "tts-medium-allowed".into(),
+                "call 06 12 34 56 78".into(),
+                author,
+                None,
+                42,
+                Vec::new(),
+            )
+            .await;
+        assert!(allowed_medium);
     }
 
     #[tokio::test]

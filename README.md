@@ -18,7 +18,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
   <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
   <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.2.1" src="https://img.shields.io/badge/version-1.2.1-2F6FED" />
+  <img alt="Version 1.2.5" src="https://img.shields.io/badge/version-1.2.5-2F6FED" />
 </p>
 
 <p align="center">
@@ -93,7 +93,7 @@ Relay bot ──► optional moderation ──► bounded FIFO queues
 | Widgets | Transparent, always-on-top, movable and resizable windows with persistent geometry, locking, and optional 16:9 media sizing |
 | Output layout | Independent 50–200% content scale and 0–40% crop controls for media and notifications in OBS and Windows widgets |
 | Personalization | Light and OLED-dark themes, RGB accent color, text scale, configurable Discord bot presence, and complete EN/FR/ES/DE interfaces |
-| Control | System tray panel, live status, overlay count, `/relay` commands (`channel`, `url`, `show`, `regenerate`, `clear`, `lock`, `changelog`) with individual switches, and global `Ctrl+Alt+S` skip shortcut |
+| Control | System tray panel, live status, overlay count, nine default `/relay` commands with individual switches, up to 16 local custom commands backed by predefined Discord actions, and global `Ctrl+Alt+S` skip shortcut |
 
 ## Quick start
 
