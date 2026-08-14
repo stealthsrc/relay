@@ -15,6 +15,12 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ### English
 
+#### Added
+
+- Added a local settings search bar with `Ctrl+K`, keyboard-accessible results, and page-aware Back and Forward controls.
+- Added regional language choices with bundled SVG flags for English (US, UK, and India), French, German, Spanish, and Latin American Spanish while preserving the complete English, French, Spanish, and German dictionaries.
+- Added eight locally bundled interface fonts: Bricolage Grotesque, DM Sans, Figtree, Inter, JetBrains Mono, Manrope, Poppins, and Space Grotesk. Font files never load from a remote service at runtime.
+
 #### Changed
 
 - Reorganized Moderation into three independent collapsible sections for automatic filtering, manual moderation, and anti-doxxing protection. The existing settings and save behavior are unchanged.
@@ -25,6 +31,12 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - HEVC/H.265 Discord videos are now transcoded locally to an H.264-compatible cache when FFmpeg is available, allowing playback in Windows WebView2 widgets. Relay falls back to the original source if conversion cannot complete.
 
 ### Français
+
+#### Ajouté
+
+- Ajout d’une barre de recherche locale des réglages avec `Ctrl+K`, de résultats accessibles au clavier et de boutons Retour et Suivant tenant compte de l’historique des pages.
+- Ajout de variantes régionales avec des drapeaux SVG embarqués pour l’anglais (États-Unis, Royaume-Uni et Inde), le français, l’allemand, l’espagnol et l’espagnol latino-américain, tout en conservant les dictionnaires complets anglais, français, espagnol et allemand.
+- Ajout de huit polices d’interface embarquées localement : Bricolage Grotesque, DM Sans, Figtree, Inter, JetBrains Mono, Manrope, Poppins et Space Grotesk. Aucun fichier de police n’est chargé depuis un service distant à l’exécution.
 
 #### Modifié
 
