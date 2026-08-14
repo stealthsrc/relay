@@ -9,8 +9,9 @@ const dictionarySource = traySource.slice(
   traySource.indexOf("let language ="),
 );
 const context = vm.createContext({});
-vm.runInContext(`${dictionarySource}\nglobalThis.trayTranslationsForTest = trayTranslations;`, context);
+vm.runInContext(`${dictionarySource}\nglobalThis.trayTranslationsForTest = trayTranslations;\nglobalThis.trayRegionalTranslationsForTest = trayRegionalTranslations;`, context);
 const translations = context.trayTranslationsForTest;
+const regionalTranslations = context.trayRegionalTranslationsForTest;
 
 test("tray translations cover every interface language", () => {
   const expectedKeys = Object.keys(translations.en).sort();
@@ -23,6 +24,26 @@ test("tray refresh reads the language shared by the control panel", () => {
   assert.match(traySource, /localStorage\.getItem\("relay-language"\)/);
   assert.match(traySource, /async function refreshTray\(\) \{\s+applyTrayLanguage\(\)/);
   assert.match(traySource, /invoke\("get_start_with_windows"\)[\s\S]*"set_start_with_windows", \{ enabled \}/);
+});
+
+test("English regions use their own tray vocabulary", () => {
+  assert.deepEqual({ ...regionalTranslations["en-US"] }, {
+    displayWidgets: "Display widgets",
+    visibleMovable: "Visible · Movable",
+    startWithWindows: "Launch with Windows",
+  });
+  assert.deepEqual({ ...regionalTranslations["en-GB"] }, {
+    displayWidgets: "Show widgets",
+    visibleMovable: "Visible · Can be moved",
+    startWithWindows: "Start with Windows",
+  });
+  assert.deepEqual({ ...regionalTranslations["en-IN"] }, {
+    displayWidgets: "Show widgets",
+    visibleMovable: "Visible · Can be moved",
+    localRelay: "Local Relay service",
+  });
+  assert.match(traySource, /trayRegionalTranslations\[locale\]\?\.\[key\]/);
+  assert.match(traySource, /locale = .*storedLocale/);
 });
 
 test("the Russian tray stays localized", () => {

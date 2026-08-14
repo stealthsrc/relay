@@ -1016,6 +1016,36 @@ for (const dictionary of Object.values(translations)) {
   }
 }
 
+const regionalTranslations = {
+  "en-US": {
+    personalizationTitle: "Customize Relay your way.",
+    accentColor: "Accent color",
+    previewCopy: "Readable text with your chosen accent color.",
+    privacyCategoryPhone: "Phone numbers",
+    privacyCategoryAddress: "ZIP and postal addresses",
+    customActionClearMessages: "Clear messages",
+    customAllowedChannels: "Allowed command channel IDs",
+  },
+  "en-GB": {
+    personalizationTitle: "Personalise Relay your way.",
+    accentColor: "Accent colour",
+    previewCopy: "Readable text with your chosen accent colour.",
+    privacyCategoryPhone: "Telephone numbers",
+    privacyCategoryAddress: "Postal addresses",
+    customActionClearMessages: "Delete messages",
+    customAllowedChannels: "Allowed command channel IDs",
+  },
+  "en-IN": {
+    personalizationTitle: "Personalise Relay for your workspace.",
+    accentColor: "Accent colour",
+    previewCopy: "Readable text with your chosen accent colour.",
+    privacyCategoryPhone: "Mobile and telephone numbers",
+    privacyCategoryAddress: "Postal addresses and PIN codes",
+    customActionClearMessages: "Delete messages",
+    customAllowedChannels: "Permitted command channel IDs",
+  },
+};
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -1282,7 +1312,7 @@ let latestUpdate;
 let updateUiState = { kind: "idle" };
 
 function t(key) {
-  return translations[language][key] || translations.en[key] || key;
+  return regionalTranslations[locale]?.[key] || translations[language][key] || translations.en[key] || key;
 }
 
 function applyTranslations(root = document) {

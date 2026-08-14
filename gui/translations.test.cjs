@@ -10,14 +10,46 @@ const dictionarySource = panelSource.slice(
   panelSource.indexOf("const pageMetadata ="),
 );
 const context = vm.createContext({});
-vm.runInContext(`${dictionarySource}\nglobalThis.translationsForTest = translations;`, context);
+vm.runInContext(`${dictionarySource}\nglobalThis.translationsForTest = translations;\nglobalThis.regionalTranslationsForTest = regionalTranslations;`, context);
 const translations = context.translationsForTest;
+const regionalTranslations = context.regionalTranslationsForTest;
 
 test("every supported language provides every interface translation key", () => {
   const expectedKeys = Object.keys(translations.en).sort();
   for (const language of ["fr", "es", "de", "ru", "zh", "ko", "ja", "id"]) {
     assert.deepEqual(Object.keys(translations[language]).sort(), expectedKeys, language);
   }
+});
+
+test("English regions use their own Relay vocabulary", () => {
+  assert.deepEqual({ ...regionalTranslations["en-US"] }, {
+    personalizationTitle: "Customize Relay your way.",
+    accentColor: "Accent color",
+    previewCopy: "Readable text with your chosen accent color.",
+    privacyCategoryPhone: "Phone numbers",
+    privacyCategoryAddress: "ZIP and postal addresses",
+    customActionClearMessages: "Clear messages",
+    customAllowedChannels: "Allowed command channel IDs",
+  });
+  assert.deepEqual({ ...regionalTranslations["en-GB"] }, {
+    personalizationTitle: "Personalise Relay your way.",
+    accentColor: "Accent colour",
+    previewCopy: "Readable text with your chosen accent colour.",
+    privacyCategoryPhone: "Telephone numbers",
+    privacyCategoryAddress: "Postal addresses",
+    customActionClearMessages: "Delete messages",
+    customAllowedChannels: "Allowed command channel IDs",
+  });
+  assert.deepEqual({ ...regionalTranslations["en-IN"] }, {
+    personalizationTitle: "Personalise Relay for your workspace.",
+    accentColor: "Accent colour",
+    previewCopy: "Readable text with your chosen accent colour.",
+    privacyCategoryPhone: "Mobile and telephone numbers",
+    privacyCategoryAddress: "Postal addresses and PIN codes",
+    customActionClearMessages: "Delete messages",
+    customAllowedChannels: "Permitted command channel IDs",
+  });
+  assert.match(panelSource, /regionalTranslations\[locale\]\?\.\[key\]/);
 });
 
 test("the Discord invitation action opens the authorization URL", () => {

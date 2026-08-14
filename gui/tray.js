@@ -50,10 +50,29 @@ Object.assign(trayTranslations, {
   },
 });
 
+const trayRegionalTranslations = {
+  "en-US": {
+    displayWidgets: "Display widgets",
+    visibleMovable: "Visible · Movable",
+    startWithWindows: "Launch with Windows",
+  },
+  "en-GB": {
+    displayWidgets: "Show widgets",
+    visibleMovable: "Visible · Can be moved",
+    startWithWindows: "Start with Windows",
+  },
+  "en-IN": {
+    displayWidgets: "Show widgets",
+    visibleMovable: "Visible · Can be moved",
+    localRelay: "Local Relay service",
+  },
+};
+
 let language = "en";
+let locale = "en-US";
 
 function translate(key) {
-  return trayTranslations[language]?.[key] || trayTranslations.en[key] || key;
+  return trayRegionalTranslations[locale]?.[key] || trayTranslations[language]?.[key] || trayTranslations.en[key] || key;
 }
 
 function applyTrayLanguage() {
@@ -63,9 +82,10 @@ function applyTrayLanguage() {
   const storedTheme = localStorage.getItem("relay-theme");
   const storedInterfaceFont = localStorage.getItem("relay-interface-font");
   language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
-  document.documentElement.lang = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419)|ru-RU|zh-CN|ko-KR|ja-JP|id-ID)$/.test(storedLocale || "")
+  locale = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419)|ru-RU|zh-CN|ko-KR|ja-JP|id-ID)$/.test(storedLocale || "")
     ? storedLocale
-    : language;
+    : language === "en" ? "en-US" : language;
+  document.documentElement.lang = locale;
   document.documentElement.dataset.design = ["anthropic", "neo-brutalism"].includes(storedDesign)
     ? storedDesign
     : "openai";
