@@ -24,3 +24,8 @@ test("tray refresh reads the language shared by the control panel", () => {
   assert.match(traySource, /async function refreshTray\(\) \{\s+applyTrayLanguage\(\)/);
   assert.match(traySource, /invoke\("get_start_with_windows"\)[\s\S]*"set_start_with_windows", \{ enabled \}/);
 });
+
+test("the Russian tray stays localized", () => {
+  assert.equal(translations.ru.openPanel, "Открыть панель управления");
+  assert.notEqual(translations.ru.quitRelay, translations.en.quitRelay);
+});

@@ -40,6 +40,17 @@ test("reported Spanish and German pages no longer use English fallback copy", ()
   }
 });
 
+test("Russian localizes the primary Relay controls", () => {
+  for (const key of [
+    "navOverview", "overviewTitle", "credentialsTitle", "mediaTitle", "moderationTitle",
+    "commandsTitle", "privacyProtection", "searchPlaceholder", "fontFamily",
+  ]) {
+    assert.notEqual(translations.ru[key], translations.en[key], `ru.${key}`);
+  }
+  assert.equal(translations.ru.navOverview, "Обзор");
+  assert.equal(translations.ru.privacyProfileBalanced, "Сбалансированный");
+});
+
 test("translation values contain no UTF-8 mojibake", () => {
   for (const language of Object.keys(translations)) {
     assert.doesNotMatch(Object.values(translations[language]).join("\n"), /Ã.|â€|Â./, language);
