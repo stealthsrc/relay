@@ -437,6 +437,34 @@ test("desktop media widget plays sound locally when widget sound is enabled", ()
   assert.equal(elements["#audio"].volume, 0);
 });
 
+test("desktop media widget keeps video visible when WebView2 blocks audible autoplay", async () => {
+  const { elements, socket } = createHarness("?secret=private&widget=1");
+  const video = elements["#video"];
+  let playCalls = 0;
+  video.play = () => {
+    playCalls += 1;
+    return playCalls === 1
+      ? Promise.reject({ name: "NotAllowedError" })
+      : Promise.resolve();
+  };
+
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: true, mediaVolume: 69 },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "video", url: "https://cdn.discordapp.com/clip.mp4" },
+  }));
+  video.emit("loadeddata");
+  await Promise.resolve();
+
+  assert.equal(playCalls, 2);
+  assert.equal(video.muted, true);
+  assert.equal(video.volume, 0);
+  assert.equal(video.classList.contains("is-visible"), true);
+});
+
 test("desktop media widget restores active images, GIFs, video and audio after hide and show", () => {
   for (const [selector, media] of [
     ["#image", { kind: "image", url: "https://cdn.discordapp.com/photo.png" }],

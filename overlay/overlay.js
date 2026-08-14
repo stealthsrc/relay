@@ -405,7 +405,21 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
     clearSourceListeners();
     revealMedia({ timed: isTimedGif });
     armWatchdog();
-    playbackElement.play().catch(() => hideCurrentMedia(generation));
+    playbackElement.play().catch((error) => {
+      if (
+        error?.name !== "NotAllowedError"
+        || generation !== playbackGeneration
+        || !isWidgetWindow
+        || visualElement !== videoElement
+        || playbackElement.muted
+      ) {
+        hideCurrentMedia(generation);
+        return;
+      }
+      playbackElement.muted = true;
+      playbackElement.volume = 0;
+      playbackElement.play().catch(() => hideCurrentMedia(generation));
+    });
   };
   const onError = () => {
     clearSourceListeners();
