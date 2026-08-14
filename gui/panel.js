@@ -900,6 +900,11 @@ Object.assign(translations.de, {
   fontDesignDefault: "Schrift des ausgewählten Designs verwenden",
   fontFamilyHelp: "Gilt für Relay und sein Infobereichsmenü. Die Typografie der OBS-Ausgaben bleibt unverändert.",
 });
+translations.ru = {};
+translations.zh = {};
+translations.ko = {};
+translations.ja = {};
+translations.id = {};
 for (const dictionary of Object.values(translations)) {
   for (const [key, value] of Object.entries(translations.en)) {
     dictionary[key] ??= value;
@@ -1132,9 +1137,17 @@ const languageOptions = [
   { locale: "de-DE", language: "de", label: "Deutsch", short: "DE", flag: "de" },
   { locale: "es-ES", language: "es", label: "Español", short: "ES", flag: "es" },
   { locale: "es-419", language: "es", label: "Español (Latinoamérica)", short: "ES-LATAM", flag: "mx" },
+  { locale: "ru-RU", language: "ru", label: "Русский", short: "RU", flag: "ru" },
+  { locale: "zh-CN", language: "zh", label: "简体中文", short: "ZH", flag: "cn" },
+  { locale: "ko-KR", language: "ko", label: "한국어", short: "KO", flag: "kr" },
+  { locale: "ja-JP", language: "ja", label: "日本語", short: "JA", flag: "jp" },
+  { locale: "id-ID", language: "id", label: "Bahasa Indonesia", short: "ID", flag: "id" },
 ];
 const languageOptionByLocale = new Map(languageOptions.map((option) => [option.locale, option]));
-const defaultLocaleByLanguage = { en: "en-US", fr: "fr-FR", es: "es-ES", de: "de-DE" };
+const defaultLocaleByLanguage = {
+  en: "en-US", fr: "fr-FR", es: "es-ES", de: "de-DE", ru: "ru-RU",
+  zh: "zh-CN", ko: "ko-KR", ja: "ja-JP", id: "id-ID",
+};
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
 const supportedInterfaceFonts = [
   "design", "bricolage", "dm-sans", "figtree", "inter",

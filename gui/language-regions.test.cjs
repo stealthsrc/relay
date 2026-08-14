@@ -4,8 +4,11 @@ const test = require("node:test");
 
 const panelHtml = fs.readFileSync(__dirname + "/panel.html", "utf8");
 const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
-const locales = ["en-US", "en-GB", "en-IN", "fr-FR", "de-DE", "es-ES", "es-419"];
-const flags = ["us", "gb", "in", "fr", "de", "es", "mx"];
+const locales = [
+  "en-US", "en-GB", "en-IN", "fr-FR", "de-DE", "es-ES", "es-419",
+  "ru-RU", "zh-CN", "ko-KR", "ja-JP", "id-ID",
+];
+const flags = ["us", "gb", "in", "fr", "de", "es", "mx", "ru", "cn", "kr", "jp", "id"];
 
 test("the language picker exposes every supported regional locale", () => {
   for (const locale of locales) {
@@ -25,9 +28,14 @@ test("every regional locale uses a bundled SVG flag", () => {
   }
 });
 
-test("regional variants keep the four complete translation dictionaries", () => {
+test("regional variants keep a local dictionary and regional locale", () => {
   assert.match(panelSource, /locale: "en-GB", language: "en"/);
   assert.match(panelSource, /locale: "en-IN", language: "en"/);
   assert.match(panelSource, /locale: "es-419", language: "es"/);
-  assert.doesNotMatch(panelHtml, /data-locale="(?:ru|ja|ko|zh|pt)-/);
+  for (const [locale, language] of [
+    ["ru-RU", "ru"], ["zh-CN", "zh"], ["ko-KR", "ko"], ["ja-JP", "ja"], ["id-ID", "id"],
+  ]) {
+    assert.match(panelSource, new RegExp(`locale: "${locale}", language: "${language}"`), locale);
+    assert.match(panelSource, new RegExp(`translations\\.${language} =`), language);
+  }
 });

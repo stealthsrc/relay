@@ -7,6 +7,49 @@ const trayTranslations = {
   de: { relayStatus: "Relay-Status", connectionStatus: "Verbindungsstatus", discord: "Discord", localRelay: "Lokales Relay", system: "System", openPanel: "Bedienfeld öffnen", displayWidgets: "Anzeige-Widgets", mediaOverlay: "Medien-Overlay", ttsNotifications: "TTS-Benachrichtigungen", runningLocally: "Läuft lokal", startWithWindows: "Mit Windows starten", quitRelay: "Relay beenden", checking: "Wird geprüft", connecting: "Verbindung…", zeroOutputs: "0 Ausgaben", online: "Online", offline: "Offline", waitingDiscord: "Warten auf Discord", output: "Ausgabe", outputs: "Ausgaben", hidden: "Ausgeblendet", visibleLocked: "Sichtbar · Gesperrt", visibleMovable: "Sichtbar · Verschiebbar", hide: "Ausblenden", show: "Anzeigen", lock: "Sperren", unlock: "Entsperren", mediaWidget: "Medien-Widget", notificationWidget: "Benachrichtigungs-Widget", unavailable: "Nicht verfügbar", notResponding: "Relay antwortet nicht" },
 };
 
+Object.assign(trayTranslations, {
+  ru: {
+    relayStatus: "Статус Relay", connectionStatus: "Состояние подключения", discord: "Discord", localRelay: "Локальный Relay", system: "Система",
+    openPanel: "Открыть панель управления", displayWidgets: "Виджеты", mediaOverlay: "Медиа-оверлей", ttsNotifications: "Уведомления TTS",
+    runningLocally: "Работает локально", startWithWindows: "Запускать с Windows", quitRelay: "Выйти из Relay", checking: "Проверка", connecting: "Подключение…",
+    zeroOutputs: "0 выходов", online: "В сети", offline: "Не в сети", waitingDiscord: "Ожидание Discord", output: "выход", outputs: "выходов",
+    hidden: "Скрыт", visibleLocked: "Виден · заблокирован", visibleMovable: "Виден · можно перемещать", hide: "Скрыть", show: "Показать", lock: "Заблокировать", unlock: "Разблокировать",
+    mediaWidget: "медиа-виджет", notificationWidget: "виджет уведомлений", unavailable: "Недоступно", notResponding: "Relay не отвечает",
+  },
+  zh: {
+    relayStatus: "Relay 状态", connectionStatus: "连接状态", discord: "Discord", localRelay: "本地 Relay", system: "系统",
+    openPanel: "打开控制面板", displayWidgets: "显示小组件", mediaOverlay: "媒体叠加层", ttsNotifications: "TTS 通知",
+    runningLocally: "正在本地运行", startWithWindows: "随 Windows 启动", quitRelay: "退出 Relay", checking: "正在检查", connecting: "正在连接…",
+    zeroOutputs: "0 个输出", online: "在线", offline: "离线", waitingDiscord: "正在等待 Discord", output: "个输出", outputs: "个输出",
+    hidden: "已隐藏", visibleLocked: "可见 · 已锁定", visibleMovable: "可见 · 可移动", hide: "隐藏", show: "显示", lock: "锁定", unlock: "解锁",
+    mediaWidget: "媒体小组件", notificationWidget: "通知小组件", unavailable: "不可用", notResponding: "Relay 没有响应",
+  },
+  ko: {
+    relayStatus: "Relay 상태", connectionStatus: "연결 상태", discord: "Discord", localRelay: "로컬 Relay", system: "시스템",
+    openPanel: "제어 패널 열기", displayWidgets: "화면 위젯", mediaOverlay: "미디어 오버레이", ttsNotifications: "TTS 알림",
+    runningLocally: "로컬 실행 중", startWithWindows: "Windows와 함께 시작", quitRelay: "Relay 종료", checking: "확인 중", connecting: "연결 중…",
+    zeroOutputs: "출력 0개", online: "온라인", offline: "오프라인", waitingDiscord: "Discord 대기 중", output: "출력", outputs: "출력",
+    hidden: "숨겨짐", visibleLocked: "표시 중 · 잠김", visibleMovable: "표시 중 · 이동 가능", hide: "숨기기", show: "표시", lock: "잠그기", unlock: "잠금 해제",
+    mediaWidget: "미디어 위젯", notificationWidget: "알림 위젯", unavailable: "사용할 수 없음", notResponding: "Relay가 응답하지 않습니다",
+  },
+  ja: {
+    relayStatus: "Relay の状態", connectionStatus: "接続状態", discord: "Discord", localRelay: "ローカル Relay", system: "システム",
+    openPanel: "コントロール パネルを開く", displayWidgets: "表示ウィジェット", mediaOverlay: "メディアオーバーレイ", ttsNotifications: "TTS 通知",
+    runningLocally: "ローカルで実行中", startWithWindows: "Windows と同時に起動", quitRelay: "Relay を終了", checking: "確認中", connecting: "接続中…",
+    zeroOutputs: "出力 0", online: "オンライン", offline: "オフライン", waitingDiscord: "Discord を待機中", output: "出力", outputs: "出力",
+    hidden: "非表示", visibleLocked: "表示中 · ロック済み", visibleMovable: "表示中 · 移動可能", hide: "隠す", show: "表示", lock: "ロック", unlock: "ロック解除",
+    mediaWidget: "メディアウィジェット", notificationWidget: "通知ウィジェット", unavailable: "利用不可", notResponding: "Relay が応答していません",
+  },
+  id: {
+    relayStatus: "Status Relay", connectionStatus: "Status koneksi", discord: "Discord", localRelay: "Relay lokal", system: "Sistem",
+    openPanel: "Buka panel kontrol", displayWidgets: "Widget tampilan", mediaOverlay: "Overlay media", ttsNotifications: "Notifikasi TTS",
+    runningLocally: "Berjalan secara lokal", startWithWindows: "Mulai dengan Windows", quitRelay: "Keluar dari Relay", checking: "Memeriksa", connecting: "Menghubungkan…",
+    zeroOutputs: "0 keluaran", online: "Online", offline: "Offline", waitingDiscord: "Menunggu Discord", output: "keluaran", outputs: "keluaran",
+    hidden: "Tersembunyi", visibleLocked: "Terlihat · Terkunci", visibleMovable: "Terlihat · Dapat dipindahkan", hide: "Sembunyikan", show: "Tampilkan", lock: "Kunci", unlock: "Buka kunci",
+    mediaWidget: "widget media", notificationWidget: "widget notifikasi", unavailable: "Tidak tersedia", notResponding: "Relay tidak merespons",
+  },
+});
+
 let language = "en";
 
 function translate(key) {
@@ -20,7 +63,7 @@ function applyTrayLanguage() {
   const storedTheme = localStorage.getItem("relay-theme");
   const storedInterfaceFont = localStorage.getItem("relay-interface-font");
   language = Object.hasOwn(trayTranslations, storedLanguage) ? storedLanguage : "en";
-  document.documentElement.lang = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419))$/.test(storedLocale || "")
+  document.documentElement.lang = /^(en-(US|GB|IN)|fr-FR|de-DE|es-(ES|419)|ru-RU|zh-CN|ko-KR|ja-JP|id-ID)$/.test(storedLocale || "")
     ? storedLocale
     : language;
   document.documentElement.dataset.design = ["anthropic", "neo-brutalism"].includes(storedDesign)
