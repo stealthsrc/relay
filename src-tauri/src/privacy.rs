@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, hash_map::DefaultHasher},
+    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     io::Cursor,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
@@ -1561,100 +1561,6 @@ fn contains_person_name_label(words: &[String]) -> bool {
             .count()
             >= 2
     })
-}
-
-#[allow(dead_code)]
-fn address_score(words: &[String]) -> i32 {
-    let street_words: HashSet<&str> = [
-        "street",
-        "st",
-        "rue",
-        "road",
-        "rd",
-        "avenue",
-        "ave",
-        "boulevard",
-        "blvd",
-        "drive",
-        "dr",
-        "lane",
-        "ln",
-        "route",
-        "way",
-        "place",
-        "pl",
-        "chemin",
-        "allée",
-    ]
-    .into_iter()
-    .collect();
-    let number_indices = words
-        .iter()
-        .enumerate()
-        .filter_map(|(index, word)| {
-            (word.chars().all(|character| character.is_ascii_digit())
-                && (1..=6).contains(&word.len()))
-            .then_some(index)
-        })
-        .collect::<Vec<_>>();
-    let street_indices = words
-        .iter()
-        .enumerate()
-        .filter_map(|(index, word)| street_words.contains(word.as_str()).then_some(index))
-        .collect::<Vec<_>>();
-    let has_number_before_street = street_indices.iter().any(|street_index| {
-        number_indices
-            .iter()
-            .any(|number_index| number_index < street_index && street_index - number_index <= 3)
-    });
-    if !has_number_before_street {
-        return 0;
-    }
-    let has_number = words.iter().any(|word| {
-        word.chars().all(|character| character.is_ascii_digit()) && (1..=6).contains(&word.len())
-    });
-    let has_postal = words
-        .iter()
-        .any(|word| word.len() == 5 && word.chars().all(|character| character.is_ascii_digit()));
-    if has_number {
-        if has_postal { 6 } else { 4 }
-    } else {
-        0
-    }
-}
-
-#[allow(dead_code)]
-fn visual_context_score(words: &[String]) -> i32 {
-    let document: &[&str] = &["passport", "license", "document", "identity", "carte", "id"];
-    let marker: &[&str] = &["marker", "landmark", "repère", "monument"];
-    let business: &[&str] = &[
-        "company",
-        "business",
-        "enterprise",
-        "entreprise",
-        "shop",
-        "store",
-    ];
-    let place: &[&str] = &["address", "location", "place", "lieu", "city", "ville"];
-    let map = words.iter().any(|word| word == "map");
-    let game = words.iter().any(|word| word == "game" || word == "gaming");
-    if map && game {
-        return 2;
-    }
-    let has_document = words.iter().any(|word| document.contains(&word.as_str()));
-    let has_marker = words.iter().any(|word| marker.contains(&word.as_str()));
-    let has_business = words.iter().any(|word| business.contains(&word.as_str()));
-    let has_place = words.iter().any(|word| place.contains(&word.as_str()));
-    let categories = [has_document, has_marker, has_business, has_place]
-        .into_iter()
-        .filter(|present| *present)
-        .count();
-    match categories {
-        0 | 1 => 0,
-        2 if has_marker && has_place && !has_document && !has_business => 0,
-        2 => 4,
-        _ => 6,
-    }
 }
 
 fn coordinate_signal(text: &str) -> Option<PrivacyClassification> {
