@@ -1773,45 +1773,6 @@ fn contains_ip_address(text: &str) -> bool {
         })
 }
 
-#[allow(dead_code)]
-fn location_profile_signal(text: &str, words: &[String]) -> Option<PrivacyClassification> {
-    static CITY_FIELD: OnceLock<Regex> = OnceLock::new();
-    static COUNTRY_FIELD: OnceLock<Regex> = OnceLock::new();
-    let city = CITY_FIELD.get_or_init(|| {
-        Regex::new(r#"(?iu)\b(?:city|ville)\s*[:=]\s*[\"']?\p{L}"#)
-            .expect("valid city field matcher")
-    });
-    let country = COUNTRY_FIELD.get_or_init(|| {
-        Regex::new(r#"(?iu)\b(?:country|pays)\s*[:=]\s*[\"']?\p{L}"#)
-            .expect("valid country field matcher")
-    });
-    if !city.is_match(text) || !country.is_match(text) {
-        return None;
-    }
-    let personal_location_context = words.iter().any(|word| {
-        matches!(
-            word.as_str(),
-            "address"
-                | "adresse"
-                | "apartment"
-                | "appartement"
-                | "domicile"
-                | "home"
-                | "house"
-                | "office"
-                | "workplace"
-                | "bureau"
-                | "residence"
-                | "résidence"
-        )
-    });
-    Some(if personal_location_context {
-        PrivacyClassification::Sensitive
-    } else {
-        PrivacyClassification::Suspicious
-    })
-}
-
 fn has_numeric_comma_pair(text: &str) -> bool {
     let numeric = |value: &str| {
         !value.is_empty()
