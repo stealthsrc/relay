@@ -682,155 +682,170 @@
                 <span id="moderation-save-state" class="save-state" role="status"></span>
               </div>
               <form id="moderation-form" class="settings-list">
-                <section class="panel-section panel-section--wide automatic-filter-words">
-                  <div class="section-heading">
-                    <div>
-                      <span class="section-number">04A</span>
-                      <h3 data-i18n="automaticFilterWords">Automatic filter words</h3>
-                    </div>
+                <details id="moderation-automod" class="settings-disclosure moderation-disclosure" open>
+                  <summary>
+                    <span class="moderation-disclosure__number">04A</span>
+                    <span class="moderation-disclosure__summary">
+                      <strong data-i18n="automaticFilterWords">Automatic filtering</strong>
+                      <small data-i18n="automaticFilterWordsHelp">Filter words are saved automatically after you stop typing. They run even when manual moderation and the local image scan are off.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content moderation-disclosure__content moderation-disclosure__content--fields">
+                    <label class="field field--full">
+                      <span data-i18n="privacyConcepts">Filter words or phrases</span>
+                      <input id="privacy-concepts" type="text" autocomplete="off" spellcheck="false" placeholder="fdp, hitler, ...">
+                      <small data-i18n="privacyConceptsHelp">Enter comma-separated words or phrases, for example: fdp, hitler. Relay handles case, punctuation and separators, leetspeak, supported homoglyphs, repeated letters, and cautious similarity. Existing aliases and regexes are preserved when the same canonical form remains.</small>
+                    </label>
+                    <label class="field field--full">
+                      <span data-i18n="privacyExemptRoles">Exempt Discord roles</span>
+                      <input id="privacy-exempt-role-ids" type="text" autocomplete="off" spellcheck="false" placeholder="&lt;@&amp;123456789012345678&gt;, 123456789012345678">
+                      <small data-i18n="privacyExemptRolesHelp">Enter role IDs or Discord role mentions separated by commas or new lines. These roles bypass filter words only; local privacy signals and manual moderation still apply.</small>
+                    </label>
                   </div>
-                  <p class="section-copy" data-i18n="automaticFilterWordsHelp">Filter words save automatically after you stop typing. They run even when manual moderation and the local image scan are off. Exact matches and existing regexes block immediately and never enter the manual moderation queue.</p>
-                  <label class="field field--full">
-                    <span data-i18n="privacyConcepts">Filter words or phrases</span>
-                    <input id="privacy-concepts" type="text" autocomplete="off" spellcheck="false" placeholder="fdp, hitler, ...">
-                    <small data-i18n="privacyConceptsHelp">Enter comma-separated words or phrases, for example: fdp, hitler. Relay handles case, punctuation and separators, leetspeak, supported homoglyphs, repeated letters, and cautious similarity. Existing aliases and regexes are preserved when the same canonical remains.</small>
-                  </label>
-                  <label class="field field--full">
-                    <span data-i18n="privacyExemptRoles">Exempt Discord roles</span>
-                    <input id="privacy-exempt-role-ids" type="text" autocomplete="off" spellcheck="false" placeholder="&lt;@&amp;123456789012345678&gt;, 123456789012345678">
-                    <small data-i18n="privacyExemptRolesHelp">Enter role IDs or Discord role mentions separated by commas or new lines. These roles bypass filter words only; local privacy signals and manual moderation still apply.</small>
-                  </label>
-                </section>
-                <div class="section-heading">
-                  <div>
-                    <span class="section-number">04B</span>
-                    <h3 data-i18n="manualModeration">Manual moderation</h3>
+                </details>
+
+                <details id="moderation-manual" class="settings-disclosure moderation-disclosure">
+                  <summary>
+                    <span class="moderation-disclosure__number">04B</span>
+                    <span class="moderation-disclosure__summary">
+                      <strong data-i18n="manualModeration">Manual moderation</strong>
+                      <small data-i18n="manualModerationHelp">Hold media for approval independently from automatic filtering.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content moderation-disclosure__content">
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="enableModeration">Enable manual moderation</strong>
+                        <small data-i18n="enableModerationHelp">When disabled, media keeps flowing directly to OBS.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="moderation-enabled" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="allowImages">Images and GIFs</strong>
+                        <small data-i18n="allowImagesHelp">Allow these items to enter the approval queue.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="moderation-allow-images" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="allowVideos">Videos</strong>
+                        <small data-i18n="allowVideosHelp">Allow video files to enter the approval queue.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="moderation-allow-videos" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="allowAudio">Audio</strong>
+                        <small data-i18n="allowAudioHelp">Allow audio files to enter the approval queue.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="moderation-allow-audio" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
                   </div>
-                </div>
-                <p class="section-copy" data-i18n="manualModerationHelp">Hold media for approval independently from automatic filter words.</p>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="enableModeration">Enable manual moderation</strong>
-                    <small data-i18n="enableModerationHelp">When disabled, media keeps flowing directly to OBS.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="moderation-enabled" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="allowImages">Images and GIFs</strong>
-                    <small data-i18n="allowImagesHelp">Allow these items to enter the approval queue.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="moderation-allow-images" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="allowVideos">Videos</strong>
-                    <small data-i18n="allowVideosHelp">Allow video files to enter the approval queue.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="moderation-allow-videos" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="allowAudio">Audio</strong>
-                    <small data-i18n="allowAudioHelp">Allow audio files to enter the approval queue.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="moderation-allow-audio" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <div class="section-heading">
-                  <div>
-                    <span class="section-number">04C</span>
-                    <h3 data-i18n="privacyProtection">Anti-doxxing protection</h3>
+                </details>
+
+                <details id="moderation-privacy" class="settings-disclosure moderation-disclosure">
+                  <summary>
+                    <span class="moderation-disclosure__number">04C</span>
+                    <span class="moderation-disclosure__summary">
+                      <strong data-i18n="privacyProtection">Anti-doxxing protection</strong>
+                      <small data-i18n="privacyProtectionHelp">Scan locally before Discord text or media can reach history, WebSocket, Windows widgets, or OBS.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content moderation-disclosure__content moderation-disclosure__content--privacy">
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="privacyScanEnabled">Enable local privacy scan</strong>
+                        <small data-i18n="privacyScanEnabledHelp">Inspect image metadata and local OCR before history or OBS.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="privacy-scan-enabled" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="privacyProtectionLevel">Protection level</strong>
+                        <small data-i18n="privacyProtectionLevelHelp">Balanced limits false positives. Strict and Paranoid raise weak signals more quickly.</small>
+                      </span>
+                      <select id="privacy-protection-level">
+                        <option value="balanced" data-i18n="privacyProfileBalanced">Balanced</option>
+                        <option value="strict" data-i18n="privacyProfileStrict">Strict</option>
+                        <option value="paranoid" data-i18n="privacyProfileParanoid">Paranoid</option>
+                      </select>
+                    </label>
+                    <label class="setting-row">
+                      <span>
+                        <strong data-i18n="privacyBlockThreshold">Automatic block threshold</strong>
+                        <small data-i18n="privacyBlockThresholdHelp">HIGH blocks by default. CRITICAL sends HIGH cases to local review instead.</small>
+                      </span>
+                      <select id="privacy-block-threshold">
+                        <option value="high">HIGH</option>
+                        <option value="critical">CRITICAL</option>
+                      </select>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="privacyReviewIntermediate">Review MEDIUM-risk cases</strong>
+                        <small data-i18n="privacyReviewIntermediateHelp">Put intermediate-risk media in the existing local moderation queue.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="privacy-review-intermediate" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="setting-row setting-row--switch">
+                      <span>
+                        <strong data-i18n="privacyAutoDeleteBlockedMessages">Delete blocked Discord messages</strong>
+                        <small data-i18n="privacyAutoDeleteBlockedMessagesHelp">Delete messages blocked by the privacy threshold or an automatic filter word. Requires Manage Messages.</small>
+                      </span>
+                      <span class="switch">
+                        <input id="privacy-auto-delete-blocked-messages" type="checkbox">
+                        <span class="switch__track" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <fieldset class="privacy-categories">
+                      <legend data-i18n="privacyCategories">Enabled detection categories</legend>
+                      <label><input type="checkbox" name="privacy-category" value="email"><span data-i18n="privacyCategoryEmail">Email</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="phone"><span data-i18n="privacyCategoryPhone">Phone</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="ipAddress"><span data-i18n="privacyCategoryIp">IP addresses</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="gpsLocation"><span data-i18n="privacyCategoryGps">GPS and coordinates</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="postalAddress"><span data-i18n="privacyCategoryAddress">Postal addresses</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="financial"><span data-i18n="privacyCategoryFinancial">IBAN and payment cards</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="licensePlate"><span data-i18n="privacyCategoryPlate">License plates</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="sensitiveUrl"><span data-i18n="privacyCategoryUrl">Sensitive URLs</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="customPattern"><span data-i18n="privacyCategoryCustom">Protected private strings</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="imageMetadata"><span data-i18n="privacyCategoryMetadata">EXIF metadata</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="ocr"><span data-i18n="privacyCategoryOcr">Local OCR</span></label>
+                      <label><input type="checkbox" name="privacy-category" value="document"><span data-i18n="privacyCategoryDocument">Administrative documents</span></label>
+                    </fieldset>
+                    <label class="field field--full">
+                      <span data-i18n="privacyCustomPatterns">Private data to protect</span>
+                      <textarea id="privacy-custom-patterns" rows="5" autocomplete="off" spellcheck="false" data-i18n-placeholder="privacyCustomPatternsPlaceholder" placeholder="One value per line"></textarea>
+                      <small data-i18n="privacyCustomPatternsHelp">Add names, old usernames, address variants, streets, cities, emails, phone numbers or other private strings. Values stay in the local Relay configuration.</small>
+                    </label>
+                    <label class="field field--full">
+                      <span data-i18n="privacyAllowlist">Allowlist</span>
+                      <textarea id="privacy-allowlist" rows="3" autocomplete="off" spellcheck="false" data-i18n-placeholder="privacyAllowlistPlaceholder" placeholder="One public value per line"></textarea>
+                      <small data-i18n="privacyAllowlistHelp">Exact public values listed here are masked before automatic detection.</small>
+                    </label>
                   </div>
-                </div>
-                <p class="section-copy" data-i18n="privacyProtectionHelp">Scan locally before media, text, history, WebSocket or OBS publication. Detected values are never copied into logs.</p>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="privacyScanEnabled">Local privacy scan</strong>
-                    <small data-i18n="privacyScanEnabledHelp">Inspect image metadata and local OCR before history or OBS.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="privacy-scan-enabled" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="privacyProtectionLevel">Protection level</strong>
-                    <small data-i18n="privacyProtectionLevelHelp">Balanced limits false positives. Strict and Paranoid raise weak signals more quickly.</small>
-                  </span>
-                  <select id="privacy-protection-level">
-                    <option value="balanced">Balanced</option>
-                    <option value="strict">Strict</option>
-                    <option value="paranoid">Paranoid</option>
-                  </select>
-                </label>
-                <label class="setting-row">
-                  <span>
-                    <strong data-i18n="privacyBlockThreshold">Automatic block threshold</strong>
-                    <small data-i18n="privacyBlockThresholdHelp">HIGH blocks by default. CRITICAL sends HIGH cases to local review instead.</small>
-                  </span>
-                  <select id="privacy-block-threshold">
-                    <option value="high">HIGH</option>
-                    <option value="critical">CRITICAL</option>
-                  </select>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="privacyReviewIntermediate">Review MEDIUM cases</strong>
-                    <small data-i18n="privacyReviewIntermediateHelp">Put intermediate-risk media in the existing local moderation queue.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="privacy-review-intermediate" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <label class="setting-row setting-row--switch">
-                  <span>
-                    <strong data-i18n="privacyAutoDeleteBlockedMessages">Delete blocked Discord messages</strong>
-                    <small data-i18n="privacyAutoDeleteBlockedMessagesHelp">Delete messages blocked by the privacy threshold or an automatic filter word. Requires Manage Messages.</small>
-                  </span>
-                  <span class="switch">
-                    <input id="privacy-auto-delete-blocked-messages" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                  </span>
-                </label>
-                <fieldset class="privacy-categories">
-                  <legend data-i18n="privacyCategories">Enabled detection categories</legend>
-                  <label><input type="checkbox" name="privacy-category" value="email"><span data-i18n="privacyCategoryEmail">Email</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="phone"><span data-i18n="privacyCategoryPhone">Phone</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="ipAddress"><span data-i18n="privacyCategoryIp">IP addresses</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="gpsLocation"><span data-i18n="privacyCategoryGps">GPS and coordinates</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="postalAddress"><span data-i18n="privacyCategoryAddress">Postal addresses</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="financial"><span data-i18n="privacyCategoryFinancial">IBAN and payment cards</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="licensePlate"><span data-i18n="privacyCategoryPlate">License plates</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="sensitiveUrl"><span data-i18n="privacyCategoryUrl">Sensitive URLs</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="customPattern"><span data-i18n="privacyCategoryCustom">Protected private strings</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="imageMetadata"><span data-i18n="privacyCategoryMetadata">EXIF metadata</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="ocr"><span data-i18n="privacyCategoryOcr">Local OCR</span></label>
-                  <label><input type="checkbox" name="privacy-category" value="document"><span data-i18n="privacyCategoryDocument">Administrative documents</span></label>
-                </fieldset>
-                <label class="field field--full">
-                  <span data-i18n="privacyCustomPatterns">Private data to protect</span>
-                  <textarea id="privacy-custom-patterns" rows="5" autocomplete="off" spellcheck="false" placeholder="One value per line"></textarea>
-                  <small data-i18n="privacyCustomPatternsHelp">Add names, old usernames, address variants, streets, cities, emails, phone numbers or other private strings. Values stay in the local Relay configuration.</small>
-                </label>
-                <label class="field field--full">
-                  <span data-i18n="privacyAllowlist">Allowlist</span>
-                  <textarea id="privacy-allowlist" rows="3" autocomplete="off" spellcheck="false" placeholder="One public value per line"></textarea>
-                  <small data-i18n="privacyAllowlistHelp">Exact public values listed here are masked before automatic detection.</small>
-                </label>
+                </details>
                 <div class="settings-actions">
                   <p data-i18n="moderationLocalOnly">Decisions stay local and never notify Discord users.</p>
                   <button class="button button--primary" type="submit" data-i18n="saveModeration">Save moderation</button>

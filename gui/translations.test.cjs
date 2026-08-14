@@ -46,6 +46,48 @@ test("translation values contain no UTF-8 mojibake", () => {
   }
 });
 
+test("moderation settings use three native disclosures without changing control IDs", () => {
+  assert.equal([...panelHtml.matchAll(/<details id="moderation-/g)].length, 3);
+  assert.match(panelHtml, /<details id="moderation-automod"[^>]* open>/);
+  assert.match(panelHtml, /<details id="moderation-manual"[^>]*>/);
+  assert.match(panelHtml, /<details id="moderation-privacy"[^>]*>/);
+
+  for (const id of [
+    "privacy-concepts", "privacy-exempt-role-ids", "moderation-enabled",
+    "moderation-allow-images", "moderation-allow-videos", "moderation-allow-audio",
+    "privacy-scan-enabled", "privacy-protection-level", "privacy-block-threshold",
+    "privacy-review-intermediate", "privacy-auto-delete-blocked-messages",
+    "privacy-custom-patterns", "privacy-allowlist",
+  ]) {
+    assert.match(panelHtml, new RegExp(`id="${id}"`), id);
+  }
+
+  assert.match(panelHtml, /value="balanced" data-i18n="privacyProfileBalanced"/);
+  assert.match(panelHtml, /id="privacy-custom-patterns"[^>]*data-i18n-placeholder="privacyCustomPatternsPlaceholder"/);
+  assert.match(panelHtml, /id="privacy-allowlist"[^>]*data-i18n-placeholder="privacyAllowlistPlaceholder"/);
+});
+
+test("moderation translations are explicit and localized in every language", () => {
+  const expected = {
+    fr: ["Filtrage automatique", "Modération manuelle", "Activer l’analyse locale de confidentialité", "Équilibré", "Une valeur par ligne"],
+    es: ["Filtrado automático", "Moderación manual", "Activar el análisis local de privacidad", "Equilibrado", "Un valor por línea"],
+    de: ["Automatische Filterung", "Manuelle Moderation", "Lokalen Datenschutzscan aktivieren", "Ausgewogen", "Ein Wert pro Zeile"],
+  };
+  const keys = [
+    "automaticFilterWords", "manualModeration", "privacyScanEnabled",
+    "privacyProfileBalanced", "privacyCustomPatternsPlaceholder",
+  ];
+
+  for (const [language, values] of Object.entries(expected)) {
+    assert.deepEqual(keys.map((key) => translations[language][key]), values, language);
+  }
+
+  assert.equal(translations.fr.allowAudio, "Audio");
+  assert.match(translations.fr.privacyProtectionHelp, /détectées/);
+  assert.match(translations.es.privacyCategories, /Categorías/);
+  assert.match(translations.de.privacyCategoryMetadata, /Metadaten/);
+});
+
 test("the top bar audio player exposes only previous, pause and skip controls", () => {
   assert.match(panelHtml, /id="now-playing"[\s\S]*id="previous-audio"[\s\S]*id="toggle-audio"[\s\S]*id="skip-audio"/);
   assert.doesNotMatch(panelHtml, /shuffle-audio|repeat-audio|next-audio/);

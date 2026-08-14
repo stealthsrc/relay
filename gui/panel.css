@@ -1836,6 +1836,63 @@ input[type="range"] {
   margin-bottom: 28px;
 }
 
+.moderation-settings .settings-list {
+  gap: 12px;
+}
+
+.moderation-disclosure {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.moderation-disclosure + .moderation-disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.moderation-disclosure summary {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  min-height: 78px;
+  padding: 12px 18px;
+}
+
+.moderation-disclosure__number {
+  color: var(--faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+.moderation-disclosure summary .moderation-disclosure__summary {
+  min-width: 0;
+}
+
+.moderation-disclosure__summary strong,
+.moderation-disclosure__summary small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.moderation-disclosure__summary small {
+  line-height: 1.45;
+}
+
+.moderation-disclosure__content {
+  padding: 0 18px 18px 56px;
+}
+
+.moderation-disclosure__content--fields {
+  gap: 18px;
+}
+
+.moderation-disclosure__content--privacy > .privacy-categories,
+.moderation-disclosure__content--privacy > .field {
+  margin-top: 18px;
+}
+
 .privacy-categories {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2534,6 +2591,7 @@ input[type="range"] {
 :root[data-design="anthropic"] .preview-section,
 :root[data-design="anthropic"] .history-list,
 :root[data-design="anthropic"] .help-accordions,
+:root[data-design="anthropic"] .moderation-disclosure,
 :root[data-design="anthropic"] .about-card,
 :root[data-design="anthropic"] .about-profile__copy,
 :root[data-design="anthropic"] .privacy-card {
@@ -2749,6 +2807,7 @@ input[type="range"] {
 :root[data-design="neo-brutalism"] .preview-section,
 :root[data-design="neo-brutalism"] .history-list,
 :root[data-design="neo-brutalism"] .help-accordions,
+:root[data-design="neo-brutalism"] .moderation-disclosure,
 :root[data-design="neo-brutalism"] .about-card,
 :root[data-design="neo-brutalism"] .about-profile__copy,
 :root[data-design="neo-brutalism"] .privacy-card,
@@ -3006,6 +3065,26 @@ input[type="range"] {
 
   .custom-command-card__actions {
     justify-content: flex-start;
+  }
+
+  .moderation-disclosure summary {
+    grid-template-columns: 34px minmax(0, 1fr) 18px;
+    padding-inline: 14px;
+  }
+
+  .moderation-disclosure__content {
+    padding: 0 14px 16px;
+  }
+
+  .moderation-disclosure .setting-row:not(.setting-row--switch) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding-block: 14px;
+  }
+
+  .privacy-categories {
+    grid-template-columns: 1fr;
   }
 
   :root[data-design="neo-brutalism"] .page-intro {
