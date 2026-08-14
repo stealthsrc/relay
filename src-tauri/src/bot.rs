@@ -612,17 +612,14 @@ fn privacy_action_is_blocked(report: &privacy::PrivacyReport, config: &AppConfig
 
 fn should_auto_delete_blocked_message(report: &privacy::PrivacyReport, config: &AppConfig) -> bool {
     config.privacy_auto_delete_blocked_messages
-        && config.privacy_scan_enabled
         && matches!(
             privacy::action_for(report, config),
             privacy::PrivacyAction::Block
         )
-        && report.categories.iter().any(|category| {
-            !matches!(
-                category,
-                privacy::PrivacyCategory::ContentFilter | privacy::PrivacyCategory::MediaSafety
-            )
-        })
+        && report
+            .categories
+            .iter()
+            .any(|category| !matches!(category, privacy::PrivacyCategory::MediaSafety))
 }
 
 async fn block_and_delete_message_if_needed(
@@ -2510,19 +2507,35 @@ mod tests {
     }
 
     #[test]
-    fn auto_deletes_blocked_postal_addresses_but_not_filter_words() {
+    fn auto_deletes_blocked_privacy_and_filter_word_messages() {
         let mut config = AppConfig {
             privacy_scan_enabled: true,
             ..AppConfig::default()
         };
         let address = privacy::classify_text(Some("1 rue canot massy"), &config);
         assert!(should_auto_delete_blocked_message(&address, &config));
+
+        config.privacy_scan_enabled = false;
+        config.privacy_concepts = vec![privacy::ForbiddenConcept {
+            canonical: "blockedterm".into(),
+            aliases: Vec::new(),
+            regexes: Vec::new(),
+        }];
+        let filter_word = privacy::classify_text(Some("blockedterm"), &config);
+        assert!(
+            filter_word
+                .categories
+                .contains(&privacy::PrivacyCategory::ContentFilter)
+        );
+        assert!(should_auto_delete_blocked_message(&filter_word, &config));
         assert!(!should_auto_delete_blocked_message(
-            &privacy::PrivacyReport::sensitive("forbidden_concept"),
+            &privacy::PrivacyReport::sensitive("image_limits"),
             &config,
         ));
+
         config.privacy_auto_delete_blocked_messages = false;
         assert!(!should_auto_delete_blocked_message(&address, &config));
+        assert!(!should_auto_delete_blocked_message(&filter_word, &config));
     }
 
     #[test]

@@ -691,7 +691,7 @@ Object.assign(translations.en, {
   privacyReviewIntermediate: "Review MEDIUM cases",
   privacyReviewIntermediateHelp: "Put intermediate-risk media in the existing local moderation queue.",
   privacyAutoDeleteBlockedMessages: "Delete blocked Discord messages",
-  privacyAutoDeleteBlockedMessagesHelp: "Delete only messages blocked by the selected privacy threshold. Requires Manage Messages.",
+  privacyAutoDeleteBlockedMessagesHelp: "Delete messages blocked by the privacy threshold or an automatic filter word. Requires Manage Messages.",
   privacyCategories: "Enabled detection categories",
   privacyCategoryEmail: "Email", privacyCategoryPhone: "Phone", privacyCategoryIp: "IP addresses",
   privacyCategoryGps: "GPS and coordinates", privacyCategoryAddress: "Postal addresses",
@@ -730,7 +730,7 @@ Object.assign(translations.fr, {
   privacyReviewIntermediate: "Revoir les cas MEDIUM",
   privacyReviewIntermediateHelp: "Place les medias a risque intermediaire dans la file de moderation locale existante.",
   privacyAutoDeleteBlockedMessages: "Supprimer les messages Discord bloques",
-  privacyAutoDeleteBlockedMessagesHelp: "Supprime uniquement les messages bloques par le seuil de confidentialite. Necessite Gerer les messages.",
+  privacyAutoDeleteBlockedMessagesHelp: "Supprime les messages bloqués par le seuil de confidentialité ou un mot de filtrage automatique. Nécessite Gérer les messages.",
   privacyCategories: "Categories de detection actives",
   privacyCategoryEmail: "E-mail", privacyCategoryPhone: "Telephone", privacyCategoryIp: "Adresses IP",
   privacyCategoryGps: "GPS et coordonnees", privacyCategoryAddress: "Adresses postales",
@@ -968,7 +968,7 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.2.5";
+let currentAppVersion = "1.2.6";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
 

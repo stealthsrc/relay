@@ -11,6 +11,20 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-08-14
+
+### English
+
+#### Fixed
+
+- Discord messages blocked by an automatic filter word are now deleted when **Delete blocked Discord messages** is enabled and Relay has the **Manage Messages** permission, including when the local privacy scan is disabled.
+
+### Français
+
+#### Corrigé
+
+- Les messages Discord bloqués par un mot de filtrage automatique sont désormais supprimés lorsque **Supprimer les messages Discord bloqués** est activé et que Relay possède la permission **Gérer les messages**, même si le scan local de confidentialité est désactivé.
+
 ## [1.2.5] - 2026-08-14
 
 ### English
@@ -341,7 +355,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/stealthsrc/relay/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/stealthsrc/relay/compare/v1.2.1...v1.2.5
 [1.2.1]: https://github.com/stealthsrc/relay/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/stealthsrc/relay/compare/v1.1.23...v1.2.0
