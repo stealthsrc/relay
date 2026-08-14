@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod credentials;
 mod custom_commands;
+mod media_compat;
 mod model;
 mod notification_widget;
 mod privacy;

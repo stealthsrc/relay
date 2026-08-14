@@ -21,6 +21,7 @@ use crate::{
     artwork::EmbeddedArtwork,
     config::{AppConfig, ConfigStore},
     custom_commands::CustomCommandConfirmations,
+    media_compat::{self, VideoCompatibility},
     model::{
         BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, MediaKind, PendingMedia,
         RelayEvent, ServerStatus, StickerEvent, TtsEvent, TtsRequest, VisualSegment,
@@ -788,11 +789,13 @@ impl AppCore {
                 drop(bytes);
             }
         }
+        self.prepare_video_compatibility(&mut event).await;
         let _ = self.relay_tx.send(RelayEvent::Media(event));
         Ok(())
     }
 
-    pub async fn publish_media(&self, media: MediaEvent) {
+    pub async fn publish_media(&self, mut media: MediaEvent) {
+        self.prepare_video_compatibility(&mut media).await;
         self.prepare_media_delivery(media.kind).await;
         {
             let mut history = self.history.write().await;
@@ -800,6 +803,51 @@ impl AppCore {
             history.truncate(HISTORY_LIMIT);
         }
         let _ = self.relay_tx.send(RelayEvent::Media(media));
+    }
+
+    async fn prepare_video_compatibility(&self, media: &mut MediaEvent) {
+        if !matches!(media.kind, MediaKind::Video) {
+            return;
+        }
+        let cached_media_available = if let Some(cache_id) = media.cached_media_id.as_deref() {
+            self.cached_media
+                .read()
+                .await
+                .iter()
+                .any(|item| item.id == cache_id)
+        } else {
+            false
+        };
+        if cached_media_available {
+            return;
+        }
+        media.cached_media_id = None;
+
+        match media_compat::make_webview_compatible(
+            &media.url,
+            &media.proxy_url,
+            &media.filename,
+            &media.content_type,
+        )
+        .await
+        {
+            VideoCompatibility::Unchanged => {}
+            VideoCompatibility::Transcoded(bytes) => {
+                let cache_id = format!(
+                    "h264-{:016x}{:016x}",
+                    rand::random::<u64>(),
+                    rand::random::<u64>()
+                );
+                self.cache_media(cache_id.clone(), "video/mp4".into(), bytes)
+                    .await;
+                media.content_type = "video/mp4".into();
+                media.cached_media_id = Some(cache_id);
+                eprintln!("[media] Codec: HEVC Action: TRANSCODED_LOCAL");
+            }
+            VideoCompatibility::HevcFallback => {
+                eprintln!("[media] Codec: HEVC Action: SOURCE_FALLBACK");
+            }
+        }
     }
 
     async fn prepare_media_delivery(&self, kind: MediaKind) {
