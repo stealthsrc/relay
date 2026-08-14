@@ -1079,7 +1079,7 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.2.6";
+let currentAppVersion = "1.2.7";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
 

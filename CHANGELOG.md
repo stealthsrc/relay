@@ -11,6 +11,30 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-08-14
+
+### English
+
+#### Changed
+
+- Reorganized Moderation into three independent collapsible sections for automatic filtering, manual moderation, and anti-doxxing protection. The existing settings and save behavior are unchanged.
+- Completed and corrected the Moderation translations in English, French, Spanish, and German, including protection profiles and input placeholders.
+
+#### Fixed
+
+- HEVC/H.265 Discord videos are now transcoded locally to an H.264-compatible cache when FFmpeg is available, allowing playback in Windows WebView2 widgets. Relay falls back to the original source if conversion cannot complete.
+
+### Français
+
+#### Modifié
+
+- Réorganisation de la page Modération en trois sections repliables indépendantes : filtrage automatique, modération manuelle et protection anti-doxxing. Les réglages existants et leur sauvegarde restent inchangés.
+- Traductions de la page Modération complétées et corrigées en anglais, français, espagnol et allemand, notamment pour les profils de protection et les textes indicatifs des champs.
+
+#### Corrigé
+
+- Les vidéos Discord en HEVC/H.265 sont désormais transcodées localement vers un cache compatible H.264 lorsque FFmpeg est disponible, afin de permettre leur lecture dans les widgets Windows WebView2. Relay revient à la source d’origine si la conversion ne peut pas aboutir.
+
 ## [1.2.6] - 2026-08-14
 
 ### English
@@ -355,7 +379,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/stealthsrc/relay/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/stealthsrc/relay/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/stealthsrc/relay/compare/v1.2.1...v1.2.5
 [1.2.1]: https://github.com/stealthsrc/relay/compare/v1.2.0...v1.2.1
