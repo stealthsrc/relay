@@ -704,13 +704,7 @@ async fn handle_socket(
         }) => Some(OutputSource::Audio),
         _ => None,
     };
-    let receives_music = matches!(
-        output,
-        Some(OutputConnection {
-            source: OutputSource::Audio | OutputSource::All,
-            client: OutputClient::Obs,
-        })
-    );
+    let receives_music = output_receives_music(output);
     let receives_media_clock = tracked_clock_source.is_some();
     let mut reported_busy = false;
     let mut relay_rx = state.core.relay_tx.subscribe();
@@ -916,6 +910,16 @@ fn output_connection(role: &str, query: &AccessQuery) -> Option<OutputConnection
         return None;
     }
     Some(OutputConnection { source, client })
+}
+
+fn output_receives_music(output: Option<OutputConnection>) -> bool {
+    matches!(
+        output,
+        Some(OutputConnection {
+            source: OutputSource::Audio | OutputSource::All,
+            client: OutputClient::Obs | OutputClient::Widget,
+        })
+    )
 }
 
 async fn update_output_connection(
@@ -1153,6 +1157,9 @@ mod tests {
             .expect("legacy overlay should remain supported");
         assert_eq!(combined.source, OutputSource::All);
         assert_eq!(combined.client, OutputClient::Obs);
+        let widget = output_connection("overlay", &access_query(None, Some("widget")))
+            .expect("the Windows widget should be accepted for the combined overlay");
+        assert!(output_receives_music(Some(widget)));
 
         assert!(output_connection("tts", &access_query(Some("audio"), None)).is_none());
         assert!(output_connection("tts", &access_query(None, Some("widget"))).is_none());
