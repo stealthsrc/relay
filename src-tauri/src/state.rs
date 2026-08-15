@@ -23,9 +23,11 @@ use crate::{
     custom_commands::CustomCommandConfirmations,
     media_compat::{self, VideoCompatibility},
     model::{
-        BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, MediaKind, PendingMedia,
-        RelayEvent, ServerStatus, StickerEvent, TtsEvent, TtsRequest, VisualSegment,
+        BotStatus, ChannelSummary, InterfacePreferences, MediaEvent, MediaKind, MusicPlaybackEvent,
+        MusicPlaybackMode, MusicStopEvent, PendingMedia, RelayEvent, ServerStatus, StickerEvent,
+        TtsEvent, TtsRequest, VisualSegment,
     },
+    music::{MusicSelection, MusicState},
     privacy::{self, PrivacyAction, PrivacyReport},
     tts,
 };
@@ -103,6 +105,7 @@ pub struct AppCore {
     pub media_artwork: RwLock<VecDeque<MediaArtwork>>,
     pub media_audio: RwLock<VecDeque<MediaAudio>>,
     pub tts_synthesis_lock: Mutex<()>,
+    pub music: Mutex<MusicState>,
     pub relay_tx: broadcast::Sender<RelayEvent>,
     pub bot_runtime: Mutex<Option<BotRuntime>>,
     pub custom_command_sync: Mutex<()>,
@@ -140,6 +143,7 @@ impl AppCore {
             media_artwork: RwLock::new(VecDeque::with_capacity(ARTWORK_CACHE_LIMIT)),
             media_audio: RwLock::new(VecDeque::with_capacity(MEDIA_AUDIO_CACHE_LIMIT)),
             tts_synthesis_lock: Mutex::new(()),
+            music: Mutex::new(MusicState::default()),
             relay_tx,
             bot_runtime: Mutex::new(None),
             custom_command_sync: Mutex::new(()),
@@ -161,6 +165,53 @@ impl AppCore {
 
     pub async fn set_media_delivery(&self, sender: mpsc::UnboundedSender<MediaDeliveryRequest>) {
         *self.media_delivery.write().await = Some(sender);
+    }
+
+    pub async fn start_music(
+        &self,
+        selection: MusicSelection,
+        mode: MusicPlaybackMode,
+    ) -> MusicPlaybackEvent {
+        let (previous, playback) = self.music.lock().await.start(selection, mode);
+        if let Some(previous) = previous {
+            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+                playback_id: previous.playback_id,
+            }));
+        }
+        let _ = self.relay_tx.send(RelayEvent::MusicPlay(playback.clone()));
+        playback
+    }
+
+    pub async fn current_music(&self) -> Option<MusicPlaybackEvent> {
+        self.music.lock().await.current_event()
+    }
+
+    pub async fn stop_current_music(&self) -> Option<MusicPlaybackEvent> {
+        let stopped = self.music.lock().await.stop_current();
+        if let Some(playback) = &stopped {
+            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+                playback_id: playback.playback_id.clone(),
+            }));
+        }
+        stopped
+    }
+
+    pub async fn stop_music_if_current(&self, playback_id: &str) -> Option<MusicPlaybackEvent> {
+        let stopped = self.music.lock().await.stop_if_current(playback_id);
+        if let Some(playback) = &stopped {
+            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+                playback_id: playback.playback_id.clone(),
+            }));
+        }
+        stopped
+    }
+
+    pub async fn finish_music(&self, playback_id: &str) -> bool {
+        self.music
+            .lock()
+            .await
+            .stop_if_current(playback_id)
+            .is_some()
     }
 
     pub async fn set_config(&self, config: AppConfig) -> Result<()> {

@@ -6,6 +6,7 @@ mod credentials;
 mod custom_commands;
 mod media_compat;
 mod model;
+mod music;
 mod notification_widget;
 mod privacy;
 mod server;
@@ -13,6 +14,7 @@ mod state;
 mod tts;
 mod updater;
 mod widget;
+mod youtube;
 
 use std::{env, path::PathBuf, process::Command, sync::Arc, time::Duration};
 

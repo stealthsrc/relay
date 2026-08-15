@@ -86,6 +86,40 @@ pub struct AudioControlEvent {
     pub media: Option<MediaEvent>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MusicPlaybackMode {
+    Preview,
+    Full,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicPlaybackEvent {
+    pub playback_id: String,
+    pub video_id: String,
+    pub title: String,
+    pub channel_title: String,
+    pub thumbnail: String,
+    pub duration_seconds: u64,
+    pub mode: MusicPlaybackMode,
+    pub start_seconds: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicStopEvent {
+    pub playback_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicEndedEvent {
+    pub playback_id: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingMedia {
@@ -241,6 +275,8 @@ pub enum RelayEvent {
     Media(MediaEvent),
     AudioPlayback(AudioPlaybackState),
     AudioControl(AudioControlEvent),
+    MusicPlay(MusicPlaybackEvent),
+    MusicStop(MusicStopEvent),
     Sticker(StickerEvent),
     Tts(TtsEvent),
     TestOutput(Box<OutputTestEvent>),

@@ -6,12 +6,14 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use serenity::{
     all::{
-        Channel, ChannelId, ChannelType, Command, CommandDataOptionValue, CommandInteraction,
-        CommandOptionType, Context, CreateAllowedMentions, CreateCommand, CreateCommandOption,
-        CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, GatewayIntents,
-        GetMessages, GuildId, Interaction, Message, MessageId, MessageUpdateEvent, OnlineStatus,
-        PermissionOverwrite, PermissionOverwriteType, Permissions, Ready, StickerFormatType, User,
-        UserId,
+        ButtonStyle, Channel, ChannelId, ChannelType, Command, CommandDataOptionValue,
+        CommandInteraction, CommandOptionType, ComponentInteraction, ComponentInteractionDataKind,
+        Context, CreateActionRow, CreateAllowedMentions, CreateButton, CreateCommand,
+        CreateCommandOption, CreateEmbed, CreateInteractionResponse,
+        CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind,
+        CreateSelectMenuOption, EventHandler, GatewayIntents, GetMessages, GuildId, Interaction,
+        Message, MessageId, MessageUpdateEvent, OnlineStatus, PermissionOverwrite,
+        PermissionOverwriteType, Permissions, Ready, StickerFormatType, User, UserId,
     },
     async_trait,
     cache::Cache,
@@ -24,21 +26,27 @@ use crate::{
     artwork,
     commands::emit_output_test,
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
-    credentials::{load_discord_credentials, load_or_create_relay_secret},
+    credentials::{load_discord_credentials, load_or_create_relay_secret, load_youtube_api_key},
     custom_commands,
     model::{
         AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
-        OutputConnectionStatus, OutputTestTarget, ServerStatus, StickerEvent, TtsRequest,
-        VisualSegment,
+        MusicPlaybackEvent, MusicPlaybackMode, OutputConnectionStatus, OutputTestTarget,
+        ServerStatus, StickerEvent, TtsRequest, VisualSegment,
     },
+    music::{SearchSelection, SelectionTake},
     privacy,
     state::{AppCore, BotRuntime},
+    youtube,
 };
 
 const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "bmp"];
 const VIDEO_EXTENSIONS: [&str; 6] = ["mp4", "webm", "mov", "m4v", "ogv", "avi"];
 const AUDIO_EXTENSIONS: [&str; 7] = ["mp3", "ogg", "wav", "m4a", "flac", "aac", "opus"];
 const MEDIA_TEXT_LIMIT: usize = 180;
+const MUSIC_COMPONENT_PREFIX: &str = "relay:music:";
+const MUSIC_SEARCH_PREFIX: &str = "relay:music:search:";
+const MUSIC_MODE_PREFIX: &str = "relay:music:mode:";
+const MUSIC_SKIP_PREFIX: &str = "relay:music:skip:";
 
 struct Handler {
     core: Arc<AppCore>,
@@ -84,6 +92,11 @@ impl EventHandler for Handler {
         let role_ids = message_role_ids(&message);
         let scoped_config = privacy::scoped_config_for_roles(&config, &role_ids);
         let channel_id = message.channel_id.to_string();
+
+        if !config.music_channel_id.is_empty() && channel_id == config.music_channel_id {
+            handle_music_message(&self.core, &context.http, &message, &scoped_config).await;
+            return;
+        }
 
         if !config.tts_channel_id.is_empty() && channel_id == config.tts_channel_id {
             let text_report = classify_message_privacy(&message, &scoped_config);
@@ -453,7 +466,12 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
         let command = match interaction {
             Interaction::Component(component) => {
-                custom_commands::handle_custom_component(&self.core, &context, &component).await;
+                if component.data.custom_id.starts_with(MUSIC_COMPONENT_PREFIX) {
+                    handle_music_component(&self.core, &context, &component).await;
+                } else {
+                    custom_commands::handle_custom_component(&self.core, &context, &component)
+                        .await;
+                }
                 return;
             }
             Interaction::Command(command) => command,
@@ -495,6 +513,384 @@ impl EventHandler for Handler {
                 Some(format!("Discord response failed: {error}"));
         }
     }
+}
+
+async fn handle_music_message(
+    core: &Arc<AppCore>,
+    http: &Arc<Http>,
+    message: &Message,
+    scoped_config: &AppConfig,
+) {
+    let query = message.content.trim();
+    if query.is_empty() || query.chars().any(char::is_control) {
+        return;
+    }
+    let text_report = classify_message_privacy(message, scoped_config);
+    if block_and_delete_message_if_needed(core, http, message, &text_report, scoped_config).await {
+        return;
+    }
+    if privacy::privacy_rules_enabled(scoped_config)
+        && matches!(
+            privacy::action_for(&text_report, scoped_config),
+            privacy::PrivacyAction::Review
+        )
+    {
+        return;
+    }
+
+    let api_key = match load_youtube_api_key() {
+        Ok(Some(api_key)) => api_key,
+        Ok(None) => {
+            let _ = message
+                .channel_id
+                .say(http, "YouTube n'est pas configuré dans Relay.")
+                .await;
+            return;
+        }
+        Err(_) => {
+            core.bot_status.write().await.error =
+                Some("Impossible de lire la clé YouTube enregistrée.".into());
+            let _ = message
+                .channel_id
+                .say(
+                    http,
+                    "La recherche YouTube est temporairement indisponible.",
+                )
+                .await;
+            return;
+        }
+    };
+    let results = match youtube::search(query, &api_key).await {
+        Ok(results) => results,
+        Err(_) => {
+            core.bot_status.write().await.error = Some("La recherche YouTube a échoué.".into());
+            let _ = message
+                .channel_id
+                .say(
+                    http,
+                    "La recherche YouTube est temporairement indisponible.",
+                )
+                .await;
+            return;
+        }
+    };
+    if results.is_empty() {
+        let _ = message
+            .channel_id
+            .say(
+                http,
+                "Aucun résultat YouTube de 3 minutes maximum n'a été trouvé.",
+            )
+            .await;
+        return;
+    }
+
+    let query = query.chars().take(200).collect::<String>();
+    let search_id = core.music.lock().await.insert_search(
+        message.author.id.get(),
+        message.channel_id.get(),
+        query.clone(),
+        results.clone(),
+    );
+    let mut embed = CreateEmbed::new()
+        .title("Résultats YouTube")
+        .description(format!(
+            "Choisis un titre pour « {} ».",
+            truncate_text(&query, 180)
+        ));
+    let mut options = Vec::with_capacity(results.len());
+    for (index, track) in results.iter().enumerate() {
+        embed = embed.field(
+            format!("{}. {}", index + 1, truncate_text(&track.title, 180)),
+            format!(
+                "{} · {}",
+                truncate_text(&track.channel_title, 80),
+                format_duration(track.duration_seconds)
+            ),
+            false,
+        );
+        options.push(
+            CreateSelectMenuOption::new(truncate_text(&track.title, 100), track.video_id.clone())
+                .description(format!(
+                    "{} · {}",
+                    truncate_text(&track.channel_title, 80),
+                    format_duration(track.duration_seconds)
+                )),
+        );
+    }
+    let message_builder = CreateMessage::new()
+        .embed(embed)
+        .components(vec![CreateActionRow::SelectMenu(
+            CreateSelectMenu::new(
+                format!("{MUSIC_SEARCH_PREFIX}{search_id}"),
+                CreateSelectMenuKind::String { options },
+            )
+            .placeholder("Choisir un titre"),
+        )])
+        .allowed_mentions(CreateAllowedMentions::new());
+    if message
+        .channel_id
+        .send_message(http, message_builder)
+        .await
+        .is_err()
+    {
+        core.bot_status.write().await.error =
+            Some("Discord n'a pas accepté les résultats YouTube.".into());
+    }
+}
+
+async fn handle_music_component(
+    core: &Arc<AppCore>,
+    context: &Context,
+    component: &ComponentInteraction,
+) {
+    let custom_id = component.data.custom_id.as_str();
+    if let Some(search_id) = custom_id.strip_prefix(MUSIC_SEARCH_PREFIX) {
+        let Some(video_id) = (match &component.data.kind {
+            ComponentInteractionDataKind::StringSelect { values } => values.first().cloned(),
+            _ => None,
+        }) else {
+            respond_music_component(
+                core,
+                context,
+                component,
+                "Aucun titre n'a été sélectionné.",
+                Vec::new(),
+            )
+            .await;
+            return;
+        };
+        let selection =
+            core.music
+                .lock()
+                .await
+                .select_search(search_id, component.user.id.get(), &video_id);
+        match selection {
+            SearchSelection::Selected(selection_id) => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    "Choisis le mode de lecture. Cette action est réservée à la personne qui a lancé la recherche.",
+                    music_mode_components(&selection_id),
+                )
+                .await;
+            }
+            SearchSelection::NotOwner => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    "Cette recherche appartient à une autre personne.",
+                    Vec::new(),
+                )
+                .await;
+            }
+            SearchSelection::NotFound | SearchSelection::InvalidVideo => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    "Cette recherche a expiré ou le titre n'est plus disponible.",
+                    Vec::new(),
+                )
+                .await;
+            }
+        }
+        return;
+    }
+
+    if let Some(rest) = custom_id.strip_prefix(MUSIC_MODE_PREFIX) {
+        let Some((selection_id, mode_name)) = rest.rsplit_once(':') else {
+            return;
+        };
+        if mode_name == "cancel" {
+            let result = core
+                .music
+                .lock()
+                .await
+                .cancel_selection(selection_id, component.user.id.get());
+            let content = match result {
+                SelectionTake::Taken(_) => "Sélection annulée.".to_owned(),
+                SelectionTake::NotOwner => {
+                    "Cette sélection appartient à une autre personne.".into()
+                }
+                SelectionTake::NotFound => "Cette sélection a expiré.".into(),
+            };
+            respond_music_component(core, context, component, &content, Vec::new()).await;
+            return;
+        }
+        let mode = match mode_name {
+            "preview" => MusicPlaybackMode::Preview,
+            "full" => MusicPlaybackMode::Full,
+            _ => return,
+        };
+        let selection = match core
+            .music
+            .lock()
+            .await
+            .take_selection(selection_id, component.user.id.get())
+        {
+            SelectionTake::Taken(selection) => selection,
+            SelectionTake::NotOwner => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    "Cette sélection appartient à une autre personne.",
+                    Vec::new(),
+                )
+                .await;
+                return;
+            }
+            SelectionTake::NotFound => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    "Cette sélection a expiré.",
+                    Vec::new(),
+                )
+                .await;
+                return;
+            }
+        };
+        let playback = core.start_music(selection.clone(), mode).await;
+        let now_playing = CreateMessage::new()
+            .content(format!(
+                "▶ {} — {} ({})",
+                truncate_text(&playback.title, 180),
+                truncate_text(&playback.channel_title, 80),
+                format_duration(playback.duration_seconds)
+            ))
+            .components(music_skip_components(&playback))
+            .allowed_mentions(CreateAllowedMentions::new());
+        if let Ok(now_playing_message) = ChannelId::new(selection.channel_id)
+            .send_message(&context.http, now_playing)
+            .await
+        {
+            core.music
+                .lock()
+                .await
+                .set_now_playing_message_id(&playback.playback_id, now_playing_message.id.get());
+        }
+        respond_music_component(
+            core,
+            context,
+            component,
+            &format!("Lecture lancée : {}.", truncate_text(&playback.title, 180)),
+            Vec::new(),
+        )
+        .await;
+        return;
+    }
+
+    if let Some(playback_id) = custom_id.strip_prefix(MUSIC_SKIP_PREFIX) {
+        let is_admin = component
+            .member
+            .as_ref()
+            .and_then(|member| member.permissions)
+            .is_some_and(|permissions| permissions.contains(Permissions::ADMINISTRATOR));
+        let allowed =
+            core.music
+                .lock()
+                .await
+                .skip_allowed(playback_id, component.user.id.get(), is_admin);
+        if !allowed {
+            respond_music_component(
+                core,
+                context,
+                component,
+                "Seule la personne qui a lancé le titre ou un administrateur peut l'arrêter.",
+                Vec::new(),
+            )
+            .await;
+            return;
+        }
+        if core.stop_music_if_current(playback_id).await.is_none() {
+            respond_music_component(
+                core,
+                context,
+                component,
+                "Ce titre n'est plus en lecture.",
+                Vec::new(),
+            )
+            .await;
+            return;
+        }
+        let response = CreateInteractionResponse::UpdateMessage(
+            CreateInteractionResponseMessage::new()
+                .content("⏹ Lecture arrêtée.")
+                .components(Vec::new())
+                .allowed_mentions(CreateAllowedMentions::new()),
+        );
+        if component
+            .create_response(&context.http, response)
+            .await
+            .is_err()
+        {
+            core.bot_status.write().await.error =
+                Some("Discord n'a pas mis à jour le bouton Skip.".into());
+        }
+    }
+}
+
+async fn respond_music_component(
+    core: &Arc<AppCore>,
+    context: &Context,
+    component: &ComponentInteraction,
+    content: &str,
+    components: Vec<CreateActionRow>,
+) {
+    let response = CreateInteractionResponse::Message(
+        CreateInteractionResponseMessage::new()
+            .content(content)
+            .ephemeral(true)
+            .components(components)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    );
+    if component
+        .create_response(&context.http, response)
+        .await
+        .is_err()
+    {
+        core.bot_status.write().await.error =
+            Some("Discord n'a pas accepté l'interaction musique.".into());
+    }
+}
+
+fn music_mode_components(selection_id: &str) -> Vec<CreateActionRow> {
+    vec![CreateActionRow::Buttons(vec![
+        CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:preview"))
+            .label("▶ 30 secondes")
+            .style(ButtonStyle::Primary),
+        CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:full"))
+            .label("▶ Intégral")
+            .style(ButtonStyle::Secondary),
+        CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:cancel"))
+            .label("Annuler")
+            .style(ButtonStyle::Danger),
+    ])]
+}
+
+fn music_skip_components(playback: &MusicPlaybackEvent) -> Vec<CreateActionRow> {
+    vec![CreateActionRow::Buttons(vec![
+        CreateButton::new(format!("{MUSIC_SKIP_PREFIX}{}", playback.playback_id))
+            .label("⏭ Skip")
+            .style(ButtonStyle::Secondary),
+    ])]
+}
+
+fn truncate_text(value: &str, max_chars: usize) -> String {
+    let mut value = value.chars().take(max_chars).collect::<String>();
+    if value.chars().count() == max_chars && value.chars().count() < value.len() {
+        value.push('…');
+    }
+    value
+}
+
+fn format_duration(seconds: u64) -> String {
+    format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
 fn bounded_privacy_text(value: &str) -> String {
@@ -953,17 +1349,24 @@ async fn discover_channels(
     channels
 }
 
-const MISSING_CHANNEL_WARNING: &str = "The selected media channel is private or inaccessible. Add Relay or its role to the channel permissions.";
+const MISSING_CHANNEL_WARNING: &str = "A selected Discord channel is private or inaccessible. Add Relay or its role to the channel permissions.";
 
 async fn warn_if_watched_channel_missing(core: &Arc<AppCore>) {
-    let configured_channel = core.config.read().await.watched_channel_id.clone();
-    let missing = !configured_channel.is_empty()
-        && !core
-            .channels
-            .read()
-            .await
-            .iter()
-            .any(|channel| channel.id == configured_channel);
+    let configured_channels = {
+        let config = core.config.read().await;
+        [
+            config.watched_channel_id.clone(),
+            config.tts_channel_id.clone(),
+            config.music_channel_id.clone(),
+        ]
+    };
+    let available_channels = core.channels.read().await;
+    let missing = configured_channels.iter().any(|configured_channel| {
+        !configured_channel.is_empty()
+            && !available_channels
+                .iter()
+                .any(|channel| channel.id == *configured_channel)
+    });
     let mut status = core.bot_status.write().await;
     if missing {
         status.error = Some(MISSING_CHANNEL_WARNING.into());

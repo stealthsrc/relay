@@ -712,6 +712,7 @@ fn media_extension(kind: MediaKind, content_type: &str) -> &'static str {
 
 #[tauri::command]
 pub async fn skip_media(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
+    core.stop_current_music().await;
     let _ = core.relay_tx.send(RelayEvent::Skip);
     Ok(())
 }
