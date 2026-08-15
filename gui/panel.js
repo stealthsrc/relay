@@ -1411,6 +1411,7 @@ function renderLanguagePicker() {
   languageValueElement.textContent = selected.short;
   interfaceLanguageButton.setAttribute("aria-label", `${t("language")}: ${selected.label}`);
   languageToggleButton.setAttribute("aria-label", `${t("language")}: ${selected.label}`);
+  languageToggleButton.title = selected.label;
   for (const option of $$("[data-locale]", interfaceLanguageOptionsElement)) {
     const isSelected = option.dataset.locale === selected.locale;
     option.setAttribute("aria-selected", String(isSelected));

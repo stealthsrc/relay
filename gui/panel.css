@@ -292,7 +292,7 @@ select:focus-visible {
   position: relative;
 }
 
-.sidebar-language-picker__options {
+.sidebar-language-picker .sidebar-language-picker__options {
   top: auto;
   bottom: calc(100% + 6px);
   width: max(220px, 100%);
@@ -3732,7 +3732,8 @@ input[type="range"] {
   width: 54px;
 }
 
-:root[data-sidebar-layout="compact"] .sidebar-language-picker__options {
+:root[data-sidebar-layout="compact"] .sidebar-language-picker .sidebar-language-picker__options {
+  top: auto;
   right: auto;
   bottom: 0;
   left: calc(100% + 8px);
@@ -3747,7 +3748,13 @@ input[type="range"] {
 }
 
 :root[data-sidebar-layout="compact"] .utility-button__value {
-  gap: 0;
+  display: grid;
+  width: 20px;
+  place-items: center;
+}
+
+:root[data-sidebar-layout="compact"] #language-value {
+  display: none;
 }
 
 :root[data-sidebar-layout="compact"] .utility-button__icon {

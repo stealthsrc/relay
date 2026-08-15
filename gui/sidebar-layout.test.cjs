@@ -25,5 +25,8 @@ test("compact navigation retains numbered icons and restores labels on mobile", 
   assert.match(panelCss, /--sidebar-width: 84px/);
   assert.match(panelCss, /data-sidebar-layout="compact"\] \.navigation__index/);
   assert.match(panelCss, /data-sidebar-layout="compact"\] \.navigation__label/);
+  assert.match(panelCss, /data-sidebar-layout="compact"\] #language-value \{\s*display: none;/);
+  assert.match(panelCss, /sidebar-language-picker \.sidebar-language-picker__options \{\s*top: auto;/);
   assert.match(panelCss, /@media \(max-width: 700px\)[\s\S]*data-sidebar-layout="compact"\] \.navigation__label/);
+  assert.match(panelSource, /languageToggleButton\.title = selected\.label/);
 });
