@@ -5,6 +5,7 @@ const audioCardElement = document.querySelector("#audio-card");
 const audioArtworkElement = document.querySelector("#audio-artwork");
 const audioTitleElement = document.querySelector("#audio-title");
 const audioArtistElement = document.querySelector("#audio-artist");
+const audioMediaTextElement = document.querySelector("#audio-media-text");
 const authorElement = document.querySelector("#author");
 const authorAvatarElement = document.querySelector("#author-avatar");
 const authorNameElement = document.querySelector("#author-name");
@@ -169,11 +170,18 @@ function setAuthor(media) {
 function setMediaText(media) {
   const enabled = isWidgetWindow ? config.showMediaTextWidget : config.showMediaTextObs;
   const text = enabled && typeof media?.text === "string" ? media.text.trim() : "";
-  mediaTextElement.textContent = text;
-  mediaTextElement.hidden = !text;
+  const isAudio = media?.kind === "audio";
+  mediaTextElement.textContent = isAudio ? "" : text;
+  mediaTextElement.hidden = isAudio || !text;
   mediaTextElement.classList.toggle(
     "is-visible",
-    Boolean(text) && (isPreview || activeVisual?.classList.contains("is-visible")),
+    !isAudio && Boolean(text) && (isPreview || activeVisual?.classList.contains("is-visible")),
+  );
+  audioMediaTextElement.textContent = isAudio ? text : "";
+  audioMediaTextElement.hidden = !isAudio || !text;
+  audioMediaTextElement.classList.toggle(
+    "is-visible",
+    isAudio && Boolean(text) && (isPreview || activeVisual?.classList.contains("is-visible")),
   );
 }
 
@@ -267,6 +275,9 @@ function resetElements() {
   audioTitleElement.textContent = "";
   audioArtistElement.textContent = "";
   audioArtistElement.hidden = true;
+  audioMediaTextElement.classList.remove("is-visible");
+  audioMediaTextElement.hidden = true;
+  audioMediaTextElement.textContent = "";
   setAudioArtwork({});
   authorElement.classList.remove("is-visible");
   authorElement.hidden = true;
@@ -288,8 +299,8 @@ function revealMedia({ timed = false } = {}) {
   if (!authorElement.hidden) {
     authorElement.classList.add("is-visible");
   }
-  if (!mediaTextElement.hidden) {
-    mediaTextElement.classList.add("is-visible");
+  for (const caption of [mediaTextElement, audioMediaTextElement]) {
+    if (!caption.hidden) caption.classList.add("is-visible");
   }
   if (timed) {
     const durationMs = currentMedia.kind === "gif"

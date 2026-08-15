@@ -132,7 +132,7 @@ function element() {
 
 function createHarness(search = "?secret=private", mode = "all") {
   const selectors = [
-    "#image", "#video", "#audio", "#audio-card", "#audio-artwork", "#audio-title", "#audio-artist",
+    "#image", "#video", "#audio", "#audio-card", "#audio-artwork", "#audio-title", "#audio-artist", "#audio-media-text",
     "#author", "#author-avatar", "#author-name", "#media-text",
     "#widget-move-label",
   ];
@@ -372,6 +372,27 @@ test("media messages are bounded upstream and independently visible in OBS and w
   }));
   assert.equal(widget.elements["#media-text"].textContent, "Widget caption");
   assert.equal(widget.elements["#media-text"].hidden, false);
+});
+
+test("audio captions stay in the Now Playing card instead of covering the artwork", () => {
+  const harness = createHarness();
+  harness.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { showMediaTextObs: true },
+  }));
+  harness.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: {
+      kind: "audio",
+      url: "https://cdn.discordapp.com/voice.ogg",
+      title: "Stay With Me",
+      text: "Message attached to the audio",
+    },
+  }));
+
+  assert.equal(harness.elements["#audio-media-text"].textContent, "Message attached to the audio");
+  assert.equal(harness.elements["#audio-media-text"].hidden, false);
+  assert.equal(harness.elements["#media-text"].hidden, true);
 });
 
 test("media overlay follows a configured server port once it responds", () => {

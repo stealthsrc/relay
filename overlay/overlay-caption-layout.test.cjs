@@ -13,4 +13,5 @@ test("compact widget captions preserve their content width", () => {
   assert.ok(mobileCaption);
   assert.doesNotMatch(mobileCaption[1], /\bright\s*:/);
   assert.match(mobileCaption[1], /max-width:\s*min\(34ch, calc\(100% - 2rem\)\)/);
+  assert.match(styles, /\.audio-card__caption\s*\{[\s\S]*?font-size:\s*calc\(14px \* var\(--font-scale\)\)/);
 });

@@ -177,6 +177,33 @@ html.widget-edit .widget-move-layer {
   white-space: nowrap;
 }
 
+.audio-card__caption {
+  display: -webkit-box;
+  max-width: 100%;
+  max-height: 2.8em;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(255 255 255 / 78%);
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 240ms ease 80ms, transform 240ms ease 80ms;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.audio-card__caption.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.audio-card__caption[hidden] {
+  display: none;
+}
+
 .audio-card__wave {
   display: flex;
   align-items: center;
