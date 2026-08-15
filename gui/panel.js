@@ -1046,6 +1046,22 @@ const regionalTranslations = {
   },
 };
 
+const personalizationExtensionTranslations = {
+  en: { sidebarLayout: "Sidebar layout", sidebarLayoutFixed: "Fixed · labels and icons", sidebarLayoutCompact: "Reduced · icons only", sidebarLayoutHelp: "Keep navigation labels visible or reduce the sidebar to compact icons.", gridlineDesignCopy: "Structured, clear and technical.", lumenDesignCopy: "Layered, luminous and atmospheric." },
+  fr: { sidebarLayout: "Disposition de la barre latérale", sidebarLayoutFixed: "Fixe · libellés et icônes", sidebarLayoutCompact: "Réduite · icônes seules", sidebarLayoutHelp: "Gardez les libellés de navigation visibles ou réduisez la barre latérale à des icônes compactes.", gridlineDesignCopy: "Structuré, clair et technique.", lumenDesignCopy: "En couches, lumineux et atmosphérique." },
+  es: { sidebarLayout: "Diseño de la barra lateral", sidebarLayoutFixed: "Fijo · etiquetas e iconos", sidebarLayoutCompact: "Reducido · solo iconos", sidebarLayoutHelp: "Mantén visibles las etiquetas de navegación o reduce la barra lateral a iconos compactos.", gridlineDesignCopy: "Estructurado, claro y técnico.", lumenDesignCopy: "En capas, luminoso y atmosférico." },
+  de: { sidebarLayout: "Layout der Seitenleiste", sidebarLayoutFixed: "Fest · Beschriftungen und Symbole", sidebarLayoutCompact: "Reduziert · nur Symbole", sidebarLayoutHelp: "Navigationstexte sichtbar lassen oder die Seitenleiste auf kompakte Symbole reduzieren.", gridlineDesignCopy: "Strukturiert, klar und technisch.", lumenDesignCopy: "Mehrschichtig, leuchtend und atmosphärisch." },
+  ru: { sidebarLayout: "Макет боковой панели", sidebarLayoutFixed: "Полный · подписи и значки", sidebarLayoutCompact: "Компактный · только значки", sidebarLayoutHelp: "Оставьте подписи навигации видимыми или сократите панель до компактных значков.", gridlineDesignCopy: "Структурный, ясный и технический.", lumenDesignCopy: "Многослойный, светящийся и атмосферный." },
+  zh: { sidebarLayout: "侧边栏布局", sidebarLayoutFixed: "固定 · 标签和图标", sidebarLayoutCompact: "精简 · 仅图标", sidebarLayoutHelp: "保留可见的导航标签，或将侧边栏缩小为紧凑图标。", gridlineDesignCopy: "结构化、清晰且技术化。", lumenDesignCopy: "层次分明、明亮且富有氛围。" },
+  ko: { sidebarLayout: "사이드바 레이아웃", sidebarLayoutFixed: "고정 · 레이블 및 아이콘", sidebarLayoutCompact: "축소 · 아이콘만", sidebarLayoutHelp: "탐색 레이블을 표시하거나 사이드바를 간결한 아이콘으로 줄입니다.", gridlineDesignCopy: "구조적이고 명확하며 기술적입니다.", lumenDesignCopy: "겹겹이 빛나며 분위기 있습니다." },
+  ja: { sidebarLayout: "サイドバーのレイアウト", sidebarLayoutFixed: "固定 · ラベルとアイコン", sidebarLayoutCompact: "縮小 · アイコンのみ", sidebarLayoutHelp: "ナビゲーションラベルを表示したままにするか、サイドバーをコンパクトなアイコンに縮小します。", gridlineDesignCopy: "構造的で、明快かつ技術的。", lumenDesignCopy: "重なりがあり、明るく、雰囲気のあるデザイン。" },
+  id: { sidebarLayout: "Tata letak bilah samping", sidebarLayoutFixed: "Tetap · label dan ikon", sidebarLayoutCompact: "Ringkas · ikon saja", sidebarLayoutHelp: "Biarkan label navigasi terlihat atau ringkas bilah samping menjadi ikon yang padat.", gridlineDesignCopy: "Terstruktur, jelas, dan teknis.", lumenDesignCopy: "Berlapis, bercahaya, dan atmosferik." },
+};
+
+for (const [languageCode, extension] of Object.entries(personalizationExtensionTranslations)) {
+  Object.assign(translations[languageCode], extension);
+}
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
