@@ -367,6 +367,20 @@ pub async fn apply_config(
 }
 
 #[tauri::command]
+pub async fn set_media_caption_visibility(
+    core: State<'_, Arc<AppCore>>,
+    show_media_text_obs: bool,
+    show_media_text_widget: bool,
+) -> Result<AppConfig, String> {
+    core.update_config(|config| {
+        config.show_media_text_obs = show_media_text_obs;
+        config.show_media_text_widget = show_media_text_widget;
+    })
+    .await
+    .map_err(display_error)
+}
+
+#[tauri::command]
 pub async fn clear_overlay(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
     let _ = core.relay_tx.send(RelayEvent::Clear);
     Ok(())

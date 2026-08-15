@@ -1280,6 +1280,7 @@ let socket;
 let reconnectTimer;
 let reconnectDelayMs = 1000;
 let statusTimer;
+let mediaCaptionSaveGeneration = 0;
 let isUnloading = false;
 let currentPage = "overview";
 const navigationHistory = ["overview"];
@@ -2920,6 +2921,24 @@ async function saveConfig(stateElement) {
   }
 }
 
+async function saveMediaCaptionVisibility() {
+  const generation = ++mediaCaptionSaveGeneration;
+  mediaSaveStateElement.textContent = t("saving");
+  try {
+    const config = await invoke("set_media_caption_visibility", {
+      showMediaTextObs: showMediaTextObsElement.checked,
+      showMediaTextWidget: showMediaTextWidgetElement.checked,
+    });
+    if (generation !== mediaCaptionSaveGeneration) return;
+    bootstrap.config = config;
+    mediaSaveStateElement.textContent = t("saved");
+  } catch (error) {
+    if (generation === mediaCaptionSaveGeneration) {
+      mediaSaveStateElement.textContent = String(error);
+    }
+  }
+}
+
 function schedulePrivacyFilterSave() {
   privacyFilterDraft = privacyConceptsElement.value;
   const generation = ++privacyFilterSaveGeneration;
@@ -3270,6 +3289,10 @@ mediaForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveConfig(mediaSaveStateElement);
 });
+
+for (const input of [showMediaTextObsElement, showMediaTextWidgetElement]) {
+  input.addEventListener("change", () => void saveMediaCaptionVisibility());
+}
 
 moderationForm.addEventListener("submit", async (event) => {
   event.preventDefault();
