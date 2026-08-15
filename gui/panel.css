@@ -346,6 +346,11 @@ select:focus-visible {
   gap: 7px;
 }
 
+:root:not([data-sidebar-layout="compact"]) #language-toggle {
+  justify-content: flex-start;
+  gap: 12px;
+}
+
 .flag-icon {
   display: block;
   width: 20px;
