@@ -7,9 +7,9 @@ const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
 const panelCss = fs.readFileSync(__dirname + "/panel.css", "utf8");
 const traySource = fs.readFileSync(__dirname + "/tray.js", "utf8");
 const trayCss = fs.readFileSync(__dirname + "/tray.css", "utf8");
-const designs = ["openai", "anthropic", "neo-brutalism"];
+const designs = ["openai", "anthropic", "neo-brutalism", "gridline", "lumen"];
 
-test("personalization exposes the three accessible design choices", () => {
+test("personalization exposes five accessible design choices", () => {
   assert.match(panelHtml, /<fieldset class="design-picker">/);
   assert.match(panelHtml, /<html[^>]+data-design="openai"/);
   for (const design of designs) {
@@ -18,7 +18,7 @@ test("personalization exposes the three accessible design choices", () => {
 });
 
 test("the selected design is persisted and applied without changing the native preference schema", () => {
-  assert.match(panelSource, /const supportedDesigns = \["openai", "anthropic", "neo-brutalism"\]/);
+  assert.match(panelSource, /const supportedDesigns = \["openai", "anthropic", "neo-brutalism", "gridline", "lumen"\]/);
   assert.match(panelSource, /localStorage\.getItem\("relay-design"\)/);
   assert.match(panelSource, /localStorage\.setItem\("relay-design", design\)/);
   assert.match(panelSource, /document\.documentElement\.dataset\.design = design/);
@@ -32,6 +32,8 @@ test("each art direction covers light, dark, focus, responsive and reduced-motio
   }
   assert.match(panelCss, /data-design="anthropic"\]\[data-theme="dark"\]/);
   assert.match(panelCss, /data-design="neo-brutalism"\]\[data-theme="dark"\]/);
+  assert.match(panelCss, /data-design="gridline"\]\[data-theme="dark"\]/);
+  assert.match(panelCss, /data-design="lumen"\]\[data-theme="dark"\]/);
   assert.match(panelCss, /design-choice:has\(input:focus-visible\)/);
   assert.match(panelCss, /@media \(max-width: 700px\)/);
   assert.match(panelCss, /@media \(prefers-reduced-motion: reduce\)/);
@@ -42,6 +44,9 @@ test("tray refresh reads the design and theme shared by personalization", () => 
   assert.match(traySource, /localStorage\.getItem\("relay-theme"\)/);
   assert.match(traySource, /document\.documentElement\.dataset\.design/);
   assert.match(traySource, /document\.documentElement\.dataset\.theme/);
+  assert.match(traySource, /applyTrayAccent/);
+  assert.match(traySource, /"gridline", "lumen"/);
+  assert.match(trayCss, /--tray-accent/);
 });
 
 test("text scaling measures the unscaled tree before applying the factor", () => {

@@ -75,6 +75,20 @@ function translate(key) {
   return trayRegionalTranslations[locale]?.[key] || trayTranslations[language]?.[key] || trayTranslations.en[key] || key;
 }
 
+function applyTrayAccent() {
+  let accent = [88, 185, 137];
+  try {
+    const storedAccent = JSON.parse(localStorage.getItem("relay-accent-rgb") || "null");
+    if (Array.isArray(storedAccent) && storedAccent.length === 3 && storedAccent.every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) {
+      accent = storedAccent;
+    }
+  } catch {}
+  const [red, green, blue] = accent;
+  const lightAccent = (red * 299 + green * 587 + blue * 114) / 1000 > 156;
+  document.documentElement.style.setProperty("--tray-accent", `rgb(${accent.join(" ")})`);
+  document.documentElement.style.setProperty("--tray-accent-ink", lightAccent ? "#08130e" : "#ffffff");
+}
+
 function applyTrayLanguage() {
   const storedLanguage = localStorage.getItem("relay-language");
   const storedLocale = localStorage.getItem("relay-locale");
@@ -86,7 +100,7 @@ function applyTrayLanguage() {
     ? storedLocale
     : language === "en" ? "en-US" : language;
   document.documentElement.lang = locale;
-  document.documentElement.dataset.design = ["anthropic", "neo-brutalism"].includes(storedDesign)
+  document.documentElement.dataset.design = ["anthropic", "neo-brutalism", "gridline", "lumen"].includes(storedDesign)
     ? storedDesign
     : "openai";
   document.documentElement.dataset.theme = storedTheme === "light" ? "light" : "dark";
@@ -94,6 +108,7 @@ function applyTrayLanguage() {
     "bricolage", "dm-sans", "figtree", "inter", "jetbrains-mono",
     "manrope", "poppins", "space-grotesk",
   ].includes(storedInterfaceFont) ? storedInterfaceFont : "design";
+  applyTrayAccent();
   for (const element of document.querySelectorAll("[data-i18n]")) {
     element.textContent = translate(element.dataset.i18n);
   }

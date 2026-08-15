@@ -1238,6 +1238,72 @@ textarea:focus {
   background: #ffc94c;
 }
 
+.design-choice--gridline .design-choice__preview {
+  border-color: #9eb3bc;
+  border-radius: 5px;
+  background-color: #edf4f7;
+  background-image: linear-gradient(#cad9df 1px, transparent 1px), linear-gradient(90deg, #cad9df 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.design-choice--gridline .design-choice__preview i:first-child {
+  inset: 10px auto 10px 10px;
+  width: 22%;
+  border-right: 1px solid #9eb3bc;
+  background: rgb(255 255 255 / 72%);
+}
+
+.design-choice--gridline .design-choice__preview i:nth-child(2) {
+  top: 16px;
+  right: 12px;
+  width: 49%;
+  height: 5px;
+  background: #18303a;
+}
+
+.design-choice--gridline .design-choice__preview i:last-child {
+  right: 12px;
+  bottom: 13px;
+  width: 36%;
+  height: 14px;
+  border: 1px solid #18303a;
+  background: var(--accent);
+}
+
+.design-choice--lumen .design-choice__preview {
+  border-color: #34495f;
+  border-radius: 14px;
+  background: radial-gradient(circle at 75% 22%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 34%), #101a29;
+}
+
+.design-choice--lumen .design-choice__preview i:first-child {
+  inset: 12px auto 12px 12px;
+  width: 30%;
+  border: 1px solid rgb(222 235 249 / 42%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 10%);
+  box-shadow: 0 8px 18px rgb(0 0 0 / 22%);
+}
+
+.design-choice--lumen .design-choice__preview i:nth-child(2) {
+  top: 17px;
+  right: 13px;
+  width: 44%;
+  height: 6px;
+  border-radius: 999px;
+  background: #edf7ff;
+}
+
+.design-choice--lumen .design-choice__preview i:last-child {
+  right: 13px;
+  bottom: 13px;
+  width: 27%;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
 .design-choice__copy {
   display: grid;
   gap: 4px;
@@ -3320,6 +3386,250 @@ input[type="range"] {
   color: #15110f;
   background: var(--neo-coral);
   box-shadow: 6px 6px 0 var(--line);
+}
+
+/* Gridline: a measured interface built on a compact technical grid. */
+:root[data-design="gridline"] {
+  --canvas: #eaf2f5;
+  --surface: #fbfdfd;
+  --surface-subtle: #e4eef2;
+  --ink: #132730;
+  --muted: #526974;
+  --faint: #7d929c;
+  --line: #c9d9df;
+  --line-strong: #9bb0b9;
+  --inverse: #132730;
+  --inverse-ink: #fbfdfd;
+  --success: #247a62;
+  --danger: #bf4d4b;
+  --focus: var(--accent);
+  --sidebar-width: 212px;
+  font-family: "Relay Inter", "Segoe UI", sans-serif;
+}
+
+:root[data-design="gridline"][data-theme="dark"] {
+  --canvas: #0c171c;
+  --surface: #122127;
+  --surface-subtle: #1a2d35;
+  --ink: #e7f0f3;
+  --muted: #a2b7bf;
+  --faint: #718b96;
+  --line: #29434d;
+  --line-strong: #49636d;
+  --inverse: #e7f0f3;
+  --inverse-ink: #0c171c;
+  --success: #6bc5a8;
+  --danger: #ef827b;
+}
+
+:root[data-design="gridline"] .sidebar {
+  border-right-color: var(--line-strong);
+  background-color: var(--surface);
+  background-image: linear-gradient(color-mix(in srgb, var(--line) 44%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--line) 44%, transparent) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+:root[data-design="gridline"] .brand__logo,
+:root[data-design="gridline"] .panel-section,
+:root[data-design="gridline"] .history-list,
+:root[data-design="gridline"] .help-accordions,
+:root[data-design="gridline"] .about-card,
+:root[data-design="gridline"] .privacy-card {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+:root[data-design="gridline"] .brand__logo {
+  border: 1px solid var(--line-strong);
+}
+
+:root[data-design="gridline"] h1,
+:root[data-design="gridline"] h2,
+:root[data-design="gridline"] h3,
+:root[data-design="gridline"] .brand__copy strong {
+  font-family: "Relay Space Grotesk", "Relay Inter", sans-serif;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+:root[data-design="gridline"] .kicker,
+:root[data-design="gridline"] .section-number,
+:root[data-design="gridline"] .navigation__index {
+  color: var(--accent);
+  font-family: "Relay JetBrains Mono", Consolas, monospace;
+  font-weight: 700;
+}
+
+:root[data-design="gridline"] .navigation {
+  gap: 4px;
+}
+
+:root[data-design="gridline"] .navigation__item {
+  border-radius: 5px;
+}
+
+:root[data-design="gridline"] .navigation__item.is-active {
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface));
+}
+
+:root[data-design="gridline"] .navigation__item.is-active::before {
+  display: none;
+}
+
+:root[data-design="gridline"] .topbar {
+  border-bottom-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent));
+}
+
+:root[data-design="gridline"] .button,
+:root[data-design="gridline"] input,
+:root[data-design="gridline"] select,
+:root[data-design="gridline"] textarea,
+:root[data-design="gridline"] .personalization-fieldset {
+  border-radius: 5px;
+}
+
+:root[data-design="gridline"] .button--primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+:root[data-design="gridline"] .personalization-preview {
+  border-color: var(--line-strong);
+  border-radius: 6px;
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background-image: linear-gradient(color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--line) 52%, transparent) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+:root[data-design="gridline"] .design-choice:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Lumen: soft depth, restrained translucency and an accent-driven glow. */
+:root[data-design="lumen"] {
+  --canvas: #edf3fb;
+  --surface: #f9fbff;
+  --surface-subtle: #e3ebf7;
+  --ink: #14243a;
+  --muted: #5b6d86;
+  --faint: #8190a5;
+  --line: #c6d3e4;
+  --line-strong: #9daec4;
+  --inverse: #14243a;
+  --inverse-ink: #f9fbff;
+  --success: #23826b;
+  --danger: #c65465;
+  --focus: var(--accent);
+  --sidebar-width: 224px;
+  --lumen-shadow: 0 18px 48px rgb(25 47 78 / 12%);
+  font-family: "Relay DM Sans", "Segoe UI", sans-serif;
+}
+
+:root[data-design="lumen"][data-theme="dark"] {
+  --canvas: #08111e;
+  --surface: #101d2e;
+  --surface-subtle: #18283b;
+  --ink: #eaf2ff;
+  --muted: #afc0d6;
+  --faint: #7389a3;
+  --line: #2a3e59;
+  --line-strong: #4a617d;
+  --inverse: #eaf2ff;
+  --inverse-ink: #08111e;
+  --success: #66d0ae;
+  --danger: #f18796;
+  --lumen-shadow: 0 20px 54px rgb(0 0 0 / 30%);
+}
+
+:root[data-design="lumen"] .sidebar,
+:root[data-design="lumen"] .topbar {
+  border-color: color-mix(in srgb, var(--line) 86%, var(--accent));
+  background: linear-gradient(150deg, color-mix(in srgb, var(--surface) 88%, var(--accent)), var(--surface));
+}
+
+:root[data-design="lumen"] .brand__logo {
+  border-radius: 16px;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+:root[data-design="lumen"] h1,
+:root[data-design="lumen"] h2,
+:root[data-design="lumen"] h3,
+:root[data-design="lumen"] .brand__copy strong {
+  font-family: "Relay Space Grotesk", "Relay DM Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+:root[data-design="lumen"] .navigation {
+  gap: 5px;
+}
+
+:root[data-design="lumen"] .navigation__item {
+  border-radius: 12px;
+}
+
+:root[data-design="lumen"] .navigation__item.is-active {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 48%, var(--line));
+}
+
+:root[data-design="lumen"] .navigation__item.is-active::before {
+  width: 2px;
+}
+
+:root[data-design="lumen"] .panel-section,
+:root[data-design="lumen"] .history-list,
+:root[data-design="lumen"] .help-accordions,
+:root[data-design="lumen"] .about-card,
+:root[data-design="lumen"] .privacy-card {
+  border-color: color-mix(in srgb, var(--line) 78%, var(--accent));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  box-shadow: var(--lumen-shadow);
+  backdrop-filter: blur(14px);
+}
+
+:root[data-design="lumen"] .button,
+:root[data-design="lumen"] input,
+:root[data-design="lumen"] select,
+:root[data-design="lumen"] textarea,
+:root[data-design="lumen"] .personalization-fieldset {
+  border-radius: 12px;
+}
+
+:root[data-design="lumen"] .button--primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+:root[data-design="lumen"] .personalization-preview {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line));
+  border-radius: 16px;
+  background: radial-gradient(circle at 80% 15%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 36%), var(--surface-subtle);
+  box-shadow: var(--lumen-shadow);
+}
+
+:root[data-design="lumen"] .personalization-preview::before {
+  color: var(--accent);
+  content: "LOCAL · SIGNAL";
+  font: 700 9px "Relay JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.14em;
+}
+
+:root[data-design="lumen"] .design-choice {
+  border-radius: 14px;
+}
+
+:root[data-design="lumen"] .design-choice:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 11px 22px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 :root[data-interface-font="bricolage"] {

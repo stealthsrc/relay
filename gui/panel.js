@@ -1302,7 +1302,7 @@ const defaultLocaleByLanguage = {
   en: "en-US", fr: "fr-FR", es: "es-ES", de: "de-DE", ru: "ru-RU",
   zh: "zh-CN", ko: "ko-KR", ja: "ja-JP", id: "id-ID",
 };
-const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
+const supportedDesigns = ["openai", "anthropic", "neo-brutalism", "gridline", "lumen"];
 const supportedSidebarLayouts = ["fixed", "compact"];
 const supportedInterfaceFonts = [
   "design", "bricolage", "dm-sans", "figtree", "inter",

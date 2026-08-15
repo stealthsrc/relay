@@ -74,6 +74,8 @@
   --tray-line-strong: #55554f;
   --tray-action: #f5f5f1;
   --tray-action-ink: #121211;
+  --tray-accent: rgb(88 185 137);
+  --tray-accent-ink: #07130d;
   --tray-success: #58b989;
   --tray-danger: #ed7069;
   --tray-radius: 18px;
@@ -109,7 +111,7 @@ button {
 }
 
 button:focus-visible {
-  outline: 2px solid #f5f5f1;
+  outline: 2px solid var(--tray-accent);
   outline-offset: 2px;
 }
 
@@ -525,6 +527,68 @@ button:disabled {
   --tray-danger: #e95344;
 }
 
+:root[data-design="gridline"] {
+  --tray-bg: #eaf2f5;
+  --tray-surface: #fbfdfd;
+  --tray-surface-raised: #e4eef2;
+  --tray-ink: #132730;
+  --tray-muted: #526974;
+  --tray-faint: #7d929c;
+  --tray-line: #c9d9df;
+  --tray-line-strong: #9bb0b9;
+  --tray-action: var(--tray-accent);
+  --tray-action-ink: var(--tray-accent-ink);
+  --tray-success: #247a62;
+  --tray-danger: #bf4d4b;
+  --tray-radius: 7px;
+  --tray-radius-small: 5px;
+  font-family: "Relay Inter", "Segoe UI", sans-serif;
+}
+
+:root[data-design="gridline"][data-theme="dark"] {
+  --tray-bg: #0c171c;
+  --tray-surface: #122127;
+  --tray-surface-raised: #1a2d35;
+  --tray-ink: #e7f0f3;
+  --tray-muted: #a2b7bf;
+  --tray-faint: #718b96;
+  --tray-line: #29434d;
+  --tray-line-strong: #49636d;
+  --tray-success: #6bc5a8;
+  --tray-danger: #ef827b;
+}
+
+:root[data-design="lumen"] {
+  --tray-bg: #edf3fb;
+  --tray-surface: #f9fbff;
+  --tray-surface-raised: #e3ebf7;
+  --tray-ink: #14243a;
+  --tray-muted: #5b6d86;
+  --tray-faint: #8190a5;
+  --tray-line: #c6d3e4;
+  --tray-line-strong: #9daec4;
+  --tray-action: var(--tray-accent);
+  --tray-action-ink: var(--tray-accent-ink);
+  --tray-success: #23826b;
+  --tray-danger: #c65465;
+  --tray-radius: 16px;
+  --tray-radius-small: 11px;
+  font-family: "Relay DM Sans", "Segoe UI", sans-serif;
+}
+
+:root[data-design="lumen"][data-theme="dark"] {
+  --tray-bg: #08111e;
+  --tray-surface: #101d2e;
+  --tray-surface-raised: #18283b;
+  --tray-ink: #eaf2ff;
+  --tray-muted: #afc0d6;
+  --tray-faint: #7389a3;
+  --tray-line: #2a3e59;
+  --tray-line-strong: #4a617d;
+  --tray-success: #66d0ae;
+  --tray-danger: #f18796;
+}
+
 body {
   color: var(--tray-ink);
 }
@@ -684,6 +748,43 @@ body {
 
 :root[data-design="neo-brutalism"] .widget-icon--signal {
   background: #ff735f;
+}
+
+:root[data-design="gridline"] .tray-panel {
+  background-color: var(--tray-bg);
+  background-image: linear-gradient(color-mix(in srgb, var(--tray-line) 42%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--tray-line) 42%, transparent) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+:root[data-design="gridline"] .tray-brand strong,
+:root[data-design="gridline"] .primary-action strong {
+  font-family: "Relay Space Grotesk", "Relay Inter", sans-serif;
+}
+
+:root[data-design="gridline"] .status-rack,
+:root[data-design="gridline"] .widget-row,
+:root[data-design="gridline"] .primary-action,
+:root[data-design="gridline"] .chip,
+:root[data-design="gridline"] .icon-button {
+  border-radius: 5px;
+}
+
+:root[data-design="lumen"] .tray-panel {
+  border-color: color-mix(in srgb, var(--tray-line) 82%, var(--tray-accent));
+  background: radial-gradient(circle at 84% 6%, color-mix(in srgb, var(--tray-accent) 25%, transparent), transparent 32%), var(--tray-bg);
+  box-shadow: 0 18px 42px rgb(12 29 56 / 18%);
+}
+
+:root[data-design="lumen"] .tray-logo,
+:root[data-design="lumen"] .status-rack,
+:root[data-design="lumen"] .widget-row {
+  border-color: color-mix(in srgb, var(--tray-line) 78%, var(--tray-accent));
+  box-shadow: 0 10px 24px rgb(12 29 56 / 11%);
+}
+
+:root[data-design="lumen"] .tray-brand strong,
+:root[data-design="lumen"] .primary-action strong {
+  font-family: "Relay Space Grotesk", "Relay DM Sans", sans-serif;
 }
 
 :root[data-interface-font="bricolage"] {
