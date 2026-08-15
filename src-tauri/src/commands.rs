@@ -494,28 +494,10 @@ pub async fn download_history_media(
         .cloned()
         .ok_or_else(|| "The media is no longer in history.".to_string())?;
     let filename = safe_media_filename(&event.filename, event.kind, &event.content_type);
-    let dialog = match event.kind {
-        MediaKind::Audio => rfd::AsyncFileDialog::new()
-            .add_filter(
-                "Audio",
-                &[
-                    "mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba",
-                ],
-            )
-            .set_file_name(&filename),
-        MediaKind::Video => rfd::AsyncFileDialog::new()
-            .add_filter("Video", &["mp4", "webm", "mov", "mkv", "avi"])
-            .set_file_name(&filename),
-        MediaKind::Gif if is_video_content_type(&event.content_type) => rfd::AsyncFileDialog::new()
-            .add_filter("Video", &["mp4", "webm"])
-            .set_file_name(&filename),
-        MediaKind::Gif => rfd::AsyncFileDialog::new()
-            .add_filter("GIF", &["gif"])
-            .set_file_name(&filename),
-        MediaKind::Image => rfd::AsyncFileDialog::new()
-            .add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "apng"])
-            .set_file_name(&filename),
-    };
+    let (filter_name, extensions) = media_download_filter(event.kind, &event.content_type);
+    let dialog = rfd::AsyncFileDialog::new()
+        .add_filter(filter_name, extensions)
+        .set_file_name(&filename);
     let Some(file) = dialog.save_file().await else {
         return Ok(false);
     };
@@ -679,6 +661,27 @@ fn is_video_content_type(content_type: &str) -> bool {
         .trim()
         .to_ascii_lowercase()
         .starts_with("video/")
+}
+
+fn media_download_filter(
+    kind: MediaKind,
+    content_type: &str,
+) -> (&'static str, &'static [&'static str]) {
+    const AUDIO_EXTENSIONS: &[&str] = &[
+        "mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba",
+    ];
+    const VIDEO_EXTENSIONS: &[&str] = &["mp4", "webm", "mov", "mkv", "avi"];
+    const GIF_VIDEO_EXTENSIONS: &[&str] = &["mp4", "webm"];
+    const GIF_EXTENSIONS: &[&str] = &["gif"];
+    const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "apng"];
+
+    match kind {
+        MediaKind::Audio => ("Audio", AUDIO_EXTENSIONS),
+        MediaKind::Video => ("Video", VIDEO_EXTENSIONS),
+        MediaKind::Gif if is_video_content_type(content_type) => ("Video", GIF_VIDEO_EXTENSIONS),
+        MediaKind::Gif => ("GIF", GIF_EXTENSIONS),
+        MediaKind::Image => ("Image", IMAGE_EXTENSIONS),
+    }
 }
 
 fn media_extension(kind: MediaKind, content_type: &str) -> &'static str {
@@ -1202,6 +1205,21 @@ mod tests {
         assert_eq!(
             safe_media_filename("Discord GIF.mp4", MediaKind::Gif, "video/mp4"),
             "Discord GIF.mp4"
+        );
+        assert_eq!(
+            media_download_filter(MediaKind::Gif, "image/gif"),
+            ("GIF", &["gif"] as &[&str])
+        );
+        assert_eq!(
+            media_download_filter(MediaKind::Gif, "video/mp4"),
+            ("Video", &["mp4", "webm"] as &[&str])
+        );
+        assert_eq!(
+            media_download_filter(MediaKind::Image, "image/jpeg"),
+            (
+                "Image",
+                &["png", "jpg", "jpeg", "gif", "webp", "apng"] as &[&str]
+            )
         );
     }
 }
