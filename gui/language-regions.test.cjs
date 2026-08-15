@@ -15,8 +15,17 @@ test("the language picker exposes every supported regional locale", () => {
     assert.match(panelHtml, new RegExp(`data-locale="${locale}"`), locale);
     assert.match(panelSource, new RegExp(`locale: "${locale}"`), locale);
   }
-  assert.match(panelSource, /language = activeLanguageOption\(\)\.language/);
+  assert.match(panelSource, /language = option\.language/);
   assert.match(panelSource, /localStorage\.setItem\("relay-locale", locale\)/);
+});
+
+test("the sidebar language control uses an inline regional picker", () => {
+  assert.match(panelHtml, /id="sidebar-language-picker"/);
+  assert.match(panelHtml, /id="sidebar-language-options"[^>]*role="listbox"/);
+  assert.match(panelSource, /function setSidebarLanguageMenuOpen\(open\)/);
+  assert.match(panelSource, /sidebarLanguageOptionsElement\.replaceChildren/);
+  assert.match(panelSource, /languageToggleButton\.addEventListener\("click", \(\) => \{\s*setSidebarLanguageMenuOpen/s);
+  assert.doesNotMatch(panelSource, /languageToggleButton\.addEventListener\([\s\S]*?showPage\("personalization"\)/);
 });
 
 test("every regional locale uses a bundled SVG flag", () => {

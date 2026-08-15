@@ -263,6 +263,16 @@ select:focus-visible {
   margin-top: auto;
 }
 
+.sidebar-language-picker {
+  position: relative;
+}
+
+.sidebar-language-picker__options {
+  top: auto;
+  bottom: calc(100% + 6px);
+  width: max(220px, 100%);
+}
+
 .utility-button {
   display: flex;
   align-items: center;
@@ -277,6 +287,11 @@ select:focus-visible {
 }
 
 .utility-button:hover {
+  color: var(--ink);
+  background: var(--surface-subtle);
+}
+
+.utility-button[aria-expanded="true"] {
   color: var(--ink);
   background: var(--surface-subtle);
 }

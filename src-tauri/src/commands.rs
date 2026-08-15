@@ -181,7 +181,10 @@ pub async fn set_interface_preferences(
     accent_rgb: [u8; 3],
     font_scale: u8,
 ) -> Result<(), String> {
-    if !matches!(language.as_str(), "en" | "fr" | "es" | "de") {
+    if !matches!(
+        language.as_str(),
+        "en" | "fr" | "es" | "de" | "ru" | "zh" | "ko" | "ja" | "id"
+    ) {
         return Err("unsupported interface language".into());
     }
     if !matches!(theme.as_str(), "light" | "dark") {

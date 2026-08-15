@@ -1208,6 +1208,8 @@ const interfaceLanguageButton = $("#interface-language-button");
 const interfaceLanguageOptionsElement = $("#interface-language-options");
 const interfaceLanguageLabelElement = $("#interface-language-label");
 const interfaceLanguageFlagElement = $("#interface-language-flag");
+const sidebarLanguagePickerElement = $("#sidebar-language-picker");
+const sidebarLanguageOptionsElement = $("#sidebar-language-options");
 const interfaceThemeElement = $("#interface-theme");
 const interfaceFontElement = $("#interface-font");
 const designInputs = $$("input[name='interface-design']");
@@ -1371,6 +1373,13 @@ function activeLanguageOption() {
 function setLanguageMenuOpen(open) {
   interfaceLanguageOptionsElement.hidden = !open;
   interfaceLanguageButton.setAttribute("aria-expanded", String(open));
+  if (open) setSidebarLanguageMenuOpen(false);
+}
+
+function setSidebarLanguageMenuOpen(open) {
+  sidebarLanguageOptionsElement.hidden = !open;
+  languageToggleButton.setAttribute("aria-expanded", String(open));
+  if (open) setLanguageMenuOpen(false);
 }
 
 function renderLanguagePicker() {
@@ -1381,10 +1390,35 @@ function renderLanguagePicker() {
   languageFlagElement.src = flagUrl;
   languageValueElement.textContent = selected.short;
   interfaceLanguageButton.setAttribute("aria-label", `${t("language")}: ${selected.label}`);
+  languageToggleButton.setAttribute("aria-label", `${t("language")}: ${selected.label}`);
   for (const option of $$("[data-locale]", interfaceLanguageOptionsElement)) {
     const isSelected = option.dataset.locale === selected.locale;
     option.setAttribute("aria-selected", String(isSelected));
   }
+  sidebarLanguageOptionsElement.replaceChildren(...languageOptions.map((option) => {
+    const button = document.createElement("button");
+    const isSelected = option.locale === selected.locale;
+    button.className = "language-picker__option sidebar-language-picker__option";
+    button.type = "button";
+    button.dataset.locale = option.locale;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(isSelected));
+    button.innerHTML = `<img class="flag-icon" src="./assets/flags/${option.flag}.svg" alt=""><span>${option.label}</span><i aria-hidden="true">✓</i>`;
+    return button;
+  }));
+}
+
+function selectInterfaceLanguage(nextLocale, focusTarget) {
+  const option = languageOptionByLocale.get(nextLocale);
+  if (!option) return;
+  locale = option.locale;
+  language = option.language;
+  setLanguageMenuOpen(false);
+  setSidebarLanguageMenuOpen(false);
+  applyLanguage();
+  applyTheme();
+  applyPersonalization();
+  focusTarget.focus();
 }
 
 function applyLanguage() {
@@ -2998,6 +3032,9 @@ document.addEventListener("pointerdown", (event) => {
   if (!interfaceLanguageOptionsElement.hidden && !interfaceLanguageElement.contains(event.target)) {
     setLanguageMenuOpen(false);
   }
+  if (!sidebarLanguageOptionsElement.hidden && !sidebarLanguagePickerElement.contains(event.target)) {
+    setSidebarLanguageMenuOpen(false);
+  }
 });
 
 document.addEventListener("keydown", (event) => {
@@ -3013,6 +3050,10 @@ document.addEventListener("keydown", (event) => {
     if (!interfaceLanguageOptionsElement.hidden) {
       setLanguageMenuOpen(false);
       interfaceLanguageButton.focus();
+    }
+    if (!sidebarLanguageOptionsElement.hidden) {
+      setSidebarLanguageMenuOpen(false);
+      languageToggleButton.focus();
     }
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
@@ -3034,8 +3075,7 @@ $("#privacy-reference").addEventListener("click", () => {
 });
 
 languageToggleButton.addEventListener("click", () => {
-  showPage("personalization");
-  window.requestAnimationFrame(() => interfaceLanguageButton.focus());
+  setSidebarLanguageMenuOpen(sidebarLanguageOptionsElement.hidden);
 });
 
 themeToggleButton.addEventListener("click", () => {
@@ -3050,15 +3090,14 @@ interfaceLanguageButton.addEventListener("click", () => {
 
 for (const option of $$("[data-locale]", interfaceLanguageOptionsElement)) {
   option.addEventListener("click", () => {
-    locale = option.dataset.locale;
-    language = activeLanguageOption().language;
-    setLanguageMenuOpen(false);
-    applyLanguage();
-    applyTheme();
-    applyPersonalization();
-    interfaceLanguageButton.focus();
+    selectInterfaceLanguage(option.dataset.locale, interfaceLanguageButton);
   });
 }
+
+sidebarLanguageOptionsElement.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-locale]");
+  if (option) selectInterfaceLanguage(option.dataset.locale, languageToggleButton);
+});
 
 interfaceThemeElement.addEventListener("change", () => {
   theme = interfaceThemeElement.value;

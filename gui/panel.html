@@ -60,13 +60,16 @@
         </nav>
 
         <div class="sidebar__footer">
-          <button id="language-toggle" class="utility-button" type="button" aria-label="Switch language">
-            <span data-i18n="language">Language</span>
-            <span class="utility-button__value">
-              <img id="language-flag" class="flag-icon" src="./assets/flags/us.svg" alt="">
-              <strong id="language-value">EN-US</strong>
-            </span>
-          </button>
+          <div id="sidebar-language-picker" class="sidebar-language-picker">
+            <button id="language-toggle" class="utility-button" type="button" aria-label="Switch language" aria-haspopup="listbox" aria-expanded="false" aria-controls="sidebar-language-options">
+              <span data-i18n="language">Language</span>
+              <span class="utility-button__value">
+                <img id="language-flag" class="flag-icon" src="./assets/flags/us.svg" alt="">
+                <strong id="language-value">EN-US</strong>
+              </span>
+            </button>
+            <div id="sidebar-language-options" class="language-picker__options sidebar-language-picker__options" role="listbox" hidden></div>
+          </div>
           <button id="theme-toggle" class="utility-button" type="button" aria-label="Switch theme">
             <span data-i18n="appearance">Appearance</span>
             <strong id="theme-value">Light</strong>
