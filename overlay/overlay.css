@@ -249,6 +249,7 @@ html.widget-edit .widget-move-layer {
   bottom: 1.5rem;
   left: 1.5rem;
   display: -webkit-box;
+  width: fit-content;
   max-width: min(62ch, calc(100% - 18rem));
   max-height: 4.5em;
   margin: 0;
@@ -281,10 +282,9 @@ html.widget-edit .widget-move-layer {
 
 @media (max-width: 640px) {
   .overlay__caption {
-    right: 1rem;
     bottom: 4.75rem;
     left: 1rem;
-    max-width: none;
+    max-width: min(34ch, calc(100% - 2rem));
     transform-origin: left bottom;
   }
 }
