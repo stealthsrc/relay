@@ -7,6 +7,8 @@ use serde::Deserialize;
 const SEARCH_ENDPOINT: &str = "https://www.googleapis.com/youtube/v3/search";
 const VIDEOS_ENDPOINT: &str = "https://www.googleapis.com/youtube/v3/videos";
 const MAX_TRACK_DURATION_SECONDS: u64 = 180;
+const SEARCH_CANDIDATE_LIMIT: usize = 25;
+const RESULT_LIMIT: usize = 10;
 const MAX_QUERY_CHARS: usize = 200;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -84,13 +86,15 @@ pub async fn search(query: &str, api_key: &str) -> Result<Vec<YouTubeTrack>> {
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|_| anyhow::anyhow!("Unable to initialize the YouTube client."))?;
+    let max_results = SEARCH_CANDIDATE_LIMIT.to_string();
     let search_response = client
         .get(SEARCH_ENDPOINT)
         .query(&[
             ("part", "snippet"),
             ("type", "video"),
             ("videoEmbeddable", "true"),
-            ("maxResults", "5"),
+            ("maxResults", max_results.as_str()),
+            ("order", "viewCount"),
             ("q", query.as_str()),
             ("key", api_key),
         ])
@@ -198,7 +202,7 @@ fn map_search_results(
                 duration_seconds,
             })
         })
-        .take(5)
+        .take(RESULT_LIMIT)
         .collect()
 }
 
