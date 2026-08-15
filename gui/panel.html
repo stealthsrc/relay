@@ -333,7 +333,7 @@
               </div>
               <button id="skip-media" class="button button--skip" type="button">
                 <span data-i18n="skip">Skip media</span>
-                <kbd>Ctrl Alt S</kbd>
+                <kbd id="skip-shortcut-key">Ctrl Alt S</kbd>
               </button>
             </section>
 
@@ -456,6 +456,26 @@
                         <span class="switch__track" aria-hidden="true"></span>
                       </span>
                     </label>
+                  </div>
+                </details>
+                <details class="settings-disclosure" open>
+                  <summary>
+                    <span>
+                      <strong data-i18n="controlsGroup">Keyboard controls</strong>
+                      <small data-i18n="controlsGroupHelp">Choose the global shortcut used to skip the current media.</small>
+                    </span>
+                    <i aria-hidden="true"></i>
+                  </summary>
+                  <div class="settings-disclosure__content">
+                    <div class="setting-row">
+                      <span>
+                        <strong data-i18n="skipShortcut">Skip current media</strong>
+                        <small data-i18n="skipShortcutHelp">Click Capture, then press the key combination you want to use everywhere.</small>
+                      </span>
+                      <button id="skip-shortcut-capture" class="button button--quiet shortcut-capture" type="button" aria-pressed="false">
+                        <kbd id="skip-shortcut-value">Ctrl Alt S</kbd>
+                      </button>
+                    </div>
                   </div>
                 </details>
                 <details class="settings-disclosure">
@@ -1492,7 +1512,10 @@
           <span class="history-item__author"></span>
         </div>
         <time class="history-item__time"></time>
-        <button class="button button--quiet history-item__replay" type="button" data-i18n="replay">Replay</button>
+        <div class="history-item__actions">
+          <button class="button button--quiet history-item__replay" type="button" data-i18n="replay">Replay</button>
+          <button class="button button--quiet history-item__download" type="button" data-i18n="download">Download</button>
+        </div>
       </li>
     </template>
 

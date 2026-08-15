@@ -504,6 +504,19 @@ select:focus-visible {
   background: var(--canvas);
 }
 
+@media (max-width: 1250px) {
+  .topbar:has(.now-playing:not([hidden])) {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .topbar:has(.now-playing:not([hidden])) .now-playing {
+    flex: 1 1 300px;
+    width: auto;
+    min-width: 260px;
+  }
+}
+
 .topbar__start,
 .navigation-history {
   display: flex;
@@ -2994,6 +3007,17 @@ input[type="range"] {
 
 .history-item__time {
   font-variant-numeric: tabular-nums;
+}
+
+.history-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shortcut-capture {
+  min-width: 124px;
 }
 
 .empty-state {

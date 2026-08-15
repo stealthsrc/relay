@@ -559,18 +559,34 @@ Object.assign(translations.de, {
 Object.assign(translations.en, {
   nowPlaying: "Now playing", previousAudio: "Previous audio", pauseAudio: "Pause audio",
   resumeAudio: "Resume audio", skipAudio: "Skip audio",
+  controlsGroup: "Keyboard controls", controlsGroupHelp: "Choose the global shortcut used to skip the current media.",
+  skipShortcut: "Skip current media", skipShortcutHelp: "Click Capture, then press the key combination you want to use everywhere.",
+  captureShortcut: "Capture", pressShortcut: "Press a key combination…", shortcutSaved: "Shortcut saved", shortcutCanceled: "Shortcut capture canceled",
+  shortcutInvalid: "That shortcut could not be registered.", download: "Download", downloading: "Downloading…", downloaded: "Saved", downloadCanceled: "Download canceled",
 });
 Object.assign(translations.fr, {
   nowPlaying: "Lecture en cours", previousAudio: "Audio précédent", pauseAudio: "Mettre en pause",
   resumeAudio: "Reprendre la lecture", skipAudio: "Passer l’audio",
+  controlsGroup: "Raccourcis clavier", controlsGroupHelp: "Choisissez le raccourci global qui passe le média actuel.",
+  skipShortcut: "Passer le média actuel", skipShortcutHelp: "Cliquez sur Capturer, puis appuyez sur la combinaison à utiliser partout.",
+  captureShortcut: "Capturer", pressShortcut: "Appuyez sur une combinaison…", shortcutSaved: "Raccourci enregistré", shortcutCanceled: "Capture annulée",
+  shortcutInvalid: "Ce raccourci ne peut pas être enregistré.", download: "Télécharger", downloading: "Téléchargement…", downloaded: "Enregistré", downloadCanceled: "Téléchargement annulé",
 });
 Object.assign(translations.es, {
   nowPlaying: "Reproduciendo", previousAudio: "Audio anterior", pauseAudio: "Pausar audio",
   resumeAudio: "Reanudar audio", skipAudio: "Omitir audio",
+  controlsGroup: "Atajos de teclado", controlsGroupHelp: "Elige el atajo global para omitir el medio actual.",
+  skipShortcut: "Omitir medio actual", skipShortcutHelp: "Pulsa Capturar y después la combinación que quieras usar.",
+  captureShortcut: "Capturar", pressShortcut: "Pulsa una combinación…", shortcutSaved: "Atajo guardado", shortcutCanceled: "Captura cancelada",
+  shortcutInvalid: "No se pudo registrar ese atajo.", download: "Descargar", downloading: "Descargando…", downloaded: "Guardado", downloadCanceled: "Descarga cancelada",
 });
 Object.assign(translations.de, {
   nowPlaying: "Aktuelle Wiedergabe", previousAudio: "Vorheriges Audio", pauseAudio: "Audio pausieren",
   resumeAudio: "Audio fortsetzen", skipAudio: "Audio überspringen",
+  controlsGroup: "Tastenkürzel", controlsGroupHelp: "Wähle das globale Kürzel zum Überspringen des aktuellen Mediums.",
+  skipShortcut: "Aktuelles Medium überspringen", skipShortcutHelp: "Klicke auf Aufnehmen und drücke die gewünschte Tastenkombination.",
+  captureShortcut: "Aufnehmen", pressShortcut: "Tastenkombination drücken…", shortcutSaved: "Kürzel gespeichert", shortcutCanceled: "Aufnahme abgebrochen",
+  shortcutInvalid: "Dieses Kürzel konnte nicht registriert werden.", download: "Herunterladen", downloading: "Wird heruntergeladen…", downloaded: "Gespeichert", downloadCanceled: "Download abgebrochen",
 });
 
 Object.assign(translations.en, {
@@ -1244,6 +1260,9 @@ const historyEmptyElement = $("#history-empty");
 const historyItemTemplate = $("#history-item-template");
 const clearOverlayButton = $("#clear-overlay");
 const skipMediaButton = $("#skip-media");
+const skipShortcutKeyElement = $("#skip-shortcut-key");
+const skipShortcutCaptureButton = $("#skip-shortcut-capture");
+const skipShortcutValueElement = $("#skip-shortcut-value");
 const languageToggleButton = $("#language-toggle");
 const languageValueElement = $("#language-value");
 const languageFlagElement = $("#language-flag");
@@ -1282,6 +1301,7 @@ let reconnectDelayMs = 1000;
 let statusTimer;
 let mediaCaptionSaveGeneration = 0;
 let isUnloading = false;
+let shortcutCaptureActive = false;
 let currentPage = "overview";
 const navigationHistory = ["overview"];
 let navigationHistoryIndex = 0;
@@ -2548,6 +2568,7 @@ function applyConfig(config) {
     renderCustomCommands();
   }
   applyOutputGeometryConfig(config);
+  updateSkipShortcutDisplay(config.skipShortcut);
 }
 
 function setCredentials(status) {
@@ -2556,6 +2577,68 @@ function setCredentials(status) {
     : t("notConfigured");
   clientIdElement.value = status.clientId || "";
   tokenElement.value = "";
+}
+
+function formatShortcutLabel(shortcut) {
+  return String(shortcut || "control+alt+KeyS")
+    .split("+")
+    .map((token) => {
+      const normalized = token.trim();
+      const lower = normalized.toLowerCase();
+      if (lower === "control" || lower === "ctrl") return "Ctrl";
+      if (lower === "alt" || lower === "option") return "Alt";
+      if (lower === "shift") return "Shift";
+      if (lower === "super" || lower === "command" || lower === "cmd") return "Win";
+      if (/^key[a-z]$/i.test(normalized)) return normalized.slice(-1).toUpperCase();
+      if (/^digit\d$/i.test(normalized)) return normalized.slice(-1);
+      return normalized
+        .replace(/^Arrow/, "")
+        .replace(/^Numpad/, "Num ");
+    })
+    .join(" ");
+}
+
+function updateSkipShortcutDisplay(shortcut) {
+  const label = formatShortcutLabel(shortcut);
+  skipShortcutKeyElement.textContent = label;
+  skipShortcutValueElement.textContent = label;
+}
+
+function shortcutTokenFromEvent(event) {
+  const modifierCodes = new Set(["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
+  if (modifierCodes.has(event.code)) return "";
+  const supportedCode = /^(Key[A-Z]|Digit\d|F(?:[1-9]|1\d|2[0-4])|Arrow(?:Up|Down|Left|Right)|Numpad(?:\d|Add|Subtract|Multiply|Divide|Decimal|Enter|Equal)|(?:Backquote|Backslash|BracketLeft|BracketRight|Comma|Equal|Minus|Period|Quote|Semicolon|Slash|Backspace|CapsLock|Delete|End|Enter|Escape|Home|Insert|PageDown|PageUp|Pause|PrintScreen|ScrollLock|Space|Tab))$/;
+  return supportedCode.test(event.code) ? event.code : "";
+}
+
+function beginShortcutCapture() {
+  shortcutCaptureActive = true;
+  skipShortcutCaptureButton.setAttribute("aria-pressed", "true");
+  skipShortcutValueElement.textContent = t("pressShortcut");
+  skipShortcutCaptureButton.focus();
+}
+
+function cancelShortcutCapture() {
+  shortcutCaptureActive = false;
+  skipShortcutCaptureButton.setAttribute("aria-pressed", "false");
+  updateSkipShortcutDisplay(bootstrap?.config?.skipShortcut);
+}
+
+async function saveCapturedShortcut(shortcut) {
+  const previousLabel = formatShortcutLabel(bootstrap?.config?.skipShortcut);
+  shortcutCaptureActive = false;
+  skipShortcutCaptureButton.setAttribute("aria-pressed", "false");
+  skipShortcutValueElement.textContent = formatShortcutLabel(shortcut);
+  mediaSaveStateElement.textContent = t("saving");
+  try {
+    const config = await invoke("set_skip_shortcut", { shortcut });
+    bootstrap.config = config;
+    updateSkipShortcutDisplay(config.skipShortcut);
+    mediaSaveStateElement.textContent = t("shortcutSaved");
+  } catch (error) {
+    skipShortcutValueElement.textContent = previousLabel;
+    mediaSaveStateElement.textContent = String(error) || t("shortcutInvalid");
+  }
 }
 
 function updateBotActivityAvailability() {
@@ -2607,6 +2690,23 @@ function renderHistory() {
         await invoke("replay_media", { messageId: mediaEvent.messageId });
       } catch (error) {
         saveStateElement.textContent = String(error);
+      }
+    });
+    const downloadButton = item.querySelector(".history-item__download");
+    downloadButton.textContent = t("download");
+    downloadButton.addEventListener("click", async () => {
+      downloadButton.disabled = true;
+      saveStateElement.textContent = t("downloading");
+      try {
+        const saved = await invoke("download_history_media", {
+          messageId: mediaEvent.messageId,
+          mediaUrl: mediaEvent.url,
+        });
+        saveStateElement.textContent = saved ? t("downloaded") : t("downloadCanceled");
+      } catch (error) {
+        saveStateElement.textContent = String(error);
+      } finally {
+        downloadButton.disabled = false;
       }
     });
     historyListElement.append(item);
@@ -3572,6 +3672,26 @@ skipMediaButton.addEventListener("click", async () => {
   } catch (error) {
     mediaSaveStateElement.textContent = String(error);
   }
+});
+
+skipShortcutCaptureButton.addEventListener("click", beginShortcutCapture);
+window.addEventListener("keydown", (event) => {
+  if (!shortcutCaptureActive) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.key === "Escape") {
+    cancelShortcutCapture();
+    mediaSaveStateElement.textContent = t("shortcutCanceled");
+    return;
+  }
+  const token = shortcutTokenFromEvent(event);
+  if (!token) return;
+  const modifiers = [];
+  if (event.ctrlKey) modifiers.push("control");
+  if (event.altKey) modifiers.push("alt");
+  if (event.shiftKey) modifiers.push("shift");
+  if (event.metaKey) modifiers.push("super");
+  void saveCapturedShortcut([...modifiers, token].join("+"));
 });
 
 previousAudioButton.addEventListener("click", () => controlCurrentAudio("previous"));
