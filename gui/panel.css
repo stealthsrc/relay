@@ -168,6 +168,12 @@ select:focus-visible {
   height: 100vh;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-sidebar-behavior="dynamic"] .app-shell {
+    transition: grid-template-columns 180ms ease;
+  }
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

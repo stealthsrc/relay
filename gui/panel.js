@@ -1047,15 +1047,15 @@ const regionalTranslations = {
 };
 
 const personalizationExtensionTranslations = {
-  en: { sidebarLayout: "Sidebar layout", sidebarLayoutFixed: "Fixed · labels and icons", sidebarLayoutCompact: "Reduced · icons only", sidebarLayoutHelp: "Keep navigation labels visible or reduce the sidebar to compact icons.", gridlineDesignCopy: "Structured, clear and technical.", lumenDesignCopy: "Layered, luminous and atmospheric." },
-  fr: { sidebarLayout: "Disposition de la barre latérale", sidebarLayoutFixed: "Fixe · libellés et icônes", sidebarLayoutCompact: "Réduite · icônes seules", sidebarLayoutHelp: "Gardez les libellés de navigation visibles ou réduisez la barre latérale à des icônes compactes.", gridlineDesignCopy: "Structuré, clair et technique.", lumenDesignCopy: "En couches, lumineux et atmosphérique." },
-  es: { sidebarLayout: "Diseño de la barra lateral", sidebarLayoutFixed: "Fijo · etiquetas e iconos", sidebarLayoutCompact: "Reducido · solo iconos", sidebarLayoutHelp: "Mantén visibles las etiquetas de navegación o reduce la barra lateral a iconos compactos.", gridlineDesignCopy: "Estructurado, claro y técnico.", lumenDesignCopy: "En capas, luminoso y atmosférico." },
-  de: { sidebarLayout: "Layout der Seitenleiste", sidebarLayoutFixed: "Fest · Beschriftungen und Symbole", sidebarLayoutCompact: "Reduziert · nur Symbole", sidebarLayoutHelp: "Navigationstexte sichtbar lassen oder die Seitenleiste auf kompakte Symbole reduzieren.", gridlineDesignCopy: "Strukturiert, klar und technisch.", lumenDesignCopy: "Mehrschichtig, leuchtend und atmosphärisch." },
-  ru: { sidebarLayout: "Макет боковой панели", sidebarLayoutFixed: "Полный · подписи и значки", sidebarLayoutCompact: "Компактный · только значки", sidebarLayoutHelp: "Оставьте подписи навигации видимыми или сократите панель до компактных значков.", gridlineDesignCopy: "Структурный, ясный и технический.", lumenDesignCopy: "Многослойный, светящийся и атмосферный." },
-  zh: { sidebarLayout: "侧边栏布局", sidebarLayoutFixed: "固定 · 标签和图标", sidebarLayoutCompact: "精简 · 仅图标", sidebarLayoutHelp: "保留可见的导航标签，或将侧边栏缩小为紧凑图标。", gridlineDesignCopy: "结构化、清晰且技术化。", lumenDesignCopy: "层次分明、明亮且富有氛围。" },
-  ko: { sidebarLayout: "사이드바 레이아웃", sidebarLayoutFixed: "고정 · 레이블 및 아이콘", sidebarLayoutCompact: "축소 · 아이콘만", sidebarLayoutHelp: "탐색 레이블을 표시하거나 사이드바를 간결한 아이콘으로 줄입니다.", gridlineDesignCopy: "구조적이고 명확하며 기술적입니다.", lumenDesignCopy: "겹겹이 빛나며 분위기 있습니다." },
-  ja: { sidebarLayout: "サイドバーのレイアウト", sidebarLayoutFixed: "固定 · ラベルとアイコン", sidebarLayoutCompact: "縮小 · アイコンのみ", sidebarLayoutHelp: "ナビゲーションラベルを表示したままにするか、サイドバーをコンパクトなアイコンに縮小します。", gridlineDesignCopy: "構造的で、明快かつ技術的。", lumenDesignCopy: "重なりがあり、明るく、雰囲気のあるデザイン。" },
-  id: { sidebarLayout: "Tata letak bilah samping", sidebarLayoutFixed: "Tetap · label dan ikon", sidebarLayoutCompact: "Ringkas · ikon saja", sidebarLayoutHelp: "Biarkan label navigasi terlihat atau ringkas bilah samping menjadi ikon yang padat.", gridlineDesignCopy: "Terstruktur, jelas, dan teknis.", lumenDesignCopy: "Berlapis, bercahaya, dan atmosferik." },
+  en: { sidebarLayout: "Sidebar layout", sidebarLayoutFixed: "Fixed · labels and icons", sidebarLayoutCompact: "Reduced · icons only", sidebarLayoutDynamic: "Dynamic · expands on hover", sidebarLayoutHelp: "Keep labels visible, use compact icons, or expand the compact sidebar on hover or keyboard focus.", gridlineDesignCopy: "Structured, clear and technical.", lumenDesignCopy: "Layered, luminous and atmospheric." },
+  fr: { sidebarLayout: "Disposition de la barre latérale", sidebarLayoutFixed: "Fixe · libellés et icônes", sidebarLayoutCompact: "Réduite · icônes seules", sidebarLayoutDynamic: "Dynamique · s’agrandit au survol", sidebarLayoutHelp: "Gardez les libellés visibles, utilisez des icônes compactes ou développez la barre latérale au survol ou au focus clavier.", gridlineDesignCopy: "Structuré, clair et technique.", lumenDesignCopy: "En couches, lumineux et atmosphérique." },
+  es: { sidebarLayout: "Diseño de la barra lateral", sidebarLayoutFixed: "Fijo · etiquetas e iconos", sidebarLayoutCompact: "Reducido · solo iconos", sidebarLayoutDynamic: "Dinámico · se expande al pasar el cursor", sidebarLayoutHelp: "Mantén las etiquetas visibles, usa iconos compactos o expande la barra lateral al pasar el cursor o con el foco del teclado.", gridlineDesignCopy: "Estructurado, claro y técnico.", lumenDesignCopy: "En capas, luminoso y atmosférico." },
+  de: { sidebarLayout: "Layout der Seitenleiste", sidebarLayoutFixed: "Fest · Beschriftungen und Symbole", sidebarLayoutCompact: "Reduziert · nur Symbole", sidebarLayoutDynamic: "Dynamisch · erweitert sich beim Überfahren", sidebarLayoutHelp: "Lassen Sie Beschriftungen sichtbar, verwenden Sie kompakte Symbole oder erweitern Sie die Seitenleiste beim Überfahren oder Tastaturfokus.", gridlineDesignCopy: "Strukturiert, klar und technisch.", lumenDesignCopy: "Mehrschichtig, leuchtend und atmosphärisch." },
+  ru: { sidebarLayout: "Макет боковой панели", sidebarLayoutFixed: "Полный · подписи и значки", sidebarLayoutCompact: "Компактный · только значки", sidebarLayoutDynamic: "Динамический · раскрывается при наведении", sidebarLayoutHelp: "Оставьте подписи видимыми, используйте компактные значки или раскрывайте панель при наведении либо фокусе с клавиатуры.", gridlineDesignCopy: "Структурный, ясный и технический.", lumenDesignCopy: "Многослойный, светящийся и атмосферный." },
+  zh: { sidebarLayout: "侧边栏布局", sidebarLayoutFixed: "固定 · 标签和图标", sidebarLayoutCompact: "精简 · 仅图标", sidebarLayoutDynamic: "动态 · 悬停时展开", sidebarLayoutHelp: "保留可见标签、使用紧凑图标，或在悬停和键盘焦点时展开侧边栏。", gridlineDesignCopy: "结构化、清晰且技术化。", lumenDesignCopy: "层次分明、明亮且富有氛围。" },
+  ko: { sidebarLayout: "사이드바 레이아웃", sidebarLayoutFixed: "고정 · 레이블 및 아이콘", sidebarLayoutCompact: "축소 · 아이콘만", sidebarLayoutDynamic: "동적 · 마우스를 올리면 확장", sidebarLayoutHelp: "레이블을 표시하거나 간결한 아이콘을 사용하고, 마우스를 올리거나 키보드로 초점을 맞추면 사이드바를 확장합니다.", gridlineDesignCopy: "구조적이고 명확하며 기술적입니다.", lumenDesignCopy: "겹겹이 빛나며 분위기 있습니다." },
+  ja: { sidebarLayout: "サイドバーのレイアウト", sidebarLayoutFixed: "固定 · ラベルとアイコン", sidebarLayoutCompact: "縮小 · アイコンのみ", sidebarLayoutDynamic: "動的 · ホバーで展開", sidebarLayoutHelp: "ラベルを表示したままにするか、コンパクトなアイコンを使い、ホバーまたはキーボードフォーカスでサイドバーを展開します。", gridlineDesignCopy: "構造的で、明快かつ技術的。", lumenDesignCopy: "重なりがあり、明るく、雰囲気のあるデザイン。" },
+  id: { sidebarLayout: "Tata letak bilah samping", sidebarLayoutFixed: "Tetap · label dan ikon", sidebarLayoutCompact: "Ringkas · ikon saja", sidebarLayoutDynamic: "Dinamis · melebar saat diarahkan", sidebarLayoutHelp: "Biarkan label terlihat, gunakan ikon ringkas, atau lebarkan bilah samping saat diarahkan atau mendapat fokus keyboard.", gridlineDesignCopy: "Terstruktur, jelas, dan teknis.", lumenDesignCopy: "Berlapis, bercahaya, dan atmosferik." },
 };
 
 for (const [languageCode, extension] of Object.entries(personalizationExtensionTranslations)) {
@@ -1229,6 +1229,7 @@ const sidebarLanguageOptionsElement = $("#sidebar-language-options");
 const interfaceThemeElement = $("#interface-theme");
 const interfaceFontElement = $("#interface-font");
 const sidebarLayoutElement = $("#sidebar-layout");
+const sidebarElement = $(".sidebar");
 const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
 const accentPickerElement = $("#accent-picker");
@@ -1303,7 +1304,7 @@ const defaultLocaleByLanguage = {
   zh: "zh-CN", ko: "ko-KR", ja: "ja-JP", id: "id-ID",
 };
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism", "gridline", "lumen"];
-const supportedSidebarLayouts = ["fixed", "compact"];
+const supportedSidebarLayouts = ["fixed", "compact", "dynamic"];
 const supportedInterfaceFonts = [
   "design", "bricolage", "dm-sans", "figtree", "inter",
   "jetbrains-mono", "manrope", "poppins", "space-grotesk",
@@ -1318,6 +1319,7 @@ let interfaceFont = localStorage.getItem("relay-interface-font") || "design";
 if (!supportedInterfaceFonts.includes(interfaceFont)) interfaceFont = "design";
 let sidebarLayout = localStorage.getItem("relay-sidebar-layout") || "fixed";
 if (!supportedSidebarLayouts.includes(sidebarLayout)) sidebarLayout = "fixed";
+let sidebarExpanded = false;
 let theme = localStorage.getItem("relay-theme")
   || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let accentRgb = parseStoredAccent();
@@ -1503,9 +1505,20 @@ function applyDesign() {
 }
 
 function applySidebarLayout() {
-  document.documentElement.dataset.sidebarLayout = sidebarLayout;
+  const appliedLayout = sidebarLayout === "dynamic"
+    ? (sidebarExpanded ? "fixed" : "compact")
+    : sidebarLayout;
+  document.documentElement.dataset.sidebarLayout = appliedLayout;
+  document.documentElement.dataset.sidebarBehavior = sidebarLayout;
   localStorage.setItem("relay-sidebar-layout", sidebarLayout);
   sidebarLayoutElement.value = sidebarLayout;
+}
+
+function setDynamicSidebarExpanded(expanded) {
+  const nextExpanded = sidebarLayout === "dynamic" && expanded;
+  if (sidebarExpanded === nextExpanded) return;
+  sidebarExpanded = nextExpanded;
+  applySidebarLayout();
 }
 
 function applyInterfaceFont() {
@@ -3139,7 +3152,17 @@ interfaceFontElement.addEventListener("change", () => {
 
 sidebarLayoutElement.addEventListener("change", () => {
   sidebarLayout = sidebarLayoutElement.value;
+  sidebarExpanded = false;
   applySidebarLayout();
+});
+
+sidebarElement.addEventListener("pointerenter", () => setDynamicSidebarExpanded(true));
+sidebarElement.addEventListener("pointerleave", () => setDynamicSidebarExpanded(false));
+sidebarElement.addEventListener("focusin", () => setDynamicSidebarExpanded(true));
+sidebarElement.addEventListener("focusout", () => {
+  window.requestAnimationFrame(() => {
+    if (!sidebarElement.contains(document.activeElement)) setDynamicSidebarExpanded(false);
+  });
 });
 
 for (const input of designInputs) {
@@ -3174,6 +3197,7 @@ resetPersonalizationButton.addEventListener("click", () => {
   design = "openai";
   interfaceFont = "design";
   sidebarLayout = "fixed";
+  sidebarExpanded = false;
   accentRgb = [88, 185, 137];
   fontScale = 100;
   applyLanguage();
