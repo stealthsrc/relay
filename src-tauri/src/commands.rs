@@ -506,7 +506,13 @@ pub async fn download_history_media(
         MediaKind::Video => rfd::AsyncFileDialog::new()
             .add_filter("Video", &["mp4", "webm", "mov", "mkv", "avi"])
             .set_file_name(&filename),
-        MediaKind::Image | MediaKind::Gif => rfd::AsyncFileDialog::new()
+        MediaKind::Gif if is_video_content_type(&event.content_type) => rfd::AsyncFileDialog::new()
+            .add_filter("Video", &["mp4", "webm"])
+            .set_file_name(&filename),
+        MediaKind::Gif => rfd::AsyncFileDialog::new()
+            .add_filter("GIF", &["gif"])
+            .set_file_name(&filename),
+        MediaKind::Image => rfd::AsyncFileDialog::new()
             .add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "apng"])
             .set_file_name(&filename),
     };
@@ -657,7 +663,22 @@ fn safe_media_filename(filename: &str, kind: MediaKind, content_type: &str) -> S
     if safe.is_empty() || safe == "." || safe == ".." {
         safe = format!("relay-media.{}", media_extension(kind, content_type));
     }
+    if matches!(kind, MediaKind::Gif) && !is_video_content_type(content_type) {
+        let stem = safe
+            .rsplit_once('.')
+            .map(|(stem, _)| stem)
+            .filter(|stem| !stem.is_empty())
+            .unwrap_or(&safe);
+        safe = format!("{stem}.gif");
+    }
     safe
+}
+
+fn is_video_content_type(content_type: &str) -> bool {
+    content_type
+        .trim()
+        .to_ascii_lowercase()
+        .starts_with("video/")
 }
 
 fn media_extension(kind: MediaKind, content_type: &str) -> &'static str {
@@ -1173,6 +1194,14 @@ mod tests {
         assert_eq!(
             safe_media_filename("", MediaKind::Audio, "audio/flac"),
             "relay-media.flac"
+        );
+        assert_eq!(
+            safe_media_filename("Discord GIF.jpg", MediaKind::Gif, "image/gif"),
+            "Discord GIF.gif"
+        );
+        assert_eq!(
+            safe_media_filename("Discord GIF.mp4", MediaKind::Gif, "video/mp4"),
+            "Discord GIF.mp4"
         );
     }
 }
