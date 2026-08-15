@@ -543,7 +543,10 @@ pub async fn set_skip_shortcut(
 
     let manager = app.global_shortcut();
     let _ = manager.unregister(previous_shortcut);
-    register_skip_handler(&app, &manager, shortcut, core.inner().clone())?;
+    if let Err(error) = register_skip_handler(&app, &manager, shortcut, core.inner().clone()) {
+        let _ = register_skip_handler(&app, &manager, previous_shortcut, core.inner().clone());
+        return Err(error);
+    }
     let next = match core
         .update_config(|config| config.skip_shortcut = shortcut.to_string())
         .await
