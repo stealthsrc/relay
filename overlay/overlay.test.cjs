@@ -107,7 +107,10 @@ function element() {
     videoWidth: 0,
     videoHeight: 0,
     loop: false,
-    style: { width: "", height: "" },
+    style: { width: "", height: "", left: "", bottom: "", maxWidth: "" },
+    getBoundingClientRect() {
+      return this.rect || { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+    },
     onerror: null,
     addEventListener(type, listener) {
       if (!listeners.has(type)) listeners.set(type, new Set());
@@ -328,6 +331,14 @@ test("media messages are bounded upstream and independently visible in OBS and w
   }));
   obs.elements["#image"].naturalWidth = 1280;
   obs.elements["#image"].naturalHeight = 720;
+  obs.elements["#image"].rect = {
+    left: 100,
+    top: 10,
+    right: 500,
+    bottom: 340,
+    width: 400,
+    height: 330,
+  };
   obs.elements["#image"].emit("load");
 
   assert.equal(
@@ -336,6 +347,9 @@ test("media messages are bounded upstream and independently visible in OBS and w
   );
   assert.equal(obs.elements["#media-text"].hidden, false);
   assert.equal(obs.elements["#media-text"].classList.contains("is-visible"), true);
+  assert.equal(obs.elements["#media-text"].style.left, "113px");
+  assert.equal(obs.elements["#media-text"].style.bottom, "33px");
+  assert.equal(obs.elements["#media-text"].style.maxWidth, "374px");
 
   const widget = createHarness("?secret=private&widget=1");
   widget.socket.emit("message", JSON.stringify({

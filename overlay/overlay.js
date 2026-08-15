@@ -177,6 +177,34 @@ function setMediaText(media) {
   );
 }
 
+function clearMediaTextPlacement() {
+  mediaTextElement.style.left = "";
+  mediaTextElement.style.bottom = "";
+  mediaTextElement.style.maxWidth = "";
+}
+
+function positionMediaText() {
+  clearMediaTextPlacement();
+  const bounds = activeVisual?.getBoundingClientRect?.();
+  if (
+    !bounds?.width
+    || !bounds.height
+    || !window.innerWidth
+    || !window.innerHeight
+  ) return;
+
+  const margin = Math.max(12, Math.min(20, Math.round(Math.min(bounds.width, bounds.height) * 0.04)));
+  const left = Math.max(0, bounds.left + margin);
+  const bottom = Math.max(0, window.innerHeight - bounds.bottom + margin);
+  const maxWidth = Math.max(
+    96,
+    Math.min(bounds.width - margin * 2, window.innerWidth - left - margin),
+  );
+  mediaTextElement.style.left = `${Math.round(left)}px`;
+  mediaTextElement.style.bottom = `${Math.round(bottom)}px`;
+  mediaTextElement.style.maxWidth = `${Math.round(maxWidth)}px`;
+}
+
 function showPreview() {
   imageElement.src = FALLBACK_AVATAR;
   imageElement.alt = "Relay preview";
@@ -246,6 +274,7 @@ function resetElements() {
   mediaTextElement.classList.remove("is-visible");
   mediaTextElement.hidden = true;
   mediaTextElement.textContent = "";
+  clearMediaTextPlacement();
   activeVisual = undefined;
   activePlayback = undefined;
 }
@@ -255,6 +284,7 @@ function revealMedia({ timed = false } = {}) {
     return;
   }
   activeVisual.classList.add("is-visible");
+  positionMediaText();
   if (!authorElement.hidden) {
     authorElement.classList.add("is-visible");
   }
@@ -555,6 +585,7 @@ function handleMessage(event) {
   if (message.type === "config") {
     config = { ...config, ...message.payload };
     applyOutputGeometry();
+    positionMediaText();
     const configuredPort = Number(message.payload?.port);
     if (
       Number.isInteger(configuredPort)
@@ -723,6 +754,8 @@ window.setWidgetVisible = (visible) => {
     showNextMedia();
   }
 };
+
+window.addEventListener("resize", positionMediaText);
 
 window.addEventListener("beforeunload", () => {
   isUnloading = true;
