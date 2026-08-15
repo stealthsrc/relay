@@ -1090,14 +1090,54 @@ textarea:focus {
 .design-picker {
   min-width: 0;
   margin: 0;
-  padding: 0;
-  border: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
 }
 
-.design-picker > legend {
-  margin-bottom: 10px;
+.design-picker > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
   color: var(--muted);
+  cursor: pointer;
   font-size: 11px;
+  list-style: none;
+}
+
+.design-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.design-picker > summary svg {
+  width: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 140ms ease;
+}
+
+.design-picker[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.design-picker > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.design-picker__selection {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.design-picker__content {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
 }
 
 .design-picker__grid {

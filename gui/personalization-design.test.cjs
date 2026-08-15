@@ -9,8 +9,10 @@ const traySource = fs.readFileSync(__dirname + "/tray.js", "utf8");
 const trayCss = fs.readFileSync(__dirname + "/tray.css", "utf8");
 const designs = ["openai", "anthropic", "neo-brutalism", "gridline", "lumen"];
 
-test("personalization exposes five accessible design choices", () => {
-  assert.match(panelHtml, /<fieldset class="design-picker">/);
+test("personalization exposes five accessible design choices in a retractable picker", () => {
+  assert.match(panelHtml, /<details id="design-picker" class="design-picker">/);
+  assert.match(panelHtml, /<summary>/);
+  assert.match(panelHtml, /id="design-picker-selected"/);
   assert.match(panelHtml, /<html[^>]+data-design="openai"/);
   for (const design of designs) {
     assert.match(panelHtml, new RegExp(`name="interface-design" value="${design}"`));
@@ -22,6 +24,8 @@ test("the selected design is persisted and applied without changing the native p
   assert.match(panelSource, /localStorage\.getItem\("relay-design"\)/);
   assert.match(panelSource, /localStorage\.setItem\("relay-design", design\)/);
   assert.match(panelSource, /document\.documentElement\.dataset\.design = design/);
+  assert.match(panelSource, /designPickerElement\.open = false/);
+  assert.match(panelSource, /designPickerSelectedElement\.textContent/);
   assert.match(panelSource, /language, theme, accentRgb, fontScale,/);
 });
 

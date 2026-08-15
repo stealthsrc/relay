@@ -1230,6 +1230,8 @@ const interfaceThemeElement = $("#interface-theme");
 const interfaceFontElement = $("#interface-font");
 const sidebarLayoutElement = $("#sidebar-layout");
 const sidebarElement = $(".sidebar");
+const designPickerElement = $("#design-picker");
+const designPickerSelectedElement = $("#design-picker-selected");
 const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
 const accentPickerElement = $("#accent-picker");
@@ -1498,6 +1500,11 @@ function applyDesign() {
   document.documentElement.dataset.design = design;
   localStorage.setItem("relay-design", design);
   for (const input of designInputs) input.checked = input.value === design;
+  const selectedDesign = designInputs.find((input) => input.value === design);
+  designPickerSelectedElement.textContent = selectedDesign
+    ?.closest(".design-choice")
+    ?.querySelector(".design-choice__copy strong")
+    ?.textContent || design;
   for (const element of $$('[data-relay-base-font-size]')) {
     element.style.removeProperty("font-size");
     delete element.dataset.relayBaseFontSize;
@@ -3170,6 +3177,7 @@ for (const input of designInputs) {
     design = input.value;
     applyDesign();
     applyPersonalization();
+    designPickerElement.open = false;
   });
 }
 

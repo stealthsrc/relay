@@ -1342,9 +1342,14 @@
                   <small data-i18n="sidebarLayoutHelp">Keep navigation labels visible or reduce the sidebar to compact icons.</small>
                 </label>
               </div>
-              <fieldset class="design-picker">
-                <legend data-i18n="designLabel">Design</legend>
-                <div class="design-picker__grid">
+              <details id="design-picker" class="design-picker">
+                <summary>
+                  <span data-i18n="designLabel">Design</span>
+                  <span id="design-picker-selected" class="design-picker__selection">OpenAI</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
+                </summary>
+                <div class="design-picker__content">
+                  <div class="design-picker__grid">
                   <label class="design-choice design-choice--openai">
                     <input type="radio" name="interface-design" value="openai" checked>
                     <span class="design-choice__preview" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -1385,8 +1390,9 @@
                       <small data-i18n="lumenDesignCopy">Layered, luminous and atmospheric.</small>
                     </span>
                   </label>
+                  </div>
                 </div>
-              </fieldset>
+              </details>
               <fieldset class="personalization-fieldset">
                 <legend data-i18n="accentColor">Accent color</legend>
                 <div class="rgb-controls">
