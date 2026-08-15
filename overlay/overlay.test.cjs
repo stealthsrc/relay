@@ -526,6 +526,10 @@ test("Windows widget follows its sound preference for YouTube music", async () =
   }));
   assert.equal(player.unMuteCalls, 1);
   assert.equal(player.volume, 80);
+
+  player.emitState(1);
+  assert.equal(player.unMuteCalls, 2);
+  assert.equal(player.volume, 80);
 });
 
 test("desktop media widget stays muted to avoid duplicate OBS audio", () => {

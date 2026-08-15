@@ -263,15 +263,22 @@ body {
 
 .music-card__title,
 .music-card__artist {
+  min-width: 0;
+}
+
+.music-card__artist {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .music-card__title {
-  font-size: calc(22px * var(--font-scale) * var(--content-scale));
+  font-size: calc(16px * var(--font-scale) * var(--content-scale));
   font-weight: 700;
   letter-spacing: -0.03em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .music-card__artist {

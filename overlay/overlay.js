@@ -160,6 +160,12 @@ function applyYoutubeAudioSettings() {
   );
 }
 
+function allowYoutubeAutoplay() {
+  const frame = youtubePlayer?.getIframe?.();
+  if (!frame?.setAttribute) return;
+  frame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
+}
+
 function createYoutubePlayer() {
   if (!youtubePlayerElement || youtubePlayer || !window.YT?.Player) return;
   youtubePlayerReady = false;
@@ -179,10 +185,16 @@ function createYoutubePlayer() {
     events: {
       onReady: () => {
         youtubePlayerReady = true;
+        allowYoutubeAutoplay();
         applyYoutubeAudioSettings();
         loadYoutubePendingPlayback();
       },
       onStateChange: (event) => {
+        if (event.data === (window.YT?.PlayerState?.PLAYING ?? 1)) {
+          allowYoutubeAutoplay();
+          applyYoutubeAudioSettings();
+          return;
+        }
         if (event.data === window.YT?.PlayerState?.ENDED) {
           finishYoutubePlayback(youtubePlaybackId, youtubeActiveGeneration);
         }

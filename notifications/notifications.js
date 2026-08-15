@@ -184,7 +184,14 @@ function showMusicNowPlaying(playback = {}) {
   musicLabelElement.textContent = musicLabels[interfaceLanguage] || musicLabels.en;
   musicTitleElement.textContent = String(playback.title || "Relay").trim();
   musicArtistElement.textContent = String(playback.channelTitle || "YouTube").trim();
-  musicArtworkElement.src = fallbackAvatar;
+  const thumbnail = typeof playback.thumbnail === "string" && /^https:\/\/i\.ytimg\.com\//i.test(playback.thumbnail)
+    ? playback.thumbnail.trim()
+    : "";
+  musicArtworkElement.onerror = () => {
+    musicArtworkElement.onerror = null;
+    musicArtworkElement.src = fallbackAvatar;
+  };
+  musicArtworkElement.src = thumbnail || fallbackAvatar;
   musicArtworkElement.alt = musicTitleElement.textContent;
   musicCardElement.classList.add("is-visible");
   musicCardElement.setAttribute("aria-hidden", "false");

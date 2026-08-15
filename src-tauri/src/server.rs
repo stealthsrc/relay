@@ -246,7 +246,7 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
-                "default-src 'none'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:* https://www.youtube.com https://www.youtube-nocookie.com https://*.googlevideo.com https://youtubei.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
+                "default-src 'none'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com https://i.ytimg.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:* https://www.youtube.com https://www.youtube-nocookie.com https://*.googlevideo.com https://youtubei.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
             ),
         ))
         .with_state(state);
@@ -1189,6 +1189,7 @@ mod tests {
         assert!(visual_response.contains("content=\"visual\""));
         assert!(visual_response.contains("https://*.discordapp.net"));
         assert!(visual_response.contains("https://*.klipy.com"));
+        assert!(visual_response.contains("https://i.ytimg.com"));
         let audio_response = http_response(port, "/audios");
         assert!(audio_response.starts_with("HTTP/1.1 200"));
         assert!(audio_response.contains("content=\"audio\""));
