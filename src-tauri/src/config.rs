@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
+use tauri_plugin_global_shortcut::Shortcut;
 
 use crate::custom_commands::{CustomCommandDefinition, validate_custom_commands};
 use crate::privacy::{
@@ -23,6 +24,7 @@ pub const DEFAULT_WIDGET_WIDTH: f64 = 640.0;
 pub const DEFAULT_WIDGET_HEIGHT: f64 = 360.0;
 pub const DEFAULT_NOTIFICATION_WIDGET_WIDTH: f64 = 510.0;
 pub const DEFAULT_NOTIFICATION_WIDGET_HEIGHT: f64 = 130.0;
+pub const DEFAULT_SKIP_SHORTCUT: &str = "control+alt+KeyS";
 pub const MAX_PRIVACY_EXEMPT_ROLE_IDS: usize = 100;
 pub const MIN_WIDGET_WIDTH: f64 = 160.0;
 pub const MIN_WIDGET_HEIGHT: f64 = 90.0;
@@ -100,6 +102,7 @@ pub struct AppConfig {
     pub sticker_duration_ms: u64,
     pub notification_duration_ms: u64,
     pub media_volume: u8,
+    pub skip_shortcut: String,
     pub tts_character_limit: u32,
     pub tts_queue_limit: u8,
     pub tts_speech_enabled: bool,
@@ -173,6 +176,7 @@ impl Default for AppConfig {
             sticker_duration_ms: DEFAULT_STICKER_DURATION_MS,
             notification_duration_ms: DEFAULT_NOTIFICATION_DURATION_MS,
             media_volume: 50,
+            skip_shortcut: DEFAULT_SKIP_SHORTCUT.into(),
             tts_character_limit: 0,
             tts_queue_limit: 50,
             tts_speech_enabled: true,
@@ -261,6 +265,9 @@ impl AppConfig {
         }
         if self.media_volume > 100 {
             bail!("The media volume must be between 0 and 100 percent.");
+        }
+        if self.skip_shortcut.trim().parse::<Shortcut>().is_err() {
+            bail!("The media skip shortcut is invalid.");
         }
         if !(1..=50).contains(&self.tts_queue_limit) {
             bail!("The TTS queue limit must be between 1 and 50.");
@@ -532,6 +539,7 @@ mod tests {
             sticker_duration_ms: 7_000,
             notification_duration_ms: 9_000,
             media_volume: 65,
+            skip_shortcut: "control+shift+KeyK".into(),
             tts_character_limit: 280,
             tts_queue_limit: 24,
             tts_speech_enabled: false,
@@ -666,6 +674,12 @@ mod tests {
             ..AppConfig::default()
         };
         assert!(invalid_presence.validate().is_err());
+
+        let invalid_skip_shortcut = AppConfig {
+            skip_shortcut: "Control+Shift".into(),
+            ..AppConfig::default()
+        };
+        assert!(invalid_skip_shortcut.validate().is_err());
 
         let invalid_activity = AppConfig {
             bot_activity_type: "streaming".into(),
