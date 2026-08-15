@@ -37,7 +37,7 @@ use crate::{
         skip_media, test_output, toggle_widget,
     },
     config::{DEFAULT_SKIP_SHORTCUT, migrate_legacy_config},
-    model::{MediaKind, ServerStatus},
+    model::{MediaKind, RelayEvent, ServerStatus},
     notification_widget::restore as restore_notification_widget,
     server::start_server,
     state::{AppCore, MediaDeliveryRequest},
@@ -121,6 +121,12 @@ pub fn run() {
                         core.clone(),
                         requests,
                     ));
+                    let music_events = core.relay_tx.subscribe();
+                    tauri::async_runtime::spawn(show_music_notification_widget(
+                        app_handle.clone(),
+                        core.clone(),
+                        music_events,
+                    ));
                 }
                 if let Err(error) = start_bot(core.clone()).await {
                     core.bot_status.write().await.error = Some(error.to_string());
@@ -202,6 +208,39 @@ async fn deliver_media_to_local_widget(
             }
         }
         let _ = request.ready.send(());
+    }
+}
+
+async fn show_music_notification_widget(
+    app: AppHandle,
+    core: Arc<AppCore>,
+    mut events: tokio::sync::broadcast::Receiver<RelayEvent>,
+) {
+    loop {
+        match events.recv().await {
+            Ok(RelayEvent::MusicPlay(playback)) => {
+                if !notification_widget::state(&app, &core).await.visible
+                    && notification_widget::set_visible(&app, core.clone(), true)
+                        .await
+                        .is_err()
+                {
+                    continue;
+                }
+                let Ok(payload) = serde_json::to_string(&playback) else {
+                    continue;
+                };
+                let script = format!("window.showMusicNowPlaying?.({payload});");
+                for _ in 0..20 {
+                    if let Some(window) = app.get_webview_window("notification-widget") {
+                        let _ = window.eval(&script);
+                    }
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+            }
+            Ok(_) => {}
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+        }
     }
 }
 

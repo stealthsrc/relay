@@ -5,6 +5,11 @@ const guildTagElement = document.querySelector("#notification-guild-tag");
 const guildTagBadgeElement = document.querySelector("#notification-guild-tag-badge");
 const guildTagNameElement = document.querySelector("#notification-guild-tag-name");
 const messageElement = document.querySelector("#notification-message");
+const musicCardElement = document.querySelector("#music");
+const musicArtworkElement = document.querySelector("#music-artwork");
+const musicLabelElement = document.querySelector("#music-label");
+const musicTitleElement = document.querySelector("#music-title");
+const musicArtistElement = document.querySelector("#music-artist");
 const audioElement = document.querySelector("#notification-clock");
 const parameters = new URLSearchParams(window.location.search);
 const relaySecret = parameters.get("secret") || "";
@@ -19,6 +24,12 @@ const previewCopy = {
   fr: { author: "Aperçu en direct", message: "Votre notification apparaîtra ici." },
   es: { author: "Vista previa", message: "Tu notificación aparecerá aquí." },
   de: { author: "Live-Vorschau", message: "Deine Benachrichtigung erscheint hier." },
+};
+const musicLabels = {
+  en: "NOW PLAYING",
+  fr: "EN LECTURE",
+  es: "REPRODUCIENDO",
+  de: "WIRD ABGESPIELT",
 };
 const fallbackAvatar = "/overlay-assets/relay-radar.png";
 const queue = [];
@@ -43,6 +54,8 @@ let isUnloading = false;
 let playbackGeneration = 0;
 let playbackWatchdog;
 let visualTimer;
+let musicPlaybackId = "";
+let musicHideTimer;
 
 function notificationSocketUrl(
   host,
@@ -145,9 +158,54 @@ function setCardContent(notification) {
 }
 
 function showCard() {
+  hideMusicNowPlaying();
   cardElement.classList.add("is-visible");
   cardElement.setAttribute("aria-hidden", "false");
 }
+
+function hideMusicNowPlaying(playbackId) {
+  if (
+    playbackId
+    && musicPlaybackId
+    && playbackId !== musicPlaybackId
+  ) return;
+  window.clearTimeout(musicHideTimer);
+  musicPlaybackId = "";
+  musicCardElement.classList.remove("is-visible");
+  musicCardElement.setAttribute("aria-hidden", "true");
+  musicTitleElement.textContent = "";
+  musicArtistElement.textContent = "";
+}
+
+function showMusicNowPlaying(playback = {}) {
+  if (target !== "widget" || !playback.playbackId) return;
+  window.clearTimeout(musicHideTimer);
+  musicPlaybackId = String(playback.playbackId);
+  musicLabelElement.textContent = musicLabels[interfaceLanguage] || musicLabels.en;
+  musicTitleElement.textContent = String(playback.title || "Relay").trim();
+  musicArtistElement.textContent = String(playback.channelTitle || "YouTube").trim();
+  musicArtworkElement.src = fallbackAvatar;
+  musicArtworkElement.alt = musicTitleElement.textContent;
+  musicCardElement.classList.add("is-visible");
+  musicCardElement.setAttribute("aria-hidden", "false");
+  hideCard();
+
+  const endSeconds = Number(playback.endSeconds);
+  const startSeconds = Math.max(0, Number(playback.startSeconds) || 0);
+  const durationSeconds = Number.isFinite(endSeconds) && endSeconds > startSeconds
+    ? endSeconds - startSeconds
+    : Math.max(0, Number(playback.durationSeconds) || 0);
+  if (durationSeconds > 0) {
+    const visiblePlaybackId = musicPlaybackId;
+    musicHideTimer = window.setTimeout(
+      () => hideMusicNowPlaying(visiblePlaybackId),
+      Math.min(600000, Math.max(1000, (durationSeconds + 1) * 1000)),
+    );
+  }
+}
+
+window.showMusicNowPlaying = showMusicNowPlaying;
+window.hideMusicNowPlaying = hideMusicNowPlaying;
 
 function showPreview() {
   const copy = previewCopy[interfaceLanguage] || previewCopy.en;
@@ -278,6 +336,7 @@ function clearNotifications() {
     currentNotification = undefined;
   }
   hideCard();
+  hideMusicNowPlaying();
 }
 
 function handleMessage(event) {
@@ -307,6 +366,12 @@ function handleMessage(event) {
   } else if (message.type === "tts") {
     if (isPreview) return;
     if (message.payload) enqueue(message.payload);
+  } else if (message.type === "musicPlay") {
+    if (isPreview) return;
+    showMusicNowPlaying(message.payload);
+  } else if (message.type === "musicStop") {
+    if (isPreview) return;
+    hideMusicNowPlaying(message.payload?.playbackId);
   } else if (message.type === "testOutput") {
     if (isPreview) return;
     const outputTest = message.payload;
@@ -338,6 +403,7 @@ function applyAppearance(preferences = {}) {
   document.documentElement.style.setProperty("--accent", `rgb(${rgb.join(" ")})`);
   document.documentElement.style.setProperty("--font-scale", String((preferences.fontScale || 100) / 100));
   if (moveLabelElement) moveLabelElement.textContent = moveLabels[interfaceLanguage] || moveLabels.en;
+  if (musicLabelElement) musicLabelElement.textContent = musicLabels[interfaceLanguage] || musicLabels.en;
   if (isPreview) showPreview();
 }
 
@@ -389,7 +455,10 @@ function connect() {
       resetAudio();
       currentNotification = undefined;
     }
-    if (!isPreview) hideCard();
+    if (!isPreview) {
+      hideCard();
+      hideMusicNowPlaying();
+    }
     if (pendingPort) {
       moveToPendingPort();
       return;
@@ -412,6 +481,7 @@ window.addEventListener("beforeunload", () => {
   isUnloading = true;
   window.clearTimeout(reconnectTimer);
   window.clearTimeout(playbackWatchdog);
+  window.clearTimeout(musicHideTimer);
   socket?.close();
 });
 

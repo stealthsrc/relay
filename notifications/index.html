@@ -25,6 +25,17 @@
         </div>
         <span class="notification-card__signal" aria-hidden="true"></span>
       </article>
+      <article id="music" class="music-card" aria-hidden="true">
+        <div class="music-card__artwork-shell">
+          <img id="music-artwork" class="music-card__artwork" src="/overlay-assets/relay-radar.png" alt="">
+        </div>
+        <div class="music-card__copy">
+          <span id="music-label" class="music-card__label">NOW PLAYING</span>
+          <strong id="music-title" class="music-card__title"></strong>
+          <span id="music-artist" class="music-card__artist"></span>
+          <span class="music-card__wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+      </article>
       <audio id="notification-clock" muted preload="auto"></audio>
     </main>
     <div id="notification-move-layer" class="notification-move-layer" data-tauri-drag-region>

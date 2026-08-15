@@ -50,6 +50,15 @@ function createHarness(target = "obs", language = "en", preview = false) {
       replaceChildren() { this.children = []; this.textContent = ""; },
       append(node) { this.children.push(node); },
     },
+    "#music": {
+      classList: classList(),
+      attributes: new Map(),
+      setAttribute(name, value) { this.attributes.set(name, value); },
+    },
+    "#music-artwork": { src: "", alt: "" },
+    "#music-label": { textContent: "" },
+    "#music-title": { textContent: "" },
+    "#music-artist": { textContent: "" },
     "#notification-move-label": { textContent: "" },
     "#notification-clock": {
       src: "",
@@ -211,6 +220,41 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   assert.match(css, /\.notification-card[\s\S]*var\(--content-scale\)/);
   assert.match(css, /grid-template-columns: calc\(58px \* var\(--content-scale\)\)/);
   assert.doesNotMatch(css, /\.notification-card\.is-visible\s*\{[^}]*scale\(/);
+});
+
+test("Windows widget shows YouTube music as a Now Playing card", () => {
+  const widget = createHarness("widget");
+  const music = widget.elements["#music"];
+
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "music-1",
+      title: "JENNIE - Mantra (Official Video)",
+      channelTitle: "JennieRubyJaneVEVO",
+      durationSeconds: 148,
+    },
+  }));
+
+  assert.equal(music.classList.contains("is-visible"), true);
+  assert.equal(music.attributes.get("aria-hidden"), "false");
+  assert.equal(widget.elements["#music-label"].textContent, "NOW PLAYING");
+  assert.equal(widget.elements["#music-title"].textContent, "JENNIE - Mantra (Official Video)");
+  assert.equal(widget.elements["#music-artist"].textContent, "JennieRubyJaneVEVO");
+
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicStop",
+    payload: { playbackId: "music-1" },
+  }));
+  assert.equal(music.classList.contains("is-visible"), false);
+  assert.equal(music.attributes.get("aria-hidden"), "true");
+
+  const obs = createHarness("obs");
+  obs.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "obs-music", title: "Hidden", durationSeconds: 30 },
+  }));
+  assert.equal(obs.elements["#music"].classList.contains("is-visible"), false);
 });
 
 test("Windows widget plays the configured notification sound per message", () => {
