@@ -25,15 +25,16 @@ use crate::{
     bot::start_bot,
     commands::{
         apply_config, approve_pending_media, clear_notification_sound, clear_overlay,
-        clear_pending_media, control_audio, get_bootstrap, get_media_artwork, get_runtime_status,
-        get_widget_bootstrap, pick_notification_sound, refresh_channels, regenerate_secret,
-        reject_pending_media, replay_media, save_command_settings, save_credentials,
-        save_custom_commands, set_interface_preferences, set_media_caption_visibility,
-        set_notification_sound_enabled, set_notification_sound_obs_enabled,
-        set_notification_widget_locked, set_notification_widget_visible, set_output_geometry,
-        set_widget_locked, skip_media, test_output, toggle_widget,
+        clear_pending_media, control_audio, download_history_media, get_bootstrap,
+        get_media_artwork, get_runtime_status, get_widget_bootstrap, pick_notification_sound,
+        refresh_channels, regenerate_secret, reject_pending_media, replay_media,
+        save_command_settings, save_credentials, save_custom_commands, set_interface_preferences,
+        set_media_caption_visibility, set_notification_sound_enabled,
+        set_notification_sound_obs_enabled, set_notification_widget_locked,
+        set_notification_widget_visible, set_output_geometry, set_skip_shortcut, set_widget_locked,
+        skip_media, test_output, toggle_widget,
     },
-    config::migrate_legacy_config,
+    config::{DEFAULT_SKIP_SHORTCUT, migrate_legacy_config},
     model::{MediaKind, ServerStatus},
     notification_widget::restore as restore_notification_widget,
     server::start_server,
@@ -139,6 +140,8 @@ pub fn run() {
             save_custom_commands,
             clear_overlay,
             replay_media,
+            download_history_media,
+            set_skip_shortcut,
             skip_media,
             test_output,
             control_audio,
@@ -217,23 +220,27 @@ fn media_widget_connected(status: &ServerStatus) -> bool {
 }
 
 fn register_skip_shortcut(app: &mut tauri::App, core: Arc<AppCore>) -> tauri::Result<()> {
-    use tauri_plugin_global_shortcut::{
-        Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
-    };
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-    let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyS);
-    let handler_shortcut = shortcut;
-    app.handle().plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(move |_app, pressed_shortcut, event| {
-                if pressed_shortcut == &handler_shortcut && event.state() == ShortcutState::Pressed
-                {
-                    let _ = core.relay_tx.send(crate::model::RelayEvent::Skip);
-                }
-            })
-            .build(),
-    )?;
-    let _ = app.global_shortcut().register(shortcut);
+    let configured = core
+        .config
+        .try_read()
+        .ok()
+        .map(|config| config.skip_shortcut.clone())
+        .unwrap_or_default();
+    let shortcut = configured
+        .parse::<Shortcut>()
+        .or_else(|_| DEFAULT_SKIP_SHORTCUT.parse::<Shortcut>())
+        .expect("Relay default shortcut must be valid");
+    app.handle()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
+    let _ = app
+        .global_shortcut()
+        .on_shortcut(shortcut, move |_app, _pressed_shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                let _ = core.relay_tx.send(crate::model::RelayEvent::Skip);
+            }
+        });
     Ok(())
 }
 

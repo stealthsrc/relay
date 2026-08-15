@@ -1,13 +1,15 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use crate::{
+    artwork,
     bot::{
         apply_bot_presence, invite_url, refresh_channel_list, start_bot, sync_relay_command_schema,
     },
-    config::{AppConfig, OutputGeometry},
+    config::{AppConfig, DEFAULT_SKIP_SHORTCUT, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
         save_discord_credentials,
@@ -468,6 +470,210 @@ pub async fn replay_media(core: State<'_, Arc<AppCore>>, message_id: String) -> 
             .map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn download_history_media(
+    core: State<'_, Arc<AppCore>>,
+    message_id: String,
+    media_url: String,
+) -> Result<(), String> {
+    validate_message_id(&message_id)?;
+    if media_url.is_empty() || media_url.len() > 2_048 {
+        return Err("Invalid media URL.".into());
+    }
+    let event = core
+        .history
+        .read()
+        .await
+        .iter()
+        .find(|event| {
+            event.message_id == message_id
+                && (event.url == media_url || event.proxy_url == media_url)
+        })
+        .cloned()
+        .ok_or_else(|| "The media is no longer in history.".to_string())?;
+    let (bytes, content_type) = history_media_bytes(&core, &event).await?;
+    let filename = safe_media_filename(&event.filename, event.kind, &content_type);
+    let dialog = match event.kind {
+        MediaKind::Audio => rfd::AsyncFileDialog::new()
+            .add_filter(
+                "Audio",
+                &[
+                    "mp3", "flac", "wav", "ogg", "oga", "opus", "m4a", "aac", "webm", "weba",
+                ],
+            )
+            .set_file_name(&filename),
+        MediaKind::Video => rfd::AsyncFileDialog::new()
+            .add_filter("Video", &["mp4", "webm", "mov", "mkv", "avi"])
+            .set_file_name(&filename),
+        MediaKind::Image | MediaKind::Gif => rfd::AsyncFileDialog::new()
+            .add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "apng"])
+            .set_file_name(&filename),
+    };
+    let Some(file) = dialog.save_file().await else {
+        return Ok(());
+    };
+    let path = file.path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || std::fs::write(path, bytes))
+        .await
+        .map_err(|_| "The media could not be saved.".to_string())?
+        .map_err(|_| "The media could not be saved.".to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_skip_shortcut(
+    app: AppHandle,
+    core: State<'_, Arc<AppCore>>,
+    shortcut: String,
+) -> Result<AppConfig, String> {
+    let shortcut = shortcut.trim().parse::<Shortcut>().map_err(|_| {
+        "Invalid shortcut. Capture a key with at least one supported key combination.".to_string()
+    })?;
+    let previous = core.config.read().await.clone();
+    let previous_shortcut = previous
+        .skip_shortcut
+        .parse::<Shortcut>()
+        .or_else(|_| DEFAULT_SKIP_SHORTCUT.parse::<Shortcut>())
+        .map_err(|_| "The configured media skip shortcut is invalid.".to_string())?;
+    if shortcut == previous_shortcut {
+        return Ok(previous);
+    }
+
+    let manager = app.global_shortcut();
+    let _ = manager.unregister(previous_shortcut);
+    register_skip_handler(&app, &manager, shortcut, core.inner().clone())?;
+    let next = match core
+        .update_config(|config| config.skip_shortcut = shortcut.to_string())
+        .await
+    {
+        Ok(config) => config,
+        Err(_) => {
+            let _ = manager.unregister(shortcut);
+            let _ = register_skip_handler(&app, &manager, previous_shortcut, core.inner().clone());
+            return Err("The media skip shortcut could not be saved.".into());
+        }
+    };
+    Ok(next)
+}
+
+fn register_skip_handler(
+    _app: &AppHandle,
+    manager: &tauri_plugin_global_shortcut::GlobalShortcut<tauri::Wry>,
+    shortcut: Shortcut,
+    core: Arc<AppCore>,
+) -> Result<(), String> {
+    manager
+        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                let _ = core.relay_tx.send(RelayEvent::Skip);
+            }
+        })
+        .map_err(|_| "The selected shortcut is already in use.".to_string())
+}
+
+fn validate_message_id(message_id: &str) -> Result<(), String> {
+    if message_id.is_empty()
+        || message_id.len() > 64
+        || !message_id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-')
+    {
+        return Err("Invalid Discord message ID.".into());
+    }
+    Ok(())
+}
+
+async fn history_media_bytes(
+    core: &AppCore,
+    event: &MediaEvent,
+) -> Result<(Vec<u8>, String), String> {
+    if let Some(audio_id) = event.audio_id.as_deref()
+        && let Some(audio) = core
+            .media_audio
+            .read()
+            .await
+            .iter()
+            .find(|audio| audio.id == audio_id)
+            .cloned()
+    {
+        return Ok((audio.bytes.to_vec(), audio.content_type));
+    }
+    if let Some(cache_id) = event.cached_media_id.as_deref()
+        && let Some(media) = core
+            .cached_media
+            .read()
+            .await
+            .iter()
+            .find(|media| media.id == cache_id)
+            .cloned()
+    {
+        return Ok((media.bytes.to_vec(), media.content_type));
+    }
+
+    let maximum_bytes = match event.kind {
+        MediaKind::Audio => artwork::MAX_AUDIO_BYTES,
+        MediaKind::Video => 50 * 1024 * 1024,
+        MediaKind::Image | MediaKind::Gif => artwork::MAX_EMBED_MEDIA_BYTES,
+    };
+    let bytes = match event.kind {
+        MediaKind::Video => artwork::download_video_bounded(&event.url, maximum_bytes).await,
+        _ => artwork::download_bounded(&event.url, maximum_bytes).await,
+    };
+    let bytes = match bytes {
+        Ok(bytes) => bytes,
+        Err(_) if event.proxy_url != event.url => {
+            let fallback = match event.kind {
+                MediaKind::Video => {
+                    artwork::download_video_bounded(&event.proxy_url, maximum_bytes).await
+                }
+                _ => artwork::download_bounded(&event.proxy_url, maximum_bytes).await,
+            };
+            fallback.map_err(|_| "The media is no longer available locally.".to_string())?
+        }
+        Err(_) => return Err("The media is no longer available locally.".into()),
+    };
+    Ok((bytes, event.content_type.clone()))
+}
+
+fn safe_media_filename(filename: &str, kind: MediaKind, content_type: &str) -> String {
+    let source = Path::new(filename)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let mut safe = source
+        .chars()
+        .filter(|character| !character.is_control())
+        .map(|character| match character {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            _ => character,
+        })
+        .take(120)
+        .collect::<String>();
+    if safe.is_empty() || safe == "." || safe == ".." {
+        safe = format!("relay-media.{}", media_extension(kind, content_type));
+    }
+    safe
+}
+
+fn media_extension(kind: MediaKind, content_type: &str) -> &'static str {
+    match content_type.to_ascii_lowercase().as_str() {
+        "audio/mpeg" => "mp3",
+        "audio/flac" => "flac",
+        "audio/wav" | "audio/x-wav" => "wav",
+        "video/mp4" => "mp4",
+        "video/webm" => "webm",
+        "image/jpeg" => "jpg",
+        "image/gif" => "gif",
+        "image/webp" => "webp",
+        _ => match kind {
+            MediaKind::Audio => "mp3",
+            MediaKind::Video => "mp4",
+            MediaKind::Gif => "gif",
+            MediaKind::Image => "png",
+        },
+    }
 }
 
 #[tauri::command]
@@ -953,5 +1159,17 @@ mod tests {
         );
         assert_eq!(core.tts_audio.read().await.len(), 1);
         assert!(core.history.read().await.is_empty());
+    }
+
+    #[test]
+    fn download_filenames_are_safe_and_keep_media_extensions() {
+        assert_eq!(
+            safe_media_filename("C:\\private\\clip:01.mp4", MediaKind::Video, "video/mp4"),
+            "clip_01.mp4"
+        );
+        assert_eq!(
+            safe_media_filename("", MediaKind::Audio, "audio/flac"),
+            "relay-media.flac"
+        );
     }
 }
