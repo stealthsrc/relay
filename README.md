@@ -280,6 +280,7 @@ relay-bot/
 - **[Design system](docs/design-system.md)** — visual identity and interface constraints
 - **[Architecture](docs/architecture.md)** — runtime components, trust boundaries, and contributor source map
 - **[Contributing](CONTRIBUTING.md)** — local setup, validation, and contribution rules
+- **[Windows smoke tests](docs/windows-smoke-tests.md)** — manual checks for Windows, Discord, OBS, codecs, OCR, and signed releases
 - **[Security policy](SECURITY.md)** — private vulnerability reporting and responsible disclosure
 - **[README design record](docs/readme-redesign.md)** — goals and decisions behind this page
 

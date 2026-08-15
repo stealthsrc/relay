@@ -34,7 +34,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 node --test gui/*.test.cjs overlay/*.test.cjs notifications/*.test.cjs stickers/*.test.cjs tts/*.test.cjs
 ```
 
-For a Windows, Discord, OBS, widget, OCR, FFmpeg, or updater change, also describe the manual smoke test performed and the observed result. Never attach private Browser Source URLs, tokens, personal media, or unredacted Discord messages.
+For a Windows, Discord, OBS, widget, OCR, FFmpeg, or updater change, follow the relevant rows in the [Windows smoke-test matrix](docs/windows-smoke-tests.md) and describe the observed result. Never attach private Browser Source URLs, tokens, personal media, or unredacted Discord messages.
 
 ## Change scope
 
