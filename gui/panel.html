@@ -11,6 +11,17 @@
     <link rel="stylesheet" href="./panel.css">
   </head>
   <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="nav-icon-overview" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol>
+      <symbol id="nav-icon-media" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.4"/><path d="m4 17 5-5 3 3 3-3 5 5"/></symbol>
+      <symbol id="nav-icon-overlay" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M8 4v4"/></symbol>
+      <symbol id="nav-icon-moderation" viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.3 8.3-8 10-4.7-1.7-8-5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-4.8"/></symbol>
+      <symbol id="nav-icon-commands" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M12 16h8M14 8h6"/></symbol>
+      <symbol id="nav-icon-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/></symbol>
+      <symbol id="nav-icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9.8 9a2.3 2.3 0 1 1 3.6 1.9c-1.1.8-1.4 1.2-1.4 2.4M12 16.8h.01"/></symbol>
+      <symbol id="nav-icon-personalization" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></symbol>
+      <symbol id="nav-icon-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 10v5M12 7.3h.01"/></symbol>
+    </svg>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
@@ -23,39 +34,48 @@
         <nav class="navigation" aria-label="Primary navigation">
           <button class="navigation__item is-active" type="button" data-page-target="overview">
             <span class="navigation__index">01</span>
-            <span data-i18n="navOverview">Overview</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-overview"></use></svg>
+            <span class="navigation__label" data-i18n="navOverview">Overview</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="media">
             <span class="navigation__index">02</span>
-            <span data-i18n="navMedia">Media</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-media"></use></svg>
+            <span class="navigation__label" data-i18n="navMedia">Media</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="overlay">
             <span class="navigation__index">03</span>
-            <span data-i18n="navOverlay">Overlay</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-overlay"></use></svg>
+            <span class="navigation__label" data-i18n="navOverlay">Overlay</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="moderation">
             <span class="navigation__index">04</span>
-            <span data-i18n="navModeration">Moderation</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-moderation"></use></svg>
+            <span class="navigation__label" data-i18n="navModeration">Moderation</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="commands">
             <span class="navigation__index">05</span>
-            <span data-i18n="navCommands">Commands</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-commands"></use></svg>
+            <span class="navigation__label" data-i18n="navCommands">Commands</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="history">
             <span class="navigation__index">06</span>
-            <span data-i18n="navHistory">History</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-history"></use></svg>
+            <span class="navigation__label" data-i18n="navHistory">History</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="help">
             <span class="navigation__index">07</span>
-            <span data-i18n="navHelp">Help</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-help"></use></svg>
+            <span class="navigation__label" data-i18n="navHelp">Help</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="personalization">
             <span class="navigation__index">08</span>
-            <span data-i18n="navPersonalization">Personalization</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-personalization"></use></svg>
+            <span class="navigation__label" data-i18n="navPersonalization">Personalization</span>
           </button>
           <button class="navigation__item" type="button" data-page-target="about">
             <span class="navigation__index">09</span>
-            <span data-i18n="navAbout">About</span>
+            <svg class="navigation__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#nav-icon-about"></use></svg>
+            <span class="navigation__label" data-i18n="navAbout">About</span>
           </button>
         </nav>
 
@@ -73,6 +93,7 @@
           <button id="theme-toggle" class="utility-button" type="button" aria-label="Switch theme">
             <span data-i18n="appearance">Appearance</span>
             <strong id="theme-value">Light</strong>
+            <svg class="utility-button__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
           </button>
           <div id="update-control" class="update-control">
             <button
@@ -83,7 +104,7 @@
               aria-expanded="false"
               aria-controls="update-menu"
             >
-              <span>Windows · v<span data-app-version>1.2.7</span></span>
+              <span><span class="version__platform">Windows · </span>v<span data-app-version>1.2.7</span></span>
               <span id="update-available-dot" class="update-available-dot" hidden></span>
               <svg class="update-check__icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.3-2.1L20 11M4 13l2.6 4.1A7 7 0 0 0 17.9 15"/>
@@ -1310,6 +1331,14 @@
                     <option value="space-grotesk">Space Grotesk</option>
                   </select>
                   <small data-i18n="fontFamilyHelp">Applies to Relay and its tray menu. OBS output typography remains unchanged.</small>
+                </label>
+                <label class="source-field sidebar-layout-field">
+                  <span data-i18n="sidebarLayout">Sidebar layout</span>
+                  <select id="sidebar-layout">
+                    <option value="fixed" data-i18n="sidebarLayoutFixed">Fixed · labels and icons</option>
+                    <option value="compact" data-i18n="sidebarLayoutCompact">Reduced · icons only</option>
+                  </select>
+                  <small data-i18n="sidebarLayoutHelp">Keep navigation labels visible or reduce the sidebar to compact icons.</small>
                 </label>
               </div>
               <fieldset class="design-picker">

@@ -105,6 +105,13 @@
   box-sizing: border-box;
 }
 
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 html,
 body {
   min-width: 820px;
@@ -215,8 +222,9 @@ select:focus-visible {
 .navigation__item {
   position: relative;
   display: grid;
-  grid-template-columns: 26px 1fr;
+  grid-template-columns: 26px 18px minmax(0, 1fr);
   align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 42px;
   padding: 0 10px;
@@ -257,6 +265,23 @@ select:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.navigation__icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.navigation__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar__footer {
   display: grid;
   gap: 4px;
@@ -294,6 +319,17 @@ select:focus-visible {
 .utility-button[aria-expanded="true"] {
   color: var(--ink);
   background: var(--surface-subtle);
+}
+
+.utility-button__icon {
+  display: none;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .utility-button strong {
@@ -3318,6 +3354,114 @@ input[type="range"] {
   font-family: "Relay Space Grotesk", Bahnschrift, sans-serif;
 }
 
+:root[data-sidebar-layout="compact"] {
+  --sidebar-width: 84px;
+}
+
+:root[data-sidebar-layout="compact"] .sidebar {
+  padding-inline: 10px;
+}
+
+:root[data-sidebar-layout="compact"] .brand {
+  justify-content: center;
+  padding-bottom: 18px;
+}
+
+:root[data-sidebar-layout="compact"] .brand__copy {
+  display: none;
+}
+
+:root[data-sidebar-layout="compact"] .navigation {
+  gap: 6px;
+}
+
+:root[data-sidebar-layout="compact"] .navigation__item {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 6px 0;
+  text-align: center;
+}
+
+:root[data-sidebar-layout="compact"] .navigation__index {
+  width: 100%;
+  font-size: 8px;
+}
+
+:root[data-sidebar-layout="compact"] .navigation__item.is-active {
+  padding-left: 0;
+}
+
+:root[data-sidebar-layout="compact"] .navigation__icon {
+  width: 19px;
+  height: 19px;
+}
+
+:root[data-sidebar-layout="compact"] .navigation__label,
+:root[data-sidebar-layout="compact"] .utility-button > [data-i18n],
+:root[data-sidebar-layout="compact"] #theme-value {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:root[data-sidebar-layout="compact"] .sidebar__footer {
+  justify-items: center;
+  gap: 6px;
+}
+
+:root[data-sidebar-layout="compact"] .sidebar-language-picker,
+:root[data-sidebar-layout="compact"] .update-control {
+  width: 54px;
+}
+
+:root[data-sidebar-layout="compact"] .sidebar-language-picker__options {
+  right: auto;
+  bottom: 0;
+  left: calc(100% + 8px);
+  width: 230px;
+}
+
+:root[data-sidebar-layout="compact"] .utility-button {
+  justify-content: center;
+  width: 54px;
+  min-height: 40px;
+  padding: 0;
+}
+
+:root[data-sidebar-layout="compact"] .utility-button__value {
+  gap: 0;
+}
+
+:root[data-sidebar-layout="compact"] .utility-button__icon {
+  display: block;
+}
+
+:root[data-sidebar-layout="compact"] .version--button {
+  justify-content: center;
+  gap: 3px;
+  min-height: 40px;
+  padding: 0 3px;
+  font-size: 8px;
+}
+
+:root[data-sidebar-layout="compact"] .version__platform {
+  display: none;
+}
+
+:root[data-sidebar-layout="compact"] .update-check__icon {
+  width: 12px;
+  height: 12px;
+  margin-left: 0;
+}
+
 @media (max-width: 930px) {
   :root {
     --sidebar-width: 184px;
@@ -3424,9 +3568,34 @@ input[type="range"] {
 
   .navigation__item {
     flex: 0 0 auto;
-    grid-template-columns: 20px auto;
+    grid-template-columns: 20px 18px auto;
     width: auto;
     min-width: 112px;
+  }
+
+  :root[data-sidebar-layout="compact"] .navigation__item {
+    grid-template-columns: 20px 18px auto;
+    grid-template-rows: none;
+    justify-items: stretch;
+    gap: 6px;
+    min-height: 42px;
+    padding: 0 10px;
+    text-align: left;
+  }
+
+  :root[data-sidebar-layout="compact"] .navigation__label {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    overflow: hidden;
+    clip: auto;
+    clip-path: none;
+    white-space: nowrap;
+  }
+
+  :root[data-sidebar-layout="compact"] .navigation__item.is-active {
+    padding-left: 10px;
   }
 
   .topbar {

@@ -1228,6 +1228,7 @@ const sidebarLanguagePickerElement = $("#sidebar-language-picker");
 const sidebarLanguageOptionsElement = $("#sidebar-language-options");
 const interfaceThemeElement = $("#interface-theme");
 const interfaceFontElement = $("#interface-font");
+const sidebarLayoutElement = $("#sidebar-layout");
 const designInputs = $$("input[name='interface-design']");
 const accentInputs = [$("#accent-r"), $("#accent-g"), $("#accent-b")];
 const accentPickerElement = $("#accent-picker");
@@ -1302,6 +1303,7 @@ const defaultLocaleByLanguage = {
   zh: "zh-CN", ko: "ko-KR", ja: "ja-JP", id: "id-ID",
 };
 const supportedDesigns = ["openai", "anthropic", "neo-brutalism"];
+const supportedSidebarLayouts = ["fixed", "compact"];
 const supportedInterfaceFonts = [
   "design", "bricolage", "dm-sans", "figtree", "inter",
   "jetbrains-mono", "manrope", "poppins", "space-grotesk",
@@ -1314,6 +1316,8 @@ let design = localStorage.getItem("relay-design") || "openai";
 if (!supportedDesigns.includes(design)) design = "openai";
 let interfaceFont = localStorage.getItem("relay-interface-font") || "design";
 if (!supportedInterfaceFonts.includes(interfaceFont)) interfaceFont = "design";
+let sidebarLayout = localStorage.getItem("relay-sidebar-layout") || "fixed";
+if (!supportedSidebarLayouts.includes(sidebarLayout)) sidebarLayout = "fixed";
 let theme = localStorage.getItem("relay-theme")
   || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 let accentRgb = parseStoredAccent();
@@ -1495,6 +1499,12 @@ function applyDesign() {
     element.style.removeProperty("font-size");
     delete element.dataset.relayBaseFontSize;
   }
+}
+
+function applySidebarLayout() {
+  document.documentElement.dataset.sidebarLayout = sidebarLayout;
+  localStorage.setItem("relay-sidebar-layout", sidebarLayout);
+  sidebarLayoutElement.value = sidebarLayout;
 }
 
 function applyInterfaceFont() {
@@ -3126,6 +3136,11 @@ interfaceFontElement.addEventListener("change", () => {
   applyPersonalization();
 });
 
+sidebarLayoutElement.addEventListener("change", () => {
+  sidebarLayout = sidebarLayoutElement.value;
+  applySidebarLayout();
+});
+
 for (const input of designInputs) {
   input.addEventListener("change", () => {
     design = input.value;
@@ -3157,11 +3172,13 @@ resetPersonalizationButton.addEventListener("click", () => {
   theme = "dark";
   design = "openai";
   interfaceFont = "design";
+  sidebarLayout = "fixed";
   accentRgb = [88, 185, 137];
   fontScale = 100;
   applyLanguage();
   applyTheme();
   applyDesign();
+  applySidebarLayout();
   applyPersonalization();
 });
 
@@ -3527,6 +3544,7 @@ initializeOutputGeometryControls();
 applyLanguage();
 applyTheme();
 applyDesign();
+applySidebarLayout();
 applyPersonalization();
 showPage(currentPage);
 
