@@ -786,22 +786,17 @@ async fn handle_music_component(
     }
 
     if let Some(playback_id) = custom_id.strip_prefix(MUSIC_SKIP_PREFIX) {
-        let is_admin = component
-            .member
-            .as_ref()
-            .and_then(|member| member.permissions)
-            .is_some_and(|permissions| permissions.contains(Permissions::ADMINISTRATOR));
-        let allowed =
-            core.music
-                .lock()
-                .await
-                .skip_allowed(playback_id, component.user.id.get(), is_admin);
+        let allowed = core
+            .music
+            .lock()
+            .await
+            .skip_allowed(playback_id, component.user.id.get());
         if !allowed {
             respond_music_component(
                 core,
                 context,
                 component,
-                "Seule la personne qui a lancé le titre ou un administrateur peut l'arrêter.",
+                "Requête refusée : seule la personne qui a lancé le titre peut l'arrêter.",
                 Vec::new(),
             )
             .await;

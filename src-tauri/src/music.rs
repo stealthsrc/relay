@@ -213,9 +213,9 @@ impl MusicState {
         None
     }
 
-    pub fn skip_allowed(&self, playback_id: &str, user_id: u64, is_admin: bool) -> bool {
+    pub fn skip_allowed(&self, playback_id: &str, user_id: u64) -> bool {
         self.current.as_ref().is_some_and(|current| {
-            current.playback.playback_id == playback_id && (is_admin || current.owner_id == user_id)
+            current.playback.playback_id == playback_id && current.owner_id == user_id
         })
     }
 
@@ -299,11 +299,10 @@ mod tests {
     }
 
     #[test]
-    fn skip_requires_the_requester_or_an_admin() {
+    fn skip_requires_the_requester_only() {
         let mut state = MusicState::default();
         let (_, playback) = state.start(selection(), MusicPlaybackMode::Full);
-        assert!(!state.skip_allowed(&playback.playback_id, 8, false));
-        assert!(state.skip_allowed(&playback.playback_id, 7, false));
-        assert!(state.skip_allowed(&playback.playback_id, 8, true));
+        assert!(!state.skip_allowed(&playback.playback_id, 8));
+        assert!(state.skip_allowed(&playback.playback_id, 7));
     }
 }
