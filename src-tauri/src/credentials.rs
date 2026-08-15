@@ -12,6 +12,7 @@ use windows_native_keyring_store::Store;
 const SERVICE: &str = "eu.stealthylabs.relay";
 const LEGACY_SERVICE: &str = "eu.stealthylabs.discord-obs-relay";
 const DISCORD_ACCOUNT: &str = "discord-credentials";
+const YOUTUBE_API_KEY_ACCOUNT: &str = "youtube-api-key";
 const RELAY_SECRET_ACCOUNT: &str = "relay-secret";
 static KEYRING_READY: OnceLock<Result<(), String>> = OnceLock::new();
 static RELAY_SECRET_CACHE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
@@ -29,6 +30,7 @@ pub struct CredentialStatus {
     pub configured: bool,
     pub source: Option<&'static str>,
     pub client_id: Option<String>,
+    pub youtube_configured: bool,
 }
 
 pub fn initialize_keyring() -> Result<()> {
@@ -73,18 +75,45 @@ pub fn load_discord_credentials() -> Result<Option<(DiscordCredentials, &'static
     }
 }
 
+pub fn save_youtube_api_key(api_key: &str) -> Result<()> {
+    let api_key = api_key.trim();
+    if api_key.is_empty() {
+        return Ok(());
+    }
+    validate_youtube_api_key(api_key)?;
+    initialize_keyring()?;
+    Entry::new(SERVICE, YOUTUBE_API_KEY_ACCOUNT)?
+        .set_password(api_key)
+        .context("failed to save the YouTube API key in Windows Credential Manager")
+}
+
+pub fn load_youtube_api_key() -> Result<Option<String>> {
+    initialize_keyring()?;
+    match Entry::new(SERVICE, YOUTUBE_API_KEY_ACCOUNT)?.get_password() {
+        Ok(api_key) => {
+            validate_youtube_api_key(&api_key)?;
+            Ok(Some(api_key))
+        }
+        Err(KeyringError::NoEntry) => Ok(None),
+        Err(error) => Err(error).context("failed to read the YouTube API key"),
+    }
+}
+
 pub fn credential_status() -> Result<CredentialStatus> {
     let credentials = load_discord_credentials()?;
+    let youtube_configured = load_youtube_api_key()?.is_some();
     Ok(match credentials {
         Some((credentials, source)) => CredentialStatus {
             configured: true,
             source: Some(source),
             client_id: Some(credentials.client_id),
+            youtube_configured,
         },
         None => CredentialStatus {
             configured: false,
             source: None,
             client_id: None,
+            youtube_configured,
         },
     })
 }
@@ -172,6 +201,17 @@ fn validate_discord_credentials(credentials: &DiscordCredentials) -> Result<()> 
     }
     if credentials.token.trim().len() < 20 {
         bail!("The Discord token is invalid.");
+    }
+    Ok(())
+}
+
+fn validate_youtube_api_key(api_key: &str) -> Result<()> {
+    if !(20..=256).contains(&api_key.len())
+        || api_key
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+    {
+        bail!("The YouTube API key is invalid.");
     }
     Ok(())
 }

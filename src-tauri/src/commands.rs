@@ -12,7 +12,7 @@ use crate::{
     config::{AppConfig, DEFAULT_SKIP_SHORTCUT, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
-        save_discord_credentials,
+        save_discord_credentials, save_youtube_api_key,
     },
     custom_commands::CustomCommandDefinition,
     model::{
@@ -71,6 +71,8 @@ pub struct WidgetBootstrap {
 pub struct PanelConfig {
     watched_channel_id: String,
     tts_channel_id: String,
+    #[serde(default)]
+    music_channel_id: String,
     port: u16,
     display_duration_ms: u64,
     gif_duration_ms: u64,
@@ -285,8 +287,12 @@ pub async fn save_credentials(
     core: State<'_, Arc<AppCore>>,
     client_id: String,
     token: String,
+    youtube_api_key: Option<String>,
 ) -> Result<Bootstrap, String> {
     save_discord_credentials(&DiscordCredentials { client_id, token }).map_err(display_error)?;
+    if let Some(youtube_api_key) = youtube_api_key {
+        save_youtube_api_key(&youtube_api_key).map_err(display_error)?;
+    }
     start_bot(core.inner().clone())
         .await
         .map_err(display_error)?;
@@ -304,6 +310,7 @@ pub async fn apply_config(
         .update_config(|current| {
             current.watched_channel_id = config.watched_channel_id;
             current.tts_channel_id = config.tts_channel_id;
+            current.music_channel_id = config.music_channel_id;
             current.port = config.port;
             current.display_duration_ms = config.display_duration_ms;
             current.gif_duration_ms = config.gif_duration_ms;

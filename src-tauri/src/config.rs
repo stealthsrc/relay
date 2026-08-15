@@ -96,6 +96,7 @@ impl OutputGeometry {
 pub struct AppConfig {
     pub watched_channel_id: String,
     pub tts_channel_id: String,
+    pub music_channel_id: String,
     pub port: u16,
     pub display_duration_ms: u64,
     pub gif_duration_ms: u64,
@@ -170,6 +171,7 @@ impl Default for AppConfig {
         Self {
             watched_channel_id: String::new(),
             tts_channel_id: String::new(),
+            music_channel_id: String::new(),
             port: DEFAULT_PORT,
             display_duration_ms: DEFAULT_DISPLAY_DURATION_MS,
             gif_duration_ms: DEFAULT_GIF_DURATION_MS,
@@ -245,8 +247,22 @@ impl AppConfig {
     pub fn validate(&self) -> Result<()> {
         validate_channel_id(&self.watched_channel_id, "watched")?;
         validate_channel_id(&self.tts_channel_id, "TTS")?;
-        if !self.watched_channel_id.is_empty() && self.watched_channel_id == self.tts_channel_id {
-            bail!("Media and TTS must use separate Discord channels.");
+        validate_channel_id(&self.music_channel_id, "music")?;
+        let configured_channels = [
+            ("media", &self.watched_channel_id),
+            ("TTS", &self.tts_channel_id),
+            ("music", &self.music_channel_id),
+        ];
+        for (index, (_, left_id)) in configured_channels.iter().enumerate() {
+            if left_id.is_empty() {
+                continue;
+            }
+            if configured_channels[index + 1..]
+                .iter()
+                .any(|(_, right_id)| left_id == right_id && !right_id.is_empty())
+            {
+                bail!("Media, TTS, and music must use separate Discord channels.");
+            }
         }
         if self.port < 1024 {
             bail!("The local port must be between 1024 and 65535.");
@@ -533,6 +549,7 @@ mod tests {
         let updated = AppConfig {
             watched_channel_id: "123456789012345678".into(),
             tts_channel_id: "223456789012345678".into(),
+            music_channel_id: "323456789012345678".into(),
             port: 5_000,
             display_duration_ms: 4_000,
             gif_duration_ms: 6_000,
