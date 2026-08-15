@@ -477,7 +477,7 @@ pub async fn download_history_media(
     core: State<'_, Arc<AppCore>>,
     message_id: String,
     media_url: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     validate_message_id(&message_id)?;
     if media_url.is_empty() || media_url.len() > 2_048 {
         return Err("Invalid media URL.".into());
@@ -493,8 +493,7 @@ pub async fn download_history_media(
         })
         .cloned()
         .ok_or_else(|| "The media is no longer in history.".to_string())?;
-    let (bytes, content_type) = history_media_bytes(&core, &event).await?;
-    let filename = safe_media_filename(&event.filename, event.kind, &content_type);
+    let filename = safe_media_filename(&event.filename, event.kind, &event.content_type);
     let dialog = match event.kind {
         MediaKind::Audio => rfd::AsyncFileDialog::new()
             .add_filter(
@@ -512,14 +511,15 @@ pub async fn download_history_media(
             .set_file_name(&filename),
     };
     let Some(file) = dialog.save_file().await else {
-        return Ok(());
+        return Ok(false);
     };
+    let (bytes, _) = history_media_bytes(&core, &event).await?;
     let path = file.path().to_path_buf();
     tauri::async_runtime::spawn_blocking(move || std::fs::write(path, bytes))
         .await
         .map_err(|_| "The media could not be saved.".to_string())?
         .map_err(|_| "The media could not be saved.".to_string())?;
-    Ok(())
+    Ok(true)
 }
 
 #[tauri::command]
