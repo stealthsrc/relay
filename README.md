@@ -92,7 +92,7 @@ Relay bot ──► optional moderation ──► bounded FIFO queues
 | Queueing | Multi-user FIFO handling with watchdog recovery instead of silent stalls or dropped bursts |
 | Widgets | Transparent, always-on-top, movable and resizable windows with persistent geometry, locking, and optional 16:9 media sizing |
 | Output layout | Independent 50–200% content scale and 0–40% crop controls for media and notifications in OBS and Windows widgets |
-| Personalization | Light and OLED-dark themes, RGB accent color, text scale, configurable Discord bot presence, and complete EN/FR/ES/DE interfaces |
+| Personalization | Light and OLED-dark themes, five design directions, local interface fonts, RGB accent color, text scale, three sidebar layouts, configurable Discord bot presence, and 12 regional interface locales |
 | Control | System tray panel, live status, overlay count, nine default `/relay` commands with individual switches, up to 16 local custom commands backed by predefined Discord actions, and global `Ctrl+Alt+S` skip shortcut |
 
 ## Quick start
@@ -278,6 +278,9 @@ relay-bot/
 
 - **[User guide](USAGE.md)** — Discord, OBS, moderation, TTS, widgets, and troubleshooting
 - **[Design system](docs/design-system.md)** — visual identity and interface constraints
+- **[Architecture](docs/architecture.md)** — runtime components, trust boundaries, and contributor source map
+- **[Contributing](CONTRIBUTING.md)** — local setup, validation, and contribution rules
+- **[Security policy](SECURITY.md)** — private vulnerability reporting and responsible disclosure
 - **[README design record](docs/readme-redesign.md)** — goals and decisions behind this page
 
 ## License

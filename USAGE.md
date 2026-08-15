@@ -80,7 +80,7 @@ The pages have a transparent background and reconnect automatically if Relay res
 
 When a TTS channel is set, every human (non-bot) message in it is synthesized with Windows voices and played through the `/tts` browser source.
 
-- **Automatic language detection**: French messages are read by a French voice (Hortense preferred if installed), everything else by an English voice. Install voices via *Windows Settings → Time & language → Speech*.
+- **Automatic language detection**: Relay explicitly detects French and English. French messages prefer a French voice (Hortense when installed), English messages prefer an English voice, and other text falls back to the available Windows default voice. Interface language does not change TTS detection. Install voices via *Windows Settings → Time & language → Speech*.
 - **Character limit**: optionally truncate long messages.
 - **Queue limit**: 1–50 pending messages; extra messages are dropped.
 - **Notification card**: enable *TTS notifications (OBS)* to show a card (avatar, name, message text) in the `/notifications` source while each message plays. The same card is available as an [on-screen widget](#8-on-screen-widgets).
@@ -132,7 +132,7 @@ In the panel's appearance settings:
 - **Theme**: light or dark (true-black, OLED-friendly) — also applied to the window title bar.
 - **Accent color**: any RGB color.
 - **Font scale**: 80–140 %.
-- **Language**: English, Français, Español, Deutsch.
+- **Language**: English (US, UK, and India), Français, Deutsch, Español, Español (Latinoamérica), Русский, 简体中文, 한국어, 日本語, and Bahasa Indonesia.
 
 Appearance changes are broadcast live to connected overlays.
 
