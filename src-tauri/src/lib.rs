@@ -219,6 +219,7 @@ async fn show_music_notification_widget(
     loop {
         match events.recv().await {
             Ok(RelayEvent::MusicPlay(playback)) => {
+                ensure_music_audio_widget(&app, &core).await;
                 if !notification_widget::state(&app, &core).await.visible
                     && notification_widget::set_visible(&app, core.clone(), true)
                         .await
@@ -241,6 +242,25 @@ async fn show_music_notification_widget(
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
             Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
         }
+    }
+}
+
+async fn ensure_music_audio_widget(app: &AppHandle, core: &Arc<AppCore>) {
+    let sound_enabled = core.config.read().await.widget_sound_enabled;
+    if !sound_enabled {
+        return;
+    }
+
+    let audio_widget_connected = core.server_status.read().await.outputs.audio.widget_clients > 0;
+    if !audio_widget_connected {
+        let _ = widget::show(app, core.clone(), false).await;
+    }
+
+    for _ in 0..40 {
+        if core.server_status.read().await.outputs.audio.widget_clients > 0 {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 
