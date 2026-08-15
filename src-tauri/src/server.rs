@@ -26,8 +26,8 @@ use crate::{
     config::{AppConfig, OutputGeometry},
     credentials::load_or_create_relay_secret,
     model::{
-        AudioPlaybackState, MediaKind, OutputConnectionStatus, OutputStatuses, RelayEvent,
-        ServerStatus,
+        AudioPlaybackState, MediaKind, MusicEndedEvent, OutputConnectionStatus, OutputStatuses,
+        RelayEvent, ServerStatus,
     },
     state::{AppCore, ServerRuntime},
 };
@@ -165,6 +165,7 @@ impl OutputConnection {
 #[serde(tag = "type", content = "payload", rename_all = "camelCase")]
 enum OutputClientMessage {
     AudioPlayback(Box<AudioPlaybackState>),
+    MusicEnded(MusicEndedEvent),
     MediaClock(MediaClockReport),
 }
 
@@ -245,7 +246,7 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
-                "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:*; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
+                "default-src 'none'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:* https://www.youtube.com https://www.youtube-nocookie.com https://*.googlevideo.com https://youtubei.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
             ),
         ))
         .with_state(state);
@@ -703,6 +704,13 @@ async fn handle_socket(
         }) => Some(OutputSource::Audio),
         _ => None,
     };
+    let receives_music = matches!(
+        output,
+        Some(OutputConnection {
+            source: OutputSource::Audio | OutputSource::All,
+            client: OutputClient::Obs,
+        })
+    );
     let receives_media_clock = tracked_clock_source.is_some();
     let mut reported_busy = false;
     let mut relay_rx = state.core.relay_tx.subscribe();
@@ -763,6 +771,19 @@ async fn handle_socket(
         return;
     }
 
+    if receives_music {
+        if let Some(playback) = state.core.current_music().await
+            && send_json(&mut sender, &json!(RelayEvent::MusicPlay(playback)))
+                .await
+                .is_err()
+        {
+            if let Some(output) = output {
+                update_output_connection(&state, output, -1).await;
+            }
+            return;
+        }
+    }
+
     let mut shutdown_rx = state.client_shutdown.subscribe();
     loop {
         tokio::select! {
@@ -810,6 +831,9 @@ async fn handle_socket(
                                     .core
                                     .relay_tx
                                     .send(RelayEvent::AudioPlayback(*playback));
+                            }
+                            OutputClientMessage::MusicEnded(event) if receives_music => {
+                                let _ = state.core.finish_music(&event.playback_id).await;
                             }
                             OutputClientMessage::MediaClock(clock) if tracked_clock_source.is_some() => {
                                 let source = tracked_clock_source.expect("tracked clock source");

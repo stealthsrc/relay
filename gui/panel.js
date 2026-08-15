@@ -8,11 +8,11 @@ const translations = {
     overviewKicker: "Local broadcast", overviewTitle: "One channel. Every screen.",
     overviewCopy: "Connect Discord once, choose a channel, then keep the relay running quietly in the tray.",
     credentialsTitle: "Discord connection", credentialsCopy: "Credentials are encrypted by Windows and never shown again.",
-    clientId: "Discord client ID", botToken: "Discord bot token", connectBot: "Encrypt and start bot",
+    clientId: "Discord client ID", botToken: "Discord bot token", youtubeApiKey: "YouTube API key", youtubeApiKeyHelp: "Stored in Windows Credential Manager and never shown again.", connectBot: "Encrypt and start bot",
     inviteUrl: "Bot invitation URL", openInvite: "Open", copy: "Copy", copied: "Copied",
     routingTitle: "Input routing", routingCopy: "Choose one Discord channel for media and another for spoken messages.",
-    mediaChannel: "Media channel", ttsChannel: "TTS message channel", localPort: "Local port", saveRouting: "Save routing",
-    selectChannel: "Select a visible text channel", ttsDisabled: "TTS disabled", unavailableChannel: "Unavailable channel",
+    mediaChannel: "Media channel", ttsChannel: "TTS message channel", musicChannel: "Music channel", localPort: "Local port", saveRouting: "Save routing",
+    selectChannel: "Select a visible text channel", ttsDisabled: "TTS disabled", musicDisabled: "Music disabled", unavailableChannel: "Unavailable channel",
     refreshChannels: "Refresh channels", channelsRefreshed: "Channel list updated",
     mediaKicker: "Playback queue", mediaTitle: "Media, on your terms.",
     mediaCopy: "Images and GIFs use separate display timers. Video and audio continue naturally until they end.",
@@ -119,11 +119,11 @@ const translations = {
     overviewKicker: "Diffusion locale", overviewTitle: "Un canal. Tous vos écrans.",
     overviewCopy: "Connectez Discord une fois, choisissez un canal, puis laissez le relais fonctionner discrètement dans la zone de notification.",
     credentialsTitle: "Connexion Discord", credentialsCopy: "Les identifiants sont chiffrés par Windows et ne sont jamais réaffichés.",
-    clientId: "ID client Discord", botToken: "Token du bot Discord", connectBot: "Chiffrer et démarrer le bot",
+    clientId: "ID client Discord", botToken: "Token du bot Discord", youtubeApiKey: "Clé API YouTube", youtubeApiKeyHelp: "Stockée dans le coffre Windows et jamais réaffichée.", connectBot: "Chiffrer et démarrer le bot",
     inviteUrl: "URL d’invitation du bot", openInvite: "Ouvrir", copy: "Copier", copied: "Copié",
     routingTitle: "Routage d’entrée", routingCopy: "Choisissez un canal Discord pour les médias et un autre pour les messages lus.",
-    mediaChannel: "Canal des médias", ttsChannel: "Canal des messages TTS", localPort: "Port local", saveRouting: "Enregistrer le routage",
-    selectChannel: "Sélectionner un canal texte visible", ttsDisabled: "TTS désactivé", unavailableChannel: "Canal indisponible",
+    mediaChannel: "Canal des médias", ttsChannel: "Canal des messages TTS", musicChannel: "Canal musique", localPort: "Port local", saveRouting: "Enregistrer le routage",
+    selectChannel: "Sélectionner un canal texte visible", ttsDisabled: "TTS désactivé", musicDisabled: "Musique désactivée", unavailableChannel: "Canal indisponible",
     refreshChannels: "Actualiser les salons", channelsRefreshed: "Liste des salons mise à jour",
     mediaKicker: "File de lecture", mediaTitle: "Vos médias, à votre rythme.",
     mediaCopy: "Les images utilisent une durée d’affichage. Les vidéos et les audios continuent naturellement jusqu’à leur fin.",
@@ -267,10 +267,10 @@ translations.es = {
   system: "Sistema", playback: "Reproducción", output: "Salida", safety: "Seguridad", archive: "Archivo", guide: "Guía", about: "Acerca de",
   overviewKicker: "Emisión local", overviewTitle: "Un canal. Todas tus pantallas.", overviewCopy: "Conecta Discord una vez, elige un canal y deja que Relay funcione discretamente en la bandeja del sistema.",
   credentialsTitle: "Conexión con Discord", credentialsCopy: "Las credenciales se cifran con Windows y no vuelven a mostrarse.",
-  clientId: "ID de cliente de Discord", botToken: "Token del bot de Discord", connectBot: "Cifrar e iniciar el bot", inviteUrl: "URL de invitación del bot", openInvite: "Abrir", copy: "Copiar", copied: "Copiado",
+  clientId: "ID de cliente de Discord", botToken: "Token del bot de Discord", youtubeApiKey: "Clave de API de YouTube", youtubeApiKeyHelp: "Se guarda en el almacén de credenciales de Windows y nunca se vuelve a mostrar.", connectBot: "Cifrar e iniciar el bot", inviteUrl: "URL de invitación del bot", openInvite: "Abrir", copy: "Copiar", copied: "Copiado",
   routingTitle: "Enrutamiento de entrada", routingCopy: "Elige un canal de Discord para los medios y otro para los mensajes hablados.",
-  mediaChannel: "Canal de medios", ttsChannel: "Canal de mensajes TTS", localPort: "Puerto local", saveRouting: "Guardar enrutamiento",
-  selectChannel: "Selecciona un canal de texto visible", ttsDisabled: "TTS desactivado", unavailableChannel: "Canal no disponible",
+  mediaChannel: "Canal de medios", ttsChannel: "Canal de mensajes TTS", musicChannel: "Canal de música", localPort: "Puerto local", saveRouting: "Guardar enrutamiento",
+  selectChannel: "Selecciona un canal de texto visible", ttsDisabled: "TTS desactivado", musicDisabled: "Música desactivada", unavailableChannel: "Canal no disponible",
   refreshChannels: "Actualizar canales", channelsRefreshed: "Lista de canales actualizada",
   mediaKicker: "Cola de reproducción", mediaTitle: "Tus medios, a tu manera.", mediaCopy: "Las imágenes y los GIF usan duraciones distintas. Los vídeos y audios continúan hasta terminar.",
   transportLabel: "Control en directo", transportReady: "Listo para el siguiente elemento", skip: "Omitir elemento actual",
@@ -311,8 +311,8 @@ translations.de = {
   navOverview: "Übersicht", navMedia: "Medien", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "Verlauf", navHelp: "Hilfe", navPersonalization: "Personalisierung", navAbout: "Info",
   language: "Sprache", appearance: "Darstellung", light: "Hell", dark: "Dunkel", overlays: "OBS-Quellen", system: "System", playback: "Wiedergabe", output: "Ausgabe", safety: "Sicherheit", archive: "Archiv", guide: "Anleitung", about: "Info",
   overviewKicker: "Lokale Übertragung", overviewTitle: "Ein Kanal. Alle Bildschirme.", overviewCopy: "Verbinde Discord einmal, wähle einen Kanal und lasse Relay unauffällig im Infobereich laufen.",
-  credentialsTitle: "Discord-Verbindung", credentialsCopy: "Die Zugangsdaten werden von Windows verschlüsselt und nie erneut angezeigt.", clientId: "Discord-Client-ID", botToken: "Discord-Bot-Token", connectBot: "Verschlüsseln und Bot starten", inviteUrl: "Einladungs-URL des Bots", openInvite: "Öffnen", copy: "Kopieren", copied: "Kopiert",
-  routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
+  credentialsTitle: "Discord-Verbindung", credentialsCopy: "Die Zugangsdaten werden von Windows verschlüsselt und nie erneut angezeigt.", clientId: "Discord-Client-ID", botToken: "Discord-Bot-Token", youtubeApiKey: "YouTube-API-Schlüssel", youtubeApiKeyHelp: "Wird im Windows-Anmeldeinformations-Manager gespeichert und nie erneut angezeigt.", connectBot: "Verschlüsseln und Bot starten", inviteUrl: "Einladungs-URL des Bots", openInvite: "Öffnen", copy: "Kopieren", copied: "Kopiert",
+  routingTitle: "Eingangszuordnung", routingCopy: "Wähle einen Discord-Kanal für Medien und einen weiteren für gesprochene Nachrichten.", mediaChannel: "Medienkanal", ttsChannel: "TTS-Nachrichtenkanal", musicChannel: "Musikkanal", localPort: "Lokaler Port", saveRouting: "Zuordnung speichern", selectChannel: "Sichtbaren Textkanal auswählen", ttsDisabled: "TTS deaktiviert", musicDisabled: "Musik deaktiviert", unavailableChannel: "Kanal nicht verfügbar", refreshChannels: "Kanäle aktualisieren", channelsRefreshed: "Kanalliste aktualisiert",
   mediaKicker: "Wiedergabewarteschlange", mediaTitle: "Medien nach deinen Regeln.", mediaCopy: "Bilder und GIFs verwenden getrennte Anzeigedauern. Videos und Audio laufen bis zum Ende.", transportLabel: "Live-Steuerung", transportReady: "Bereit für das nächste Element", skip: "Aktuelles Element überspringen",
   playbackTitle: "Wiedergabeeinstellungen", imageDuration: "Bilddauer", gifDuration: "GIF-Dauer", imageDurationHelp: "Nur für statische Bilder.", gifDurationHelp: "Animierte GIFs wiederholen sich für diese Dauer.", seconds: "Sek.", mediaVolume: "Medienlautstärke", mediaVolumeHelp: "Gilt für Video, Audio und gesprochene Nachrichten.", ttsCharacterLimit: "TTS-Zeichenlimit", ttsCharacterLimitHelp: "0 bedeutet unbegrenzte Nachrichtenlänge.", characters: "Zeichen", ttsQueueLimit: "TTS-Warteschlangengröße", ttsQueueLimitHelp: "Maximal 1 bis 50 wartende Nachrichten.", items: "Elemente",
   widgetSound: "Widget-Ton", widgetSoundHelp: "Gibt den Ton von Videos und Audio im Windows-Widget wieder. OBS-Quellen behalten ihren eigenen Ton.",
@@ -1026,6 +1026,37 @@ Object.assign(translations.id, {
   navigationBack: "Kembali", navigationForward: "Maju", searchLabel: "Cari pengaturan Relay", searchPlaceholder: "Cari pengaturan", searchNoResults: "Tidak ada pengaturan yang cocok", clearSearch: "Hapus pencarian", fontFamily: "Font antarmuka", fontDesignDefault: "Sesuaikan dengan desain yang dipilih",
 });
 
+Object.assign(translations.ru, {
+  youtubeApiKey: "API-ключ YouTube",
+  youtubeApiKeyHelp: "Хранится в диспетчере учетных данных Windows и больше не отображается.",
+  musicChannel: "Музыкальный канал",
+  musicDisabled: "Музыка отключена",
+});
+Object.assign(translations.zh, {
+  youtubeApiKey: "YouTube API 密钥",
+  youtubeApiKeyHelp: "存储在 Windows 凭据管理器中，之后不会再次显示。",
+  musicChannel: "音乐频道",
+  musicDisabled: "已禁用音乐",
+});
+Object.assign(translations.ko, {
+  youtubeApiKey: "YouTube API 키",
+  youtubeApiKeyHelp: "Windows 자격 증명 관리자에 저장되며 다시 표시되지 않습니다.",
+  musicChannel: "음악 채널",
+  musicDisabled: "음악 사용 안 함",
+});
+Object.assign(translations.ja, {
+  youtubeApiKey: "YouTube API キー",
+  youtubeApiKeyHelp: "Windows 資格情報マネージャーに保存され、再表示されません。",
+  musicChannel: "音楽チャンネル",
+  musicDisabled: "音楽は無効です",
+});
+Object.assign(translations.id, {
+  youtubeApiKey: "Kunci API YouTube",
+  youtubeApiKeyHelp: "Disimpan di Windows Credential Manager dan tidak pernah ditampilkan lagi.",
+  musicChannel: "Channel musik",
+  musicDisabled: "Musik dinonaktifkan",
+});
+
 for (const dictionary of Object.values(translations)) {
   for (const [key, value] of Object.entries(translations.en)) {
     dictionary[key] ??= value;
@@ -1148,6 +1179,7 @@ let customCommandsDirty = false;
 let editingCustomCommandIndex = null;
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
+const youtubeApiKeyElement = $("#youtube-api-key");
 const credentialStateElement = $("#credential-state");
 const botOnlineStatusElement = $("#bot-online-status");
 const botActivityTypeElement = $("#bot-activity-type");
@@ -1159,6 +1191,7 @@ const openInviteButton = $("#open-invite");
 const channelElement = $("#channel");
 const refreshChannelsButton = $("#refresh-channels");
 const ttsChannelElement = $("#tts-channel");
+const musicChannelElement = $("#music-channel");
 const durationElement = $("#duration");
 const gifDurationElement = $("#gif-duration");
 const stickerDurationElement = $("#sticker-duration");
@@ -1505,6 +1538,7 @@ function applyLanguage() {
     setNotificationWidgetState(bootstrap.notificationWidget);
     populateChannels(channelElement, bootstrap.channels, channelElement.value, t("selectChannel"));
     populateChannels(ttsChannelElement, bootstrap.channels, ttsChannelElement.value, t("ttsDisabled"));
+    populateChannels(musicChannelElement, bootstrap.channels, musicChannelElement.value, t("musicDisabled"));
     renderHistory();
     renderModeration();
   }
@@ -2551,6 +2585,10 @@ function applyConfig(config) {
   if (ttsChannelElement.value !== (config.ttsChannelId || "")) {
     populateChannels(ttsChannelElement, bootstrap?.channels || [], config.ttsChannelId, t("ttsDisabled"));
   }
+  musicChannelElement.value = config.musicChannelId || "";
+  if (musicChannelElement.value !== (config.musicChannelId || "")) {
+    populateChannels(musicChannelElement, bootstrap?.channels || [], config.musicChannelId, t("musicDisabled"));
+  }
   commandInputs.channel.checked = config.commandChannelEnabled !== false;
   commandInputs.url.checked = config.commandUrlEnabled !== false;
   commandInputs.show.checked = config.commandShowEnabled !== false;
@@ -2577,6 +2615,7 @@ function setCredentials(status) {
     : t("notConfigured");
   clientIdElement.value = status.clientId || "";
   tokenElement.value = "";
+  youtubeApiKeyElement.value = "";
 }
 
 function formatShortcutLabel(shortcut) {
@@ -2939,6 +2978,7 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   setNotificationWidgetState(bootstrap.notificationWidget);
   populateChannels(channelElement, bootstrap.channels, bootstrap.config.watchedChannelId, t("selectChannel"));
   populateChannels(ttsChannelElement, bootstrap.channels, bootstrap.config.ttsChannelId, t("ttsDisabled"));
+  populateChannels(musicChannelElement, bootstrap.channels, bootstrap.config.musicChannelId, t("musicDisabled"));
   applyConfig(bootstrap.config);
   replaceHistory(bootstrap.history);
   renderModeration();
@@ -2973,6 +3013,7 @@ async function saveConfig(stateElement) {
       config: {
         watchedChannelId: channelElement.value,
         ttsChannelId: ttsChannelElement.value,
+        musicChannelId: musicChannelElement.value,
         displayDurationMs: Number(durationElement.value) * 1000,
         gifDurationMs: Number(gifDurationElement.value) * 1000,
         stickerDurationMs: Number(stickerDurationElement.value) * 1000,
@@ -3102,11 +3143,13 @@ async function refreshRuntimeStatus() {
     }
     const channelsSignature = JSON.stringify(status.channels);
     const selectingChannel = document.activeElement === channelElement
-      || document.activeElement === ttsChannelElement;
+      || document.activeElement === ttsChannelElement
+      || document.activeElement === musicChannelElement;
     if (channelsSignature !== lastChannelsSignature && !selectingChannel) {
       lastChannelsSignature = channelsSignature;
       populateChannels(channelElement, status.channels, channelElement.value, t("selectChannel"));
       populateChannels(ttsChannelElement, status.channels, ttsChannelElement.value, t("ttsDisabled"));
+      populateChannels(musicChannelElement, status.channels, musicChannelElement.value, t("musicDisabled"));
     }
   } catch {
     setServerStatus({ connected: false, overlayClients: 0 });
@@ -3346,12 +3389,14 @@ credentialForm.addEventListener("submit", async (event) => {
     applyBootstrap(await invoke("save_credentials", {
       clientId: clientIdElement.value.trim(),
       token: tokenElement.value.trim(),
+      youtubeApiKey: youtubeApiKeyElement.value.trim(),
     }));
     credentialStateElement.textContent = t("encryptedStarting");
   } catch (error) {
     credentialStateElement.textContent = String(error);
   } finally {
     tokenElement.value = "";
+    youtubeApiKeyElement.value = "";
   }
 });
 
@@ -3377,6 +3422,7 @@ refreshChannelsButton.addEventListener("click", async () => {
     bootstrap.channels = channels;
     populateChannels(channelElement, channels, channelElement.value, t("selectChannel"));
     populateChannels(ttsChannelElement, channels, ttsChannelElement.value, t("ttsDisabled"));
+    populateChannels(musicChannelElement, channels, musicChannelElement.value, t("musicDisabled"));
     saveStateElement.textContent = t("channelsRefreshed");
   } catch (error) {
     saveStateElement.textContent = String(error);

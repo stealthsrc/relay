@@ -240,7 +240,11 @@ fn register_skip_shortcut(app: &mut tauri::App, core: Arc<AppCore>) -> tauri::Re
         .global_shortcut()
         .on_shortcut(shortcut, move |_app, _pressed_shortcut, event| {
             if event.state() == ShortcutState::Pressed {
-                let _ = core.relay_tx.send(crate::model::RelayEvent::Skip);
+                let core = core.clone();
+                tauri::async_runtime::spawn(async move {
+                    core.stop_current_music().await;
+                    let _ = core.relay_tx.send(crate::model::RelayEvent::Skip);
+                });
             }
         });
     Ok(())

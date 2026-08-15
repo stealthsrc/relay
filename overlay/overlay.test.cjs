@@ -133,11 +133,12 @@ function element() {
 function createHarness(search = "?secret=private", mode = "all") {
   const selectors = [
     "#image", "#video", "#audio", "#audio-card", "#audio-artwork", "#audio-title", "#audio-artist", "#audio-media-text",
-    "#author", "#author-avatar", "#author-name", "#media-text",
+    "#author", "#author-avatar", "#author-name", "#media-text", "#youtube-player",
     "#widget-move-label",
   ];
   const elements = Object.fromEntries(selectors.map((selector) => [selector, element()]));
   const sockets = [];
+  const youtubePlayers = [];
   const timers = [];
   const cssProperties = {};
 
@@ -164,6 +165,22 @@ function createHarness(search = "?secret=private", mode = "all") {
     replaced: "",
     replace(url) { this.replaced = String(url); },
   };
+  class FakeYoutubePlayer {
+    constructor(id, options) {
+      this.id = id;
+      this.options = options;
+      this.loaded = undefined;
+      this.stopCalls = 0;
+      youtubePlayers.push(this);
+    }
+
+    ready() { this.options.events.onReady({ target: this }); }
+    loadVideoById(options) { this.loaded = options; }
+    playVideo() {}
+    stopVideo() { this.stopCalls += 1; }
+    emitState(data) { this.options.events.onStateChange({ data }); }
+  }
+
   const window = {
     location,
     innerWidth: 640,
@@ -171,6 +188,7 @@ function createHarness(search = "?secret=private", mode = "all") {
     addEventListener() {},
     clearTimeout() {},
     setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; },
+    YT: { Player: FakeYoutubePlayer, PlayerState: { ENDED: 0 } },
   };
   const context = vm.createContext({
     URL,
@@ -207,6 +225,7 @@ function createHarness(search = "?secret=private", mode = "all") {
     timerDelays: () => timers.map((timer) => timer.delay),
     socket: sockets[0],
     sockets,
+    youtubePlayers,
   };
 }
 
@@ -435,6 +454,47 @@ test("audio overlay uses embedded artwork and falls back to the Relay logo", () 
   assert.equal(elements["#audio-artist"].hidden, false);
   artwork.onerror();
   assert.equal(artwork.src, "/overlay-assets/relay-radar.png");
+});
+
+test("YouTube music uses the official IFrame player and rejects stale stops", async () => {
+  const audio = createHarness("?secret=private", "audio");
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "p1",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+      endSeconds: 30,
+    },
+  }));
+  await Promise.resolve();
+  const player = audio.youtubePlayers[0];
+  assert.ok(player);
+  player.ready();
+  assert.equal(JSON.stringify(player.loaded), JSON.stringify({
+    videoId: "dQw4w9WgXcQ",
+    startSeconds: 0,
+    endSeconds: 30,
+  }));
+
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "p2", videoId: "9bZkp7q19f0", startSeconds: 0 },
+  }));
+  await Promise.resolve();
+  assert.equal(player.stopCalls, 1);
+  assert.equal(vm.runInContext("youtubePlaybackId", audio.context), "p2");
+
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicStop",
+    payload: { playbackId: "p1" },
+  }));
+  assert.equal(vm.runInContext("youtubePlaybackId", audio.context), "p2");
+  player.emitState(0);
+  assert.deepEqual(audio.socket.sent.at(-1), {
+    type: "musicEnded",
+    payload: { playbackId: "p2" },
+  });
 });
 
 test("desktop media widget stays muted to avoid duplicate OBS audio", () => {

@@ -105,6 +105,16 @@ html.widget-edit .widget-move-layer {
   background: transparent;
 }
 
+.youtube-player {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+}
+
 .audio-card {
   position: relative;
   display: grid;

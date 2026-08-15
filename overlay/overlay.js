@@ -6,6 +6,7 @@ const audioArtworkElement = document.querySelector("#audio-artwork");
 const audioTitleElement = document.querySelector("#audio-title");
 const audioArtistElement = document.querySelector("#audio-artist");
 const audioMediaTextElement = document.querySelector("#audio-media-text");
+const youtubePlayerElement = document.querySelector("#youtube-player");
 const authorElement = document.querySelector("#author");
 const authorAvatarElement = document.querySelector("#author-avatar");
 const authorNameElement = document.querySelector("#author-name");
@@ -74,6 +75,13 @@ let audioOutputBusy = false;
 let outputLeaseHeld = false;
 let outputLeasePending = false;
 let waitingForOutputLease = false;
+let youtubePlayer;
+let youtubePlayerReady = false;
+let youtubeApiPromise;
+let youtubePendingPlayback;
+let youtubePlaybackId;
+let youtubeGeneration = 0;
+let youtubeActiveGeneration = 0;
 
 function outputSocketUrl(
   host,
@@ -92,6 +100,137 @@ function reportAudioPlayback(status, media = currentMedia) {
     payload: { status, target: isWidgetWindow ? "widget" : "obs", media },
   }));
   lastAudioPlaybackReport = reportKey;
+}
+
+function loadYoutubeApi() {
+  if (!youtubePlayerElement) {
+    return Promise.reject(new Error("YouTube player element is unavailable"));
+  }
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApiPromise) return youtubeApiPromise;
+
+  youtubeApiPromise = new Promise((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      try {
+        if (typeof previousReady === "function") previousReady();
+      } finally {
+        if (window.YT?.Player) resolve(window.YT);
+        else reject(new Error("YouTube player API did not initialize"));
+      }
+    };
+    const script = document.createElement("script");
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    script.addEventListener("error", () => reject(new Error("YouTube player API failed to load")), { once: true });
+    document.head.appendChild(script);
+  });
+  return youtubeApiPromise;
+}
+
+function loadYoutubePendingPlayback() {
+  if (
+    !youtubePlayerReady
+    || !youtubePlayer
+    || !youtubePendingPlayback
+    || youtubePendingPlayback.generation !== youtubeGeneration
+    || typeof youtubePlayer.loadVideoById !== "function"
+  ) return;
+  const pending = youtubePendingPlayback;
+  youtubePendingPlayback = undefined;
+  youtubeActiveGeneration = pending.generation;
+  const options = {
+    videoId: pending.videoId,
+    startSeconds: Math.max(0, Number(pending.startSeconds) || 0),
+  };
+  if (Number.isFinite(Number(pending.endSeconds)) && Number(pending.endSeconds) > options.startSeconds) {
+    options.endSeconds = Number(pending.endSeconds);
+  }
+  youtubePlayer.loadVideoById(options);
+  if (typeof youtubePlayer.playVideo === "function") youtubePlayer.playVideo();
+}
+
+function createYoutubePlayer() {
+  if (!youtubePlayerElement || youtubePlayer || !window.YT?.Player) return;
+  youtubePlayerReady = false;
+  youtubePlayer = new window.YT.Player("youtube-player", {
+    width: "1",
+    height: "1",
+    playerVars: {
+      autoplay: 1,
+      controls: 0,
+      disablekb: 1,
+      fs: 0,
+      iv_load_policy: 3,
+      modestbranding: 1,
+      origin: window.location.origin,
+      playsinline: 1,
+    },
+    events: {
+      onReady: () => {
+        youtubePlayerReady = true;
+        loadYoutubePendingPlayback();
+      },
+      onStateChange: (event) => {
+        if (event.data === window.YT?.PlayerState?.ENDED) {
+          finishYoutubePlayback(youtubePlaybackId, youtubeActiveGeneration);
+        }
+      },
+      onError: () => {
+        finishYoutubePlayback(youtubePlaybackId, youtubeActiveGeneration);
+      },
+    },
+  });
+}
+
+function finishYoutubePlayback(playbackId, generation, notifyServer = true) {
+  if (!playbackId || playbackId !== youtubePlaybackId || generation !== youtubeGeneration) return false;
+  if (
+    notifyServer
+    && !isPreview
+    && outputClient === "obs"
+    && socket?.readyState === 1
+  ) {
+    socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId } }));
+  }
+  youtubePendingPlayback = undefined;
+  youtubePlaybackId = undefined;
+  youtubeActiveGeneration = 0;
+  showNextMedia();
+  return true;
+}
+
+function stopYoutubePlayback(playbackId) {
+  const activeId = youtubePlaybackId || youtubePendingPlayback?.playbackId;
+  if (!activeId || (playbackId && activeId !== playbackId)) return false;
+  youtubeGeneration += 1;
+  youtubePendingPlayback = undefined;
+  youtubePlaybackId = undefined;
+  youtubeActiveGeneration = 0;
+  if (youtubePlayer && typeof youtubePlayer.stopVideo === "function") youtubePlayer.stopVideo();
+  return true;
+}
+
+function startYoutubeMusic(payload = {}) {
+  if (isPreview || !["audio", "all"].includes(relayMode)) return;
+  const videoId = typeof payload.videoId === "string" ? payload.videoId : "";
+  const playbackId = typeof payload.playbackId === "string" ? payload.playbackId : "";
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId) || !playbackId) return;
+
+  interruptPlayback();
+  const generation = ++youtubeGeneration;
+  youtubePlaybackId = playbackId;
+  youtubePendingPlayback = { ...payload, videoId, playbackId, generation };
+  loadYoutubeApi()
+    .then(() => {
+      if (generation !== youtubeGeneration || !youtubePendingPlayback) return;
+      createYoutubePlayer();
+      loadYoutubePendingPlayback();
+    })
+    .catch(() => {
+      youtubeApiPromise = undefined;
+      finishYoutubePlayback(playbackId, generation);
+    });
 }
 
 function sendOutputLeaseState(busy) {
@@ -339,6 +478,10 @@ function hideCurrentMedia(expectedGeneration = playbackGeneration) {
 }
 
 function skipCurrentMedia() {
+  if (stopYoutubePlayback()) {
+    showNextMedia();
+    return;
+  }
   if (currentMedia) {
     finishCurrentMedia();
   } else {
@@ -511,7 +654,13 @@ function startCurrentMedia(generation = playbackGeneration) {
 }
 
 function showNextMedia() {
-  if ((isWidgetWindow && !widgetPlaybackVisible) || currentMedia || queue.length === 0 || !mediaClockReady) return;
+  if (
+    (isWidgetWindow && !widgetPlaybackVisible)
+    || currentMedia
+    || youtubePlaybackId
+    || queue.length === 0
+    || !mediaClockReady
+  ) return;
   currentMedia = queue.shift();
   const generation = ++playbackGeneration;
   setAuthor(currentMedia);
@@ -526,6 +675,7 @@ function showNextMedia() {
 
 function clearOverlay() {
   queue.length = 0;
+  stopYoutubePlayback();
   finishCurrentMedia();
   waitingForOutputLease = false;
   releaseOutputLease();
@@ -546,6 +696,7 @@ function enqueueMedia(mediaEvent) {
 }
 
 function interruptPlayback() {
+  stopYoutubePlayback();
   if (!currentMedia) {
     waitingForOutputLease = false;
     releaseOutputLease();
@@ -640,6 +791,12 @@ function handleMessage(event) {
   } else if (message.type === "audioControl") {
     if (isPreview) return;
     controlAudio(message.payload);
+  } else if (message.type === "musicPlay") {
+    if (isPreview) return;
+    startYoutubeMusic(message.payload);
+  } else if (message.type === "musicStop") {
+    if (isPreview) return;
+    if (stopYoutubePlayback(message.payload?.playbackId)) showNextMedia();
   } else if (message.type === "clear") {
     if (isPreview) return;
     clearOverlay();
@@ -749,6 +906,7 @@ window.setWidgetVisible = (visible) => {
   widgetPlaybackVisible = visible;
   if (!visible) {
     reportAudioPlayback("idle");
+    stopYoutubePlayback();
     playbackGeneration += 1;
     resetElements();
     window.clearTimeout(reconnectTimer);
@@ -770,6 +928,7 @@ window.addEventListener("resize", positionMediaText);
 
 window.addEventListener("beforeunload", () => {
   isUnloading = true;
+  stopYoutubePlayback();
   clearOverlay();
   window.clearTimeout(reconnectTimer);
   socket?.close();

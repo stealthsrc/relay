@@ -11,8 +11,8 @@ use crate::{
     },
     config::{AppConfig, DEFAULT_SKIP_SHORTCUT, OutputGeometry},
     credentials::{
-        CredentialStatus, DiscordCredentials, credential_status, load_or_create_relay_secret,
-        save_discord_credentials, save_youtube_api_key,
+        CredentialStatus, DiscordCredentials, credential_status, load_discord_credentials,
+        load_or_create_relay_secret, save_discord_credentials, save_youtube_api_key,
     },
     custom_commands::CustomCommandDefinition,
     model::{
@@ -289,7 +289,19 @@ pub async fn save_credentials(
     token: String,
     youtube_api_key: Option<String>,
 ) -> Result<Bootstrap, String> {
-    save_discord_credentials(&DiscordCredentials { client_id, token }).map_err(display_error)?;
+    if token.trim().is_empty() {
+        let Some((stored, _source)) = load_discord_credentials().map_err(display_error)? else {
+            return Err("A Discord bot token is required for the first connection.".into());
+        };
+        if stored.client_id != client_id.trim() {
+            return Err(
+                "Enter the stored Discord client ID or provide the bot token again.".into(),
+            );
+        }
+    } else {
+        save_discord_credentials(&DiscordCredentials { client_id, token })
+            .map_err(display_error)?;
+    }
     if let Some(youtube_api_key) = youtube_api_key {
         save_youtube_api_key(&youtube_api_key).map_err(display_error)?;
     }
@@ -391,6 +403,7 @@ pub async fn set_media_caption_visibility(
 
 #[tauri::command]
 pub async fn clear_overlay(core: State<'_, Arc<AppCore>>) -> Result<(), String> {
+    core.stop_current_music().await;
     let _ = core.relay_tx.send(RelayEvent::Clear);
     Ok(())
 }

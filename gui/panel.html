@@ -226,7 +226,12 @@
                   </label>
                   <label class="field field--wide">
                     <span data-i18n="botToken">Discord bot token</span>
-                    <input id="discord-token" name="token" type="password" autocomplete="new-password" required>
+                    <input id="discord-token" name="token" type="password" autocomplete="new-password">
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="youtubeApiKey">YouTube API key</span>
+                    <input id="youtube-api-key" name="youtubeApiKey" type="password" autocomplete="new-password">
+                    <small data-i18n="youtubeApiKeyHelp">Stored in Windows Credential Manager and never shown again.</small>
                   </label>
                   <button class="button button--primary field--wide" type="submit" data-i18n="connectBot">Encrypt and start bot</button>
                 </form>
@@ -304,6 +309,12 @@
                     <span data-i18n="ttsChannel">TTS message channel</span>
                     <select id="tts-channel" name="ttsChannelId">
                       <option value="">TTS disabled</option>
+                    </select>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="musicChannel">Music channel</span>
+                    <select id="music-channel" name="musicChannelId">
+                      <option value="" data-i18n="musicDisabled">Music disabled</option>
                     </select>
                   </label>
                   <label class="field field--wide">
