@@ -150,6 +150,16 @@ function loadYoutubePendingPlayback() {
   if (typeof youtubePlayer.playVideo === "function") youtubePlayer.playVideo();
 }
 
+function applyYoutubeAudioSettings() {
+  if (!youtubePlayer) return;
+  const muted = isWidgetWindow && !config.widgetSoundEnabled;
+  if (muted) youtubePlayer.mute?.();
+  else youtubePlayer.unMute?.();
+  youtubePlayer.setVolume?.(
+    muted ? 0 : Math.min(100, Math.max(0, Number(config.mediaVolume) || 0)),
+  );
+}
+
 function createYoutubePlayer() {
   if (!youtubePlayerElement || youtubePlayer || !window.YT?.Player) return;
   youtubePlayerReady = false;
@@ -169,6 +179,7 @@ function createYoutubePlayer() {
     events: {
       onReady: () => {
         youtubePlayerReady = true;
+        applyYoutubeAudioSettings();
         loadYoutubePendingPlayback();
       },
       onStateChange: (event) => {
@@ -764,6 +775,7 @@ function handleMessage(event) {
     audioElement.muted = widgetMuted;
     videoElement.volume = videoElement.muted ? 0 : volume;
     audioElement.volume = audioElement.muted ? 0 : volume;
+    applyYoutubeAudioSettings();
     if (!config.showAuthor) {
       authorElement.classList.remove("is-visible");
       authorElement.hidden = true;

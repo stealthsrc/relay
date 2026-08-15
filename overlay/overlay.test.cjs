@@ -171,6 +171,9 @@ function createHarness(search = "?secret=private", mode = "all") {
       this.options = options;
       this.loaded = undefined;
       this.stopCalls = 0;
+      this.muteCalls = 0;
+      this.unMuteCalls = 0;
+      this.volume = undefined;
       youtubePlayers.push(this);
     }
 
@@ -178,6 +181,9 @@ function createHarness(search = "?secret=private", mode = "all") {
     loadVideoById(options) { this.loaded = options; }
     playVideo() {}
     stopVideo() { this.stopCalls += 1; }
+    mute() { this.muteCalls += 1; }
+    unMute() { this.unMuteCalls += 1; }
+    setVolume(value) { this.volume = value; }
     emitState(data) { this.options.events.onStateChange({ data }); }
   }
 
@@ -495,6 +501,31 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
     type: "musicEnded",
     payload: { playbackId: "p2" },
   });
+});
+
+test("Windows widget follows its sound preference for YouTube music", async () => {
+  const widget = createHarness("?secret=private&widget=1");
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: false, mediaVolume: 80 },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "widget-1", videoId: "dQw4w9WgXcQ", startSeconds: 0 },
+  }));
+  await Promise.resolve();
+  const player = widget.youtubePlayers[0];
+  assert.ok(player);
+  player.ready();
+  assert.equal(player.muteCalls, 1);
+  assert.equal(player.volume, 0);
+
+  widget.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: true, mediaVolume: 80 },
+  }));
+  assert.equal(player.unMuteCalls, 1);
+  assert.equal(player.volume, 80);
 });
 
 test("desktop media widget stays muted to avoid duplicate OBS audio", () => {
