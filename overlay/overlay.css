@@ -19,6 +19,13 @@ body {
   background: transparent;
 }
 
+/* Browser iframes paint transparent pages as white in the panel preview.
+   Keep OBS transparent; only the local preview gets an opaque backdrop. */
+html.overlay-preview,
+html.overlay-preview body {
+  background: #000;
+}
+
 .widget-move-layer {
   position: fixed;
   z-index: 2147483647;

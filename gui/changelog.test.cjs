@@ -37,7 +37,7 @@ test("the sidebar exposes a Changelog page after Personalization", () => {
 test("parses published changelog sections and skips Unreleased", () => {
   const releases = context.parseChangelogReleases(changelogMarkdown);
   assert.ok(releases.length >= 2);
-  assert.equal(releases[0].version, "1.3.0");
+  assert.equal(releases[0].version, "1.3.1");
   assert.equal(releases[0].date, "2026-08-17");
   for (const heading of [
     "### English", "### Français", "### Español", "### Deutsch",
@@ -74,11 +74,11 @@ test("selects every Relay interface language from a multilingual section", () =>
   assert.match(context.changelogBodyForLanguage(body, "pt"), /New feature/);
 });
 
-test("the installed 1.3.0 notes keep each interface language distinct", () => {
+test("the installed 1.3.1 notes keep each interface language distinct", () => {
   const releases = context.parseChangelogReleases(changelogMarkdown);
   const body = releases[0].body;
-  assert.match(context.changelogBodyForLanguage(body, "de"), /YouTube-Musiksuche/);
+  assert.match(context.changelogBodyForLanguage(body, "de"), /Kanalreferenzen/);
   assert.doesNotMatch(context.changelogBodyForLanguage(body, "de"), /#### Added/);
-  assert.match(context.changelogBodyForLanguage(body, "ja"), /YouTube 音楽検索/);
+  assert.match(context.changelogBodyForLanguage(body, "ja"), /チャンネル/);
   assert.doesNotMatch(context.changelogBodyForLanguage(body, "ja"), /#### Ajouté/);
 });

@@ -447,14 +447,17 @@ html.notification-widget .music-card {
   min-height: 0;
 }
 
-/* TTS toasts stay compact — never stretch across a leftover 980px window. */
+/* Fill the dedicated TTS widget. Its native width is user-configurable, so
+   capping the card below that width left a visible transparent strip. */
 html.notification-widget .notification-card {
   position: relative;
   inset: auto;
-  width: min(390px, calc(100% - 8px));
-  max-width: min(390px, calc(100% - 8px));
-  height: auto;
-  max-height: none;
+  width: calc(100% - 8px);
+  max-width: none;
+  /* Keep the rounded bottom edge inside a short native widget window. */
+  height: calc(100% - 8px);
+  max-height: calc(100% - 8px);
+  min-height: 0;
   --notification-scale: calc(
     var(--content-scale) * clamp(
       0.85,

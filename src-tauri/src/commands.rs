@@ -119,6 +119,7 @@ pub struct CommandSettings {
     test: bool,
     regenerate: bool,
     clear: bool,
+    nuke: bool,
     lock: bool,
     changelog: bool,
 }
@@ -454,6 +455,7 @@ pub async fn save_command_settings(
         config.command_test_enabled = settings.test;
         config.command_regenerate_enabled = settings.regenerate;
         config.command_clear_enabled = settings.clear;
+        config.command_nuke_enabled = settings.nuke;
         config.command_lock_enabled = settings.lock || config.channel_lock.is_some();
         config.command_changelog_enabled = settings.changelog;
     })

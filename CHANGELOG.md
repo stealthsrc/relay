@@ -14,6 +14,107 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-17
+
+### English
+
+#### Added
+
+- Added `/relay nuke <channel>` for Discord administrators to recreate a text or announcement channel and permanently remove its complete message history. Relay updates its configured channel references automatically; the bot requires **Manage Channels**.
+
+#### Fixed
+
+- Fixed the TTS notification card leaving an unused transparent strip in wide or resized Windows widgets.
+- Fixed live media previews rendering transparency as white in the Relay panel. Previews now use a black backdrop without affecting OBS transparency.
+
+### Français
+
+#### Ajouté
+
+- Ajout de `/relay nuke <channel>` pour les administrateurs Discord afin de recréer un salon textuel ou d'annonces et supprimer définitivement l'intégralité de son historique. Relay met automatiquement à jour ses références de salon ; le bot requiert la permission **Gérer les salons**.
+
+#### Corrigé
+
+- Correction de la carte de notification TTS qui laissait une bande transparente inutilisée dans les widgets Windows larges ou redimensionnés.
+- Correction des aperçus média en direct qui affichaient la transparence en blanc dans le panneau Relay. Les aperçus utilisent désormais un fond noir sans modifier la transparence OBS.
+
+### Español
+
+#### Añadido
+
+- Añadido `/relay nuke <channel>` para que los administradores de Discord puedan recrear un canal de texto o anuncios y eliminar permanentemente todo su historial de mensajes. Relay actualiza sus referencias de canal automáticamente; el bot requiere **Gestionar canales**.
+
+#### Corregido
+
+- Corregida la tarjeta de notificación TTS que dejaba una franja transparente sin usar en widgets de Windows anchos o redimensionados.
+- Corregidas las vistas previas de medios en directo que mostraban la transparencia en blanco en el panel de Relay. Ahora usan un fondo negro sin afectar la transparencia de OBS.
+
+### Deutsch
+
+#### Hinzugefügt
+
+- `/relay nuke <channel>` für Discord-Administratoren hinzugefügt, um einen Text- oder Ankündigungs-Kanal neu zu erstellen und seinen gesamten Nachrichtenverlauf dauerhaft zu löschen. Relay aktualisiert seine gespeicherten Kanalreferenzen automatisch; der Bot benötigt **Kanäle verwalten**.
+
+#### Behoben
+
+- Die TTS-Benachrichtigungskarte behoben, die in breiten oder in der Größe geänderten Windows-Widgets einen ungenutzten transparenten Streifen ließ.
+- Live-Medienvorschauen behoben, die Transparenz im Relay-Panel weiß darstellten. Vorschauen verwenden jetzt einen schwarzen Hintergrund, ohne die OBS-Transparenz zu beeinflussen.
+
+### Русский
+
+#### Добавлено
+
+- Добавлена команда `/relay nuke <channel>` для администраторов Discord: она заново создаёт текстовый канал или канал объявлений и навсегда удаляет всю историю сообщений. Relay автоматически обновляет сохранённые ссылки на канал; боту требуется право **Управление каналами**.
+
+#### Исправлено
+
+- Исправлена карточка TTS-уведомления, которая оставляла неиспользуемую прозрачную полосу в широких или изменённых по размеру виджетах Windows.
+- Исправлен показ прозрачности белым цветом в живых предпросмотрах медиа на панели Relay. Теперь предпросмотры используют чёрный фон, не влияя на прозрачность OBS.
+
+### 简体中文
+
+#### 新增
+
+- 新增供 Discord 管理员使用的 `/relay nuke <channel>`：重新创建文本或公告频道，并永久删除其全部消息记录。Relay 会自动更新已配置的频道引用；机器人需要 **管理频道** 权限。
+
+#### 已修复
+
+- 修复了 TTS 通知卡片在宽尺寸或调整大小后的 Windows 小组件中留下未使用透明条的问题。
+- 修复了 Relay 面板中的实时媒体预览将透明背景显示为白色的问题。预览现在使用黑色背景，不影响 OBS 的透明度。
+
+### 한국어
+
+#### 추가
+
+- Discord 관리자가 텍스트 또는 공지 채널을 다시 만들고 전체 메시지 기록을 영구적으로 삭제할 수 있는 `/relay nuke <channel>`를 추가했습니다. Relay는 설정된 채널 참조를 자동으로 갱신하며, 봇에는 **채널 관리** 권한이 필요합니다.
+
+#### 수정됨
+
+- 넓거나 크기가 조정된 Windows 위젯에서 TTS 알림 카드가 사용되지 않는 투명 영역을 남기던 문제를 수정했습니다.
+- Relay 패널의 실시간 미디어 미리보기에서 투명도가 흰색으로 표시되던 문제를 수정했습니다. 이제 미리보기는 OBS 투명도에 영향을 주지 않는 검은색 배경을 사용합니다.
+
+### 日本語
+
+#### 追加
+
+- Discord 管理者がテキストチャンネルまたは告知チャンネルを再作成し、すべてのメッセージ履歴を完全に削除できる `/relay nuke <channel>` を追加しました。Relay は設定済みのチャンネル参照を自動更新し、ボットには **チャンネル管理** 権限が必要です。
+
+#### 修正
+
+- 幅が広い、またはサイズ変更された Windows ウィジェットで、TTS 通知カードの周囲に未使用の透明な帯が残る問題を修正しました。
+- Relay パネルのライブメディアプレビューで透明部分が白く表示される問題を修正しました。OBS の透明度に影響を与えず、黒い背景で表示されます。
+
+### Bahasa Indonesia
+
+#### Ditambahkan
+
+- Menambahkan `/relay nuke <channel>` agar administrator Discord dapat membuat ulang channel teks atau pengumuman dan menghapus seluruh riwayat pesannya secara permanen. Relay memperbarui referensi channel yang dikonfigurasi secara otomatis; bot memerlukan izin **Kelola Channel**.
+
+#### Diperbaiki
+
+- Memperbaiki kartu notifikasi TTS yang menyisakan strip transparan tidak terpakai pada widget Windows yang lebar atau telah diubah ukurannya.
+- Memperbaiki pratinjau media langsung yang menampilkan transparansi sebagai putih di panel Relay. Pratinjau kini memakai latar belakang hitam tanpa memengaruhi transparansi OBS.
+
 ## [1.3.0] - 2026-08-17
 
 ### English
@@ -785,7 +886,8 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/stealthsrc/relay/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/stealthsrc/relay/compare/v1.2.7...v1.3.0
 [1.2.7]: https://github.com/stealthsrc/relay/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/stealthsrc/relay/compare/v1.2.5...v1.2.6

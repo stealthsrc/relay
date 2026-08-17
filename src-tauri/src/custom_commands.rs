@@ -17,7 +17,7 @@ use serenity::all::{
 use crate::{bot::clear_selected_channel, state::AppCore};
 
 pub const MAX_CUSTOM_COMMANDS: usize = 16;
-pub const DEFAULT_COMMAND_NAMES: [&str; 9] = [
+pub const DEFAULT_COMMAND_NAMES: [&str; 10] = [
     "channel",
     "url",
     "show",
@@ -25,6 +25,7 @@ pub const DEFAULT_COMMAND_NAMES: [&str; 9] = [
     "test",
     "regenerate",
     "clear",
+    "nuke",
     "lock",
     "changelog",
 ];
@@ -1753,6 +1754,14 @@ mod tests {
             },
         );
         assert!(validate_custom_commands(&[reserved]).is_err());
+        let nuke = command(
+            "nuke",
+            CustomCommandAction::Reply {
+                text: "ok".into(),
+                ephemeral: true,
+            },
+        );
+        assert!(validate_custom_commands(&[nuke]).is_err());
 
         let duplicate = command(
             "moderate",

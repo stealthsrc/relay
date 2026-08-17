@@ -24,6 +24,10 @@ test("media previews stay visible and isolated from the live media queue", () =>
   assert.equal(image.src, "/overlay-assets/relay-radar.png");
   assert.equal(image.classList.contains("is-visible"), true);
   assert.equal(image.style.height, "100%");
+  assert.equal(
+    vm.runInContext('document.documentElement.classList.contains("overlay-preview")', preview.context),
+    true,
+  );
   assert.equal(preview.elements["#author-name"].textContent, "Aperçu en direct");
   assert.equal(author.hidden, false);
 
@@ -49,6 +53,8 @@ test("media previews stay visible and isolated from the live media queue", () =>
   assert.match(panelSource, /url\.searchParams\.set\("preview", "1"\)/);
   assert.match(panelSource, /http:\/\/127\.0\.0\.1:\$\{port\}\$\{path\}/);
   assert.match(panelSource, /path = metadata\.previewKey === "notificationUrl" \? "\/notifications" : "\/medias"/);
+  const overlayCss = fs.readFileSync(__dirname + "/overlay.css", "utf8");
+  assert.match(overlayCss, /html\.overlay-preview,\s*html\.overlay-preview body\s*\{[^}]*background:\s*#000/s);
 });
 
 test("media outputs identify their source and local client context", () => {

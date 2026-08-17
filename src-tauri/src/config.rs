@@ -147,6 +147,7 @@ pub struct AppConfig {
     pub command_test_enabled: bool,
     pub command_regenerate_enabled: bool,
     pub command_clear_enabled: bool,
+    pub command_nuke_enabled: bool,
     pub command_lock_enabled: bool,
     pub command_changelog_enabled: bool,
     pub custom_commands: Vec<CustomCommandDefinition>,
@@ -224,6 +225,7 @@ impl Default for AppConfig {
             command_test_enabled: true,
             command_regenerate_enabled: true,
             command_clear_enabled: true,
+            command_nuke_enabled: true,
             command_lock_enabled: true,
             command_changelog_enabled: true,
             custom_commands: Vec::new(),
@@ -723,6 +725,7 @@ mod tests {
             command_test_enabled: false,
             command_regenerate_enabled: false,
             command_clear_enabled: true,
+            command_nuke_enabled: true,
             command_lock_enabled: true,
             command_changelog_enabled: false,
             custom_commands: vec![CustomCommandDefinition {

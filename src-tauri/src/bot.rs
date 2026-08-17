@@ -10,12 +10,13 @@ use serenity::{
         ActionRowComponent, ButtonStyle, Channel, ChannelId, ChannelType, Colour, Command,
         CommandDataOptionValue, CommandInteraction, CommandOptionType, ComponentInteraction,
         ComponentInteractionDataKind, Context, CreateActionRow, CreateAllowedMentions,
-        CreateButton, CreateCommand, CreateCommandOption, CreateEmbed, CreateInputText,
-        CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateModal,
-        CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse,
-        EventHandler, GatewayIntents, GetMessages, GuildId, InputTextStyle, Interaction, Message,
-        MessageId, MessageUpdateEvent, ModalInteraction, OnlineStatus, PermissionOverwrite,
-        PermissionOverwriteType, Permissions, Ready, StickerFormatType, User, UserId,
+        CreateButton, CreateChannel, CreateCommand, CreateCommandOption, CreateEmbed,
+        CreateInputText, CreateInteractionResponse, CreateInteractionResponseMessage,
+        CreateMessage, CreateModal, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
+        EditInteractionResponse, EventHandler, GatewayIntents, GetMessages, GuildId,
+        InputTextStyle, Interaction, Message, MessageId, MessageUpdateEvent, ModalInteraction,
+        OnlineStatus, PermissionOverwrite, PermissionOverwriteType, Permissions, Ready,
+        StickerFormatType, User, UserId,
     },
     async_trait,
     cache::Cache,
@@ -1859,6 +1860,7 @@ pub async fn stop_bot(core: &Arc<AppCore>) {
 pub fn invite_url(client_id: &str, config: &AppConfig) -> String {
     let permissions = (Permissions::VIEW_CHANNEL
         | Permissions::READ_MESSAGE_HISTORY
+        | Permissions::MANAGE_CHANNELS
         | Permissions::MANAGE_ROLES
         | Permissions::MANAGE_MESSAGES
         | custom_commands::required_bot_permissions(&config.custom_commands))
@@ -1881,6 +1883,22 @@ fn relay_command(config: &AppConfig) -> CreateCommand {
                 CreateCommandOption::new(CommandOptionType::Channel, "channel", "Channel to watch")
                     .channel_types(vec![ChannelType::Text, ChannelType::News])
                     .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "nuke",
+                "Recreate a channel to delete all of its messages",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Channel,
+                    "channel",
+                    "Channel to recreate",
+                )
+                .channel_types(vec![ChannelType::Text, ChannelType::News])
+                .required(true),
             ),
         )
         .add_option(CreateCommandOption::new(
@@ -2090,6 +2108,16 @@ async fn handle_relay(
                 .filter(|count| (1..=1_000).contains(count))
                 .context("a message count between 1 and 1000 is required")?;
             clear_selected_channel(http, channel_id, count).await
+        }
+        "nuke" => {
+            let channel_id = arguments
+                .iter()
+                .find_map(|argument| match argument.value {
+                    CommandDataOptionValue::Channel(channel_id) => Some(channel_id),
+                    _ => None,
+                })
+                .context("a channel is required")?;
+            nuke_selected_channel(core, http, channel_id).await
         }
         "lock" => toggle_channel_lock(core, http).await,
         "changelog" => {
@@ -2395,6 +2423,67 @@ pub(crate) async fn clear_selected_channel(
     ))
 }
 
+async fn nuke_selected_channel(
+    core: &Arc<AppCore>,
+    http: &Http,
+    channel_id: ChannelId,
+) -> Result<String> {
+    let Channel::Guild(channel) = channel_id.to_channel(http).await? else {
+        bail!("only text and announcement channels can be recreated");
+    };
+    if !matches!(channel.kind, ChannelType::Text | ChannelType::News) {
+        bail!("only text and announcement channels can be recreated");
+    }
+
+    let mut replacement = CreateChannel::new(channel.name.clone())
+        .kind(channel.kind)
+        .position(channel.position)
+        .permissions(channel.permission_overwrites.clone())
+        .nsfw(channel.nsfw)
+        .rate_limit_per_user(channel.rate_limit_per_user.unwrap_or_default());
+    if let Some(parent_id) = channel.parent_id {
+        replacement = replacement.category(parent_id);
+    }
+    if let Some(topic) = channel.topic.as_deref() {
+        replacement = replacement.topic(topic);
+    }
+    let replacement = channel.guild_id.create_channel(http, replacement).await?;
+    let replacement_id = replacement.id;
+    let old_id = channel.id;
+
+    core.update_config(|config| {
+        replace_configured_channel_id(config, old_id, replacement_id);
+    })
+    .await?;
+    channel.delete(http).await?;
+    Ok(format!(
+        "Recreated <#{old_id}> as <#{replacement_id}>. Its message history was deleted."
+    ))
+}
+
+fn replace_configured_channel_id(
+    config: &mut AppConfig,
+    old_channel_id: ChannelId,
+    replacement_channel_id: ChannelId,
+) {
+    let old_channel_id = old_channel_id.to_string();
+    let replacement_channel_id = replacement_channel_id.to_string();
+    for channel_id in [
+        &mut config.watched_channel_id,
+        &mut config.tts_channel_id,
+        &mut config.music_channel_id,
+    ] {
+        if *channel_id == old_channel_id {
+            *channel_id = replacement_channel_id.clone();
+        }
+    }
+    if let Some(lock) = config.channel_lock.as_mut()
+        && lock.channel_id == old_channel_id
+    {
+        lock.channel_id = replacement_channel_id;
+    }
+}
+
 async fn clear_channel_messages(http: &Http, channel_id: ChannelId, limit: usize) -> Result<usize> {
     let mut before = None;
     let mut deleted = 0;
@@ -2449,6 +2538,7 @@ fn command_enabled(config: &AppConfig, command: &str) -> bool {
         "test" => config.command_test_enabled,
         "regenerate" => config.command_regenerate_enabled,
         "clear" => config.command_clear_enabled,
+        "nuke" => config.command_nuke_enabled,
         "lock" => config.command_lock_enabled,
         "changelog" => config.command_changelog_enabled,
         _ => false,
@@ -3249,7 +3339,7 @@ mod tests {
     fn builds_invite_url_with_required_scopes_and_permissions() {
         assert_eq!(
             invite_url("123456789012345678", &AppConfig::default()),
-            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands"
+            "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510224&scope=bot%20applications.commands"
         );
     }
 
@@ -3337,6 +3427,42 @@ mod tests {
         assert_eq!(count["required"], true);
         assert_eq!(count["min_value"], 1);
         assert_eq!(count["max_value"], 1_000);
+    }
+
+    #[test]
+    fn nuke_command_requires_a_text_or_announcement_channel() {
+        let command = serde_json::to_value(relay_command(&AppConfig::default())).unwrap();
+        let nuke = command["options"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|option| option["name"] == "nuke")
+            .expect("nuke subcommand must be registered");
+        let channel = &nuke["options"][0];
+        assert_eq!(channel["name"], "channel");
+        assert_eq!(channel["required"], true);
+        assert_eq!(channel["channel_types"], serde_json::json!([0, 5]));
+    }
+
+    #[test]
+    fn nuke_replaces_configured_channel_references() {
+        let mut config = AppConfig {
+            watched_channel_id: "1".into(),
+            tts_channel_id: "1".into(),
+            music_channel_id: "2".into(),
+            channel_lock: Some(ChannelLockSnapshot {
+                channel_id: "1".into(),
+                overwrites: Vec::new(),
+            }),
+            ..AppConfig::default()
+        };
+
+        replace_configured_channel_id(&mut config, ChannelId::new(1), ChannelId::new(3));
+
+        assert_eq!(config.watched_channel_id, "3");
+        assert_eq!(config.tts_channel_id, "3");
+        assert_eq!(config.music_channel_id, "2");
+        assert_eq!(config.channel_lock.unwrap().channel_id, "3");
     }
 
     #[test]

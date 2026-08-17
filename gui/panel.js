@@ -377,11 +377,11 @@ Object.assign(translations.en, {
   commandsCopy: "Enable only the Relay commands you want available in Discord.", commandsSettings: "Command availability",
   commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
   commandShowHelp: "Show the active Relay configuration.", commandStatusHelp: "Show live output, queue, and widget status.", commandTestHelp: "Send an isolated local test to a connected output.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
-  commandClearHelp: "Delete the requested number of messages from one Discord channel selected in the command.", commandLockHelp: "Toggle the configured media channel lock.",
+  commandClearHelp: "Delete the requested number of messages from one Discord channel selected in the command.", commandNukeHelp: "Recreate a channel to permanently delete its full message history.", commandLockHelp: "Toggle the configured media channel lock.",
   commandChangelogHelp: "Post the latest GitHub release notes as Discord embeds into a chosen channel.",
   commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
   saveCommands: "Save commands", commandsSaved: "Command availability saved",
-  commandsPermission: "Channel locking requires Manage Roles; clearing requires Manage Messages. Commands are restricted to Discord administrators.",
+  commandsPermission: "Channel locking requires Manage Roles; clearing requires Manage Messages; recreating a channel requires Manage Channels. Commands are restricted to Discord administrators.",
 });
 Object.assign(translations.fr, {
   showMediaTextObs: "Afficher le message du média dans OBS", showMediaTextObsHelp: "Affiche jusqu’à 180 caractères du message Discord.",
@@ -390,11 +390,11 @@ Object.assign(translations.fr, {
   commandsCopy: "Activez uniquement les commandes Relay que vous souhaitez rendre disponibles dans Discord.", commandsSettings: "Disponibilité des commandes",
   commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
   commandShowHelp: "Affiche la configuration Relay active.", commandStatusHelp: "Affiche l’état en direct des sorties, files et widgets.", commandTestHelp: "Envoie un test local isolé vers une sortie connectée.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
-  commandClearHelp: "Supprime le nombre demandé de messages dans le salon Discord choisi dans la commande.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
+  commandClearHelp: "Supprime le nombre demandé de messages dans le salon Discord choisi dans la commande.", commandNukeHelp: "Recrée un salon pour supprimer définitivement tout son historique de messages.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
   commandChangelogHelp: "Publie les dernières notes de version GitHub en embeds Discord dans le salon choisi.",
   commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
   saveCommands: "Enregistrer les commandes", commandsSaved: "Disponibilité des commandes enregistrée",
-  commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages. Les commandes sont réservées aux administrateurs Discord.",
+  commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages ; recréer un salon nécessite Gérer les salons. Les commandes sont réservées aux administrateurs Discord.",
 });
 Object.assign(translations.es, {
   showMediaTextObs: "Mostrar el mensaje del medio en OBS", showMediaTextObsHelp: "Muestra hasta 180 caracteres del mensaje de Discord.",
@@ -434,7 +434,14 @@ Object.assign(translations.de, {
   saveCommands: "Befehle speichern", commandsSaved: "Befehlsverfügbarkeit gespeichert",
   commandsPermission: "Die Sperre erfordert Rollen verwalten; die Bereinigung erfordert Nachrichten verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
 });
-
+Object.assign(translations.es, {
+  commandNukeHelp: "Recrea un canal para eliminar permanentemente todo su historial de mensajes.",
+  commandsPermission: "El bloqueo requiere Gestionar roles; la limpieza requiere Gestionar mensajes; recrear un canal requiere Gestionar canales. Los comandos están restringidos a administradores de Discord.",
+});
+Object.assign(translations.de, {
+  commandNukeHelp: "Erstellt einen Kanal neu, um seinen gesamten Nachrichtenverlauf dauerhaft zu löschen.",
+  commandsPermission: "Die Sperre erfordert Rollen verwalten; die Bereinigung erfordert Nachrichten verwalten; das Neuerstellen eines Kanals erfordert Kanäle verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
+});
 Object.assign(translations.en, {
   defaultCommands: "Default Commands", customCommands: "Custom Commands",
   customCommandsHelp: "Create local /relay subcommands backed by one predefined Discord action. The same list is used on every server where this bot is installed.",
@@ -1302,6 +1309,27 @@ for (const [languageCode, extension] of Object.entries(musicExtensionTranslation
   if (translations[languageCode]) Object.assign(translations[languageCode], extension);
 }
 
+Object.assign(translations.ru, {
+  commandNukeHelp: "Создаёт канал заново, чтобы навсегда удалить всю историю сообщений.",
+  commandsPermission: "Блокировка требует управления ролями; очистка — управления сообщениями; пересоздание канала — управления каналами. Команды доступны только администраторам Discord.",
+});
+Object.assign(translations.zh, {
+  commandNukeHelp: "重新创建频道，以永久删除其全部消息记录。",
+  commandsPermission: "锁定频道需要管理身份组；清理需要管理消息；重新创建频道需要管理频道。命令仅限 Discord 管理员使用。",
+});
+Object.assign(translations.ko, {
+  commandNukeHelp: "채널을 다시 만들어 전체 메시지 기록을 영구적으로 삭제합니다.",
+  commandsPermission: "채널 잠금에는 역할 관리 권한이, 정리에는 메시지 관리 권한이, 채널 재생성에는 채널 관리 권한이 필요합니다. 명령은 Discord 관리자만 사용할 수 있습니다.",
+});
+Object.assign(translations.ja, {
+  commandNukeHelp: "チャンネルを再作成し、すべてのメッセージ履歴を完全に削除します。",
+  commandsPermission: "チャンネルのロックにはロール管理、削除にはメッセージ管理、チャンネルの再作成にはチャンネル管理が必要です。コマンドは Discord 管理者のみ利用できます。",
+});
+Object.assign(translations.id, {
+  commandNukeHelp: "Buat ulang channel untuk menghapus seluruh riwayat pesannya secara permanen.",
+  commandsPermission: "Penguncian channel memerlukan Kelola Peran; pembersihan memerlukan Kelola Pesan; pembuatan ulang channel memerlukan Kelola Channel. Perintah dibatasi untuk administrator Discord.",
+});
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
@@ -1343,7 +1371,7 @@ const commandsSaveStateElement = $("#commands-save-state");
 const channelLockStateElement = $("#channel-lock-state");
 const commandInputs = {
   channel: $("#command-channel"), url: $("#command-url"), show: $("#command-show"),
-  status: $("#command-status"), test: $("#command-test"), regenerate: $("#command-regenerate"), clear: $("#command-clear"), lock: $("#command-lock"),
+  status: $("#command-status"), test: $("#command-test"), regenerate: $("#command-regenerate"), clear: $("#command-clear"), nuke: $("#command-nuke"), lock: $("#command-lock"),
   changelog: $("#command-changelog"),
 };
 const customCommandForm = $("#custom-command-form");
@@ -1368,7 +1396,7 @@ const addCustomCommandButton = $("#add-custom-command");
 const cancelCustomCommandButton = $("#cancel-custom-command");
 const syncCustomCommandsButton = $("#sync-custom-commands");
 const defaultRelayCommandNames = new Set([
-  "channel", "url", "show", "status", "test", "regenerate", "clear", "lock", "changelog",
+  "channel", "url", "show", "status", "test", "regenerate", "clear", "nuke", "lock", "changelog",
 ]);
 let customCommands = [];
 let customCommandsDirty = false;
@@ -1594,7 +1622,7 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.3.0";
+let currentAppVersion = "1.3.1";
 let bundledChangelogMarkdown = "";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
@@ -2971,6 +2999,7 @@ function applyConfig(config) {
   commandInputs.test.checked = config.commandTestEnabled !== false;
   commandInputs.regenerate.checked = config.commandRegenerateEnabled !== false;
   commandInputs.clear.checked = config.commandClearEnabled !== false;
+  commandInputs.nuke.checked = config.commandNukeEnabled !== false;
   commandInputs.lock.checked = config.commandLockEnabled !== false;
   commandInputs.changelog.checked = config.commandChangelogEnabled !== false;
   commandInputs.lock.disabled = Boolean(config.channelLock);

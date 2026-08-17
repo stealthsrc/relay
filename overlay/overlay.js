@@ -28,6 +28,7 @@ const relaySecret =
   || "";
 const isWidgetWindow = widgetParameters.get("widget") === "1";
 const isPreview = widgetParameters.get("preview") === "1";
+document.documentElement.classList.toggle("overlay-preview", isPreview);
 let interfaceLanguage = widgetParameters.get("lang") || "en";
 const relayMode = document.querySelector('meta[name="relay-mode"]')?.content || "all";
 const outputClient = isPreview ? "preview" : isWidgetWindow ? "widget" : "obs";

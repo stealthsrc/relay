@@ -371,17 +371,16 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   // Idle cards must not paint — opacity:0 + inset:4px left a large black WebView2 hole.
   assert.match(css, /\.notification-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
   assert.match(css, /\.music-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
-  // Music cards still fill the configured window; TTS toasts stay compact.
+  // Both cards fill their dedicated, user-configured widget window.
   assert.match(
     css,
     /html\.notification-widget \.music-card\s*\{[^}]*inset:\s*4px[^}]*height:\s*auto[^}]*min-height:\s*0/s,
   );
   assert.match(
     css,
-    /html\.notification-widget \.notification-card\s*\{[^}]*width:\s*min\(390px,\s*calc\(100%\s*-\s*8px\)\)/s,
+    /html\.notification-widget \.notification-card\s*\{[^}]*width:\s*calc\(100%\s*-\s*8px\)[^}]*max-width:\s*none[^}]*height:\s*calc\(100%\s*-\s*8px\)[^}]*max-height:\s*calc\(100%\s*-\s*8px\)[^}]*min-height:\s*0/s,
   );
-  // Message height-fit stays independent; both toasts are capped so legacy
-  // tall / wide windows cannot inflate them.
+  // TTS toast geometry fits the native widget, including the rounded bottom.
   assert.match(
     css,
     /html\.notification-widget \.notification-card\s*\{[^}]*--notification-scale:\s*calc\([\s\S]*1\.15/s,
