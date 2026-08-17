@@ -11,6 +11,34 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-17
+
+### Added
+
+- Added YouTube music search in a configurable Discord channel, with up to 15 relevant results between one and five minutes long.
+- Added 30-second previews, full-track playback, queueing, and a Now Playing card for OBS and the Windows widget.
+- Added unified **Relay Visual** and **Relay Audio** OBS Browser Sources for media, stickers, TTS notifications, YouTube playback, Discord audio, and TTS voice. Legacy source URLs remain available during migration.
+- Added History downloads, a configurable global media skip shortcut, and an English YouTube API setup guide in the Music panel and project documentation.
+- Added the **Gridline** and **Lumen** interface designs, compact and dynamic sidebar layouts, and a collapsible design picker.
+
+### Changed
+
+- Media, TTS, and YouTube playback now share output scheduling so competing items do not play over one another.
+- YouTube playback now respects widget sound settings and wakes the Windows audio output when needed.
+- Media captions now stay compact and anchored to the active media or player card, with independent OBS and Windows widget visibility settings.
+
+### Fixed
+
+- Fixed YouTube playback restoration after output wake-up and stop/start transitions.
+- Fixed skip shortcut registration failures without discarding the previous shortcut.
+- Fixed canceled media downloads leaving History actions in a busy state.
+- Fixed GIF downloads accepting responses that were not GIF files.
+
+### Security
+
+- YouTube API keys are stored locally in Windows Credential Manager and are not shown again after saving.
+- YouTube playback controls are restricted to the user who requested the track or a Discord administrator.
+
 ## [1.2.7] - 2026-08-14
 
 ### English
@@ -393,7 +421,8 @@ Toutes les évolutions notables de Relay sont documentées dans ce fichier, en a
 - Sorties séparées pour les médias, l’audio, le TTS et les notifications.
 - Modération locale, contrôles de lecture, historique, personnalisation et interface multilingue.
 
-[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.2.7...HEAD
+[Unreleased]: https://github.com/stealthsrc/relay/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/stealthsrc/relay/compare/v1.2.7...v1.3.0
 [1.2.7]: https://github.com/stealthsrc/relay/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/stealthsrc/relay/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/stealthsrc/relay/compare/v1.2.1...v1.2.5
