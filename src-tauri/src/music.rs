@@ -432,7 +432,7 @@ pub fn remaining_search_cooldown(
 /// Whole seconds to show in the user-facing cooldown message (ceil, at least 1).
 pub fn cooldown_wait_seconds(remaining: Duration) -> u64 {
     let millis = remaining.as_millis();
-    (((millis + 999) / 1000) as u64).max(1)
+    (millis.div_ceil(1000) as u64).max(1)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

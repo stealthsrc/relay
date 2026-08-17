@@ -1193,10 +1193,10 @@ async fn handle_music_custom_modal(
 fn modal_input_value(modal: &ModalInteraction, custom_id: &str) -> Option<String> {
     for row in &modal.data.components {
         for component in &row.components {
-            if let ActionRowComponent::InputText(input) = component {
-                if input.custom_id == custom_id {
-                    return input.value.clone();
-                }
+            if let ActionRowComponent::InputText(input) = component
+                && input.custom_id == custom_id
+            {
+                return input.value.clone();
             }
         }
     }
@@ -3010,7 +3010,8 @@ fn embedded_gif(embed: &serenity::all::Embed) -> Option<EmbeddedGif> {
             image.url.clone(),
             image.proxy_url.clone().unwrap_or_else(|| image.url.clone()),
         )
-    } else if let Some(thumbnail) = embed.thumbnail.as_ref() {
+    } else {
+        let thumbnail = embed.thumbnail.as_ref()?;
         (
             thumbnail.url.clone(),
             thumbnail
@@ -3018,8 +3019,6 @@ fn embedded_gif(embed: &serenity::all::Embed) -> Option<EmbeddedGif> {
                 .clone()
                 .unwrap_or_else(|| thumbnail.url.clone()),
         )
-    } else {
-        return None;
     };
     Some(EmbeddedGif {
         url: url.clone(),

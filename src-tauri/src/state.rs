@@ -501,7 +501,7 @@ impl AppCore {
             .write()
             .await
             .retain(|pending_id, _| pending_ids.contains(pending_id));
-        let _ = self.relay_tx.send(RelayEvent::Config(config));
+        let _ = self.relay_tx.send(RelayEvent::Config(Box::new(config)));
         Ok(())
     }
 
@@ -1314,6 +1314,7 @@ impl AppCore {
         .await;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn publish_visual_tts_with_ticket(
         &self,
         ticket: StageTicket,

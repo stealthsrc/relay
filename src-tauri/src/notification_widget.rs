@@ -603,7 +603,9 @@ mod tests {
 
     #[test]
     fn notification_widget_allows_compact_overlay_heights() {
-        assert!(crate::config::MIN_WIDGET_HEIGHT <= 100.0);
+        const {
+            assert!(crate::config::MIN_WIDGET_HEIGHT <= 100.0);
+        }
         assert_eq!(crate::config::MIN_WIDGET_HEIGHT, 90.0);
     }
 
@@ -706,11 +708,13 @@ mod tests {
 
     #[test]
     fn write_position_synchronizes_the_shared_widget_dock() {
-        let mut config = AppConfig::default();
-        config.notification_widget_x = Some(100);
-        config.notification_widget_y = Some(20);
-        config.music_widget_x = Some(880);
-        config.music_widget_y = Some(40);
+        let mut config = AppConfig {
+            notification_widget_x: Some(100),
+            notification_widget_y: Some(20),
+            music_widget_x: Some(880),
+            music_widget_y: Some(40),
+            ..AppConfig::default()
+        };
 
         write_position(&mut config, PhysicalPosition::new(2100, 12));
         assert_eq!(config.notification_widget_x, Some(2100));
@@ -721,11 +725,13 @@ mod tests {
 
     #[test]
     fn saved_position_uses_the_shared_widget_dock() {
-        let mut config = AppConfig::default();
-        config.notification_widget_x = Some(100);
-        config.notification_widget_y = Some(20);
-        config.music_widget_x = Some(880);
-        config.music_widget_y = Some(40);
+        let config = AppConfig {
+            notification_widget_x: Some(100),
+            notification_widget_y: Some(20),
+            music_widget_x: Some(880),
+            music_widget_y: Some(40),
+            ..AppConfig::default()
+        };
         assert_eq!(saved_position(&config), Some((100, 20)));
     }
 
@@ -736,11 +742,13 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("config.json");
         let store = ConfigStore::new(path.clone());
-        let mut config = AppConfig::default();
-        config.notification_widget_x = Some(2020);
-        config.notification_widget_y = Some(48);
-        config.music_widget_x = Some(1880);
-        config.music_widget_y = Some(64);
+        let config = AppConfig {
+            notification_widget_x: Some(2020),
+            notification_widget_y: Some(48),
+            music_widget_x: Some(1880),
+            music_widget_y: Some(64),
+            ..AppConfig::default()
+        };
         store.save(&config).unwrap();
 
         let loaded = ConfigStore::new(path.clone()).load().unwrap();

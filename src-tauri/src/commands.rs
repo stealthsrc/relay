@@ -584,8 +584,8 @@ pub async fn set_skip_shortcut(
 
     let manager = app.global_shortcut();
     let _ = manager.unregister(previous_shortcut);
-    if let Err(error) = register_skip_handler(&app, &manager, shortcut, core.inner().clone()) {
-        let _ = register_skip_handler(&app, &manager, previous_shortcut, core.inner().clone());
+    if let Err(error) = register_skip_handler(&app, manager, shortcut, core.inner().clone()) {
+        let _ = register_skip_handler(&app, manager, previous_shortcut, core.inner().clone());
         return Err(error);
     }
     let next = match core
@@ -595,7 +595,7 @@ pub async fn set_skip_shortcut(
         Ok(config) => config,
         Err(_) => {
             let _ = manager.unregister(shortcut);
-            let _ = register_skip_handler(&app, &manager, previous_shortcut, core.inner().clone());
+            let _ = register_skip_handler(&app, manager, previous_shortcut, core.inner().clone());
             return Err("The media skip shortcut could not be saved.".into());
         }
     };

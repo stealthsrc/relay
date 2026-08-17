@@ -1453,10 +1453,9 @@ async fn finish_custom_component(
 fn parse_component_action(custom_id: &str) -> Option<(bool, &str)> {
     let (confirm, token) = if let Some(token) = custom_id.strip_prefix(CONFIRM_COMPONENT_PREFIX) {
         (true, token)
-    } else if let Some(token) = custom_id.strip_prefix(CANCEL_COMPONENT_PREFIX) {
-        (false, token)
     } else {
-        return None;
+        let token = custom_id.strip_prefix(CANCEL_COMPONENT_PREFIX)?;
+        (false, token)
     };
     if token.len() != 32 || !token.chars().all(|character| character.is_ascii_hexdigit()) {
         return None;

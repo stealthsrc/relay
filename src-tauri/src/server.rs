@@ -932,17 +932,16 @@ async fn handle_socket(
         return;
     }
 
-    if receives_music {
-        if let Some(playback) = state.core.current_music().await
-            && send_json(&mut sender, &json!(RelayEvent::MusicPlay(playback)))
-                .await
-                .is_err()
-        {
-            if let Some(output) = output {
-                update_output_connection(&state, output, -1).await;
-            }
-            return;
+    if receives_music
+        && let Some(playback) = state.core.current_music().await
+        && send_json(&mut sender, &json!(RelayEvent::MusicPlay(playback)))
+            .await
+            .is_err()
+    {
+        if let Some(output) = output {
+            update_output_connection(&state, output, -1).await;
         }
+        return;
     }
 
     let mut shutdown_rx = state.client_shutdown.subscribe();
@@ -955,7 +954,7 @@ async fn handle_socket(
             event = relay_rx.recv() => {
                 match event {
                     Ok(RelayEvent::Config(config)) if is_output => {
-                        let payload = json!({ "type": "config", "payload": OverlayConfig::from(&config) });
+                        let payload = json!({ "type": "config", "payload": OverlayConfig::from(config.as_ref()) });
                         if send_json(&mut sender, &payload).await.is_err() { break; }
                     }
                     Ok(event) => {

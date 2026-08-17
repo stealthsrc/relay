@@ -269,35 +269,35 @@ fn youtube_error_message(body: &[u8], status: u16, action: &str) -> String {
         reason: Option<String>,
     }
 
-    if let Ok(parsed) = serde_json::from_slice::<ErrorBody>(body) {
-        if let Some(error) = parsed.error {
-            let reason = error
-                .errors
-                .first()
-                .and_then(|item| item.reason.as_deref())
-                .unwrap_or("");
-            if matches!(reason, "quotaExceeded" | "dailyLimitExceeded") {
-                return format!(
-                    "YouTube {action} quota exceeded. Wait for the daily reset or raise the Google Cloud quota."
-                );
-            }
-            if matches!(
-                reason,
-                "keyInvalid" | "ipRefererBlocked" | "apiNotActivated"
-            ) {
-                return format!(
-                    "YouTube API key rejected ({reason}). Check Music settings and Google Cloud."
-                );
-            }
-            if let Some(message) = error.message {
-                let safe = message
-                    .chars()
-                    .filter(|character| !character.is_control())
-                    .take(160)
-                    .collect::<String>();
-                if !safe.is_empty() {
-                    return format!("YouTube {action} failed ({status}): {safe}");
-                }
+    if let Ok(parsed) = serde_json::from_slice::<ErrorBody>(body)
+        && let Some(error) = parsed.error
+    {
+        let reason = error
+            .errors
+            .first()
+            .and_then(|item| item.reason.as_deref())
+            .unwrap_or("");
+        if matches!(reason, "quotaExceeded" | "dailyLimitExceeded") {
+            return format!(
+                "YouTube {action} quota exceeded. Wait for the daily reset or raise the Google Cloud quota."
+            );
+        }
+        if matches!(
+            reason,
+            "keyInvalid" | "ipRefererBlocked" | "apiNotActivated"
+        ) {
+            return format!(
+                "YouTube API key rejected ({reason}). Check Music settings and Google Cloud."
+            );
+        }
+        if let Some(message) = error.message {
+            let safe = message
+                .chars()
+                .filter(|character| !character.is_control())
+                .take(160)
+                .collect::<String>();
+            if !safe.is_empty() {
+                return format!("YouTube {action} failed ({status}): {safe}");
             }
         }
     }

@@ -284,7 +284,7 @@ pub enum RelayEvent {
     Sticker(StickerEvent),
     Tts(TtsEvent),
     TestOutput(Box<OutputTestEvent>),
-    Config(AppConfig),
+    Config(Box<AppConfig>),
     Clear,
     Skip,
     Appearance(InterfacePreferences),
