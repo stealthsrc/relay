@@ -27,6 +27,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - Fixed the TTS notification card leaving an unused transparent strip in wide or resized Windows widgets.
 - Fixed live media previews rendering transparency as white in the Relay panel. Previews now use a black backdrop without affecting OBS transparency.
 
+#### Security
+
+- Removed the vulnerable `quick-xml 0.39.4` and `rustls-webpki 0.102.8` transitive dependencies by using the Windows-native file-dialog and Discord TLS backends.
+
 ### Français
 
 #### Ajouté
@@ -37,6 +41,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 - Correction de la carte de notification TTS qui laissait une bande transparente inutilisée dans les widgets Windows larges ou redimensionnés.
 - Correction des aperçus média en direct qui affichaient la transparence en blanc dans le panneau Relay. Les aperçus utilisent désormais un fond noir sans modifier la transparence OBS.
+
+#### Sécurité
+
+- Suppression des dépendances transitives vulnérables `quick-xml 0.39.4` et `rustls-webpki 0.102.8` en utilisant les backends Windows natifs pour les sélecteurs de fichiers et le TLS Discord.
 
 ### Español
 
@@ -49,6 +57,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - Corregida la tarjeta de notificación TTS que dejaba una franja transparente sin usar en widgets de Windows anchos o redimensionados.
 - Corregidas las vistas previas de medios en directo que mostraban la transparencia en blanco en el panel de Relay. Ahora usan un fondo negro sin afectar la transparencia de OBS.
 
+#### Seguridad
+
+- Eliminadas las dependencias transitivas vulnerables `quick-xml 0.39.4` y `rustls-webpki 0.102.8` mediante el uso de los backends nativos de Windows para los selectores de archivos y el TLS de Discord.
+
 ### Deutsch
 
 #### Hinzugefügt
@@ -59,6 +71,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 - Die TTS-Benachrichtigungskarte behoben, die in breiten oder in der Größe geänderten Windows-Widgets einen ungenutzten transparenten Streifen ließ.
 - Live-Medienvorschauen behoben, die Transparenz im Relay-Panel weiß darstellten. Vorschauen verwenden jetzt einen schwarzen Hintergrund, ohne die OBS-Transparenz zu beeinflussen.
+
+#### Sicherheit
+
+- Die verwundbaren transitiven Abhängigkeiten `quick-xml 0.39.4` und `rustls-webpki 0.102.8` entfernt, indem native Windows-Backends für Dateidialoge und Discord-TLS verwendet werden.
 
 ### Русский
 
@@ -71,6 +87,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - Исправлена карточка TTS-уведомления, которая оставляла неиспользуемую прозрачную полосу в широких или изменённых по размеру виджетах Windows.
 - Исправлен показ прозрачности белым цветом в живых предпросмотрах медиа на панели Relay. Теперь предпросмотры используют чёрный фон, не влияя на прозрачность OBS.
 
+#### Безопасность
+
+- Удалены уязвимые транзитивные зависимости `quick-xml 0.39.4` и `rustls-webpki 0.102.8` благодаря использованию нативных Windows-бэкендов для диалогов файлов и TLS Discord.
+
 ### 简体中文
 
 #### 新增
@@ -81,6 +101,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 - 修复了 TTS 通知卡片在宽尺寸或调整大小后的 Windows 小组件中留下未使用透明条的问题。
 - 修复了 Relay 面板中的实时媒体预览将透明背景显示为白色的问题。预览现在使用黑色背景，不影响 OBS 的透明度。
+
+#### 安全
+
+- 改用 Windows 原生文件选择器和 Discord TLS 后端，移除了存在漏洞的间接依赖 `quick-xml 0.39.4` 和 `rustls-webpki 0.102.8`。
 
 ### 한국어
 
@@ -93,6 +117,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - 넓거나 크기가 조정된 Windows 위젯에서 TTS 알림 카드가 사용되지 않는 투명 영역을 남기던 문제를 수정했습니다.
 - Relay 패널의 실시간 미디어 미리보기에서 투명도가 흰색으로 표시되던 문제를 수정했습니다. 이제 미리보기는 OBS 투명도에 영향을 주지 않는 검은색 배경을 사용합니다.
 
+#### 보안
+
+- Windows 기본 파일 대화 상자와 Discord TLS 백엔드를 사용하도록 변경하여 취약한 간접 의존성 `quick-xml 0.39.4` 및 `rustls-webpki 0.102.8`을 제거했습니다.
+
 ### 日本語
 
 #### 追加
@@ -104,6 +132,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 - 幅が広い、またはサイズ変更された Windows ウィジェットで、TTS 通知カードの周囲に未使用の透明な帯が残る問題を修正しました。
 - Relay パネルのライブメディアプレビューで透明部分が白く表示される問題を修正しました。OBS の透明度に影響を与えず、黒い背景で表示されます。
 
+#### セキュリティ
+
+- Windows ネイティブのファイルダイアログと Discord TLS バックエンドへ切り替え、脆弱な間接依存関係 `quick-xml 0.39.4` と `rustls-webpki 0.102.8` を削除しました。
+
 ### Bahasa Indonesia
 
 #### Ditambahkan
@@ -114,6 +146,10 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 - Memperbaiki kartu notifikasi TTS yang menyisakan strip transparan tidak terpakai pada widget Windows yang lebar atau telah diubah ukurannya.
 - Memperbaiki pratinjau media langsung yang menampilkan transparansi sebagai putih di panel Relay. Pratinjau kini memakai latar belakang hitam tanpa memengaruhi transparansi OBS.
+
+#### Keamanan
+
+- Menghapus dependensi transitif rentan `quick-xml 0.39.4` dan `rustls-webpki 0.102.8` dengan memakai backend native Windows untuk dialog file dan TLS Discord.
 
 ## [1.3.0] - 2026-08-17
 
