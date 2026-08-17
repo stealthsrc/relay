@@ -77,6 +77,26 @@ test("sticker output identifies itself and accepts isolated tests", () => {
     },
   }));
 
+  assert.equal(elements["#sticker"].src, "");
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+  }));
   assert.equal(elements["#sticker"].src, "/overlay-assets/relay-radar.png");
   assert.equal(elements["#sticker"].alt, "Relay sticker test");
+});
+
+test("sticker reconnect keeps pending work and probes a moved server", () => {
+  const source = fs.readFileSync(__dirname + "/stickers.js", "utf8");
+  assert.match(
+    source,
+    /function interruptStickerPlayback\(\)\s*\{(?![^}]*queue\.length\s*=\s*0)[^}]*currentSticker\s*=\s*undefined/s,
+  );
+  assert.match(source, /socket\.addEventListener\("close"[\s\S]*interruptStickerPlayback\(\)/);
+  assert.match(source, /function moveToPendingPort\(\)[\s\S]*new WebSocket[\s\S]*probe\.addEventListener\("open"/);
+  assert.match(source, /probeWatchdog[\s\S]*probe\.close\(\)/);
+  assert.match(
+    source,
+    /serverMove[\s\S]*Number\.isInteger\(movedPort\)[\s\S]*movedPort <= 65535/,
+  );
 });

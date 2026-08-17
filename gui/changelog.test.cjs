@@ -1,0 +1,84 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const test = require("node:test");
+const vm = require("node:vm");
+
+const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
+const panelHtml = fs.readFileSync(__dirname + "/panel.html", "utf8");
+const changelogMarkdown = fs.readFileSync(__dirname + "/../CHANGELOG.md", "utf8");
+
+function sourceBetween(source, start, end) {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex);
+  assert.notEqual(startIndex, -1, `missing source marker: ${start}`);
+  assert.notEqual(endIndex, -1, `missing source marker: ${end}`);
+  return source.slice(startIndex, endIndex);
+}
+
+const parserSource = sourceBetween(
+  panelSource,
+  "function parseChangelogReleases",
+  "function appendInlineChangelogText",
+);
+const context = vm.createContext({});
+vm.runInContext(
+  `${parserSource}\nglobalThis.parseChangelogReleases = parseChangelogReleases;\nglobalThis.changelogBodyForLanguage = changelogBodyForLanguage;`,
+  context,
+);
+
+test("the sidebar exposes a Changelog page after Personalization", () => {
+  assert.match(panelHtml, /data-page-target="changelog"/);
+  assert.match(panelHtml, /data-page="changelog"/);
+  assert.match(panelHtml, /id="changelog-releases"/);
+  assert.match(panelSource, /changelog: \{ title: "navChangelog"/);
+  assert.match(panelSource, /invoke\("get_changelog_markdown"\)/);
+});
+
+test("parses published changelog sections and skips Unreleased", () => {
+  const releases = context.parseChangelogReleases(changelogMarkdown);
+  assert.ok(releases.length >= 2);
+  assert.equal(releases[0].version, "1.3.0");
+  assert.equal(releases[0].date, "2026-08-17");
+  for (const heading of [
+    "### English", "### Français", "### Español", "### Deutsch",
+    "### Русский", "### 简体中文", "### 한국어", "### 日本語", "### Bahasa Indonesia",
+  ]) {
+    assert.match(releases[0].body, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.doesNotMatch(releases[0].body, /Pending change|Unreleased/);
+  assert.equal(releases.some((release) => release.version === "Unreleased"), false);
+});
+
+test("selects every Relay interface language from a multilingual section", () => {
+  const body = [
+    "### English\n\n#### Added\n\n- New feature.",
+    "### Français\n\n#### Ajouté\n\n- Nouvelle fonctionnalité.",
+    "### Español\n\n#### Añadido\n\n- Nueva función.",
+    "### Deutsch\n\n#### Hinzugefügt\n\n- Neue Funktion.",
+    "### Русский\n\n#### Добавлено\n\n- Новая функция.",
+    "### 简体中文\n\n#### 新增\n\n- 新功能。",
+    "### 한국어\n\n#### 추가\n\n- 새 기능.",
+    "### 日本語\n\n#### 追加\n\n- 新機能。",
+    "### Bahasa Indonesia\n\n#### Ditambahkan\n\n- Fitur baru.",
+  ].join("\n\n");
+  assert.match(context.changelogBodyForLanguage(body, "en"), /New feature/);
+  assert.doesNotMatch(context.changelogBodyForLanguage(body, "en"), /Nouvelle fonctionnalité/);
+  assert.match(context.changelogBodyForLanguage(body, "fr"), /Nouvelle fonctionnalité/);
+  assert.match(context.changelogBodyForLanguage(body, "es"), /Nueva función/);
+  assert.match(context.changelogBodyForLanguage(body, "de"), /Neue Funktion/);
+  assert.match(context.changelogBodyForLanguage(body, "ru"), /Новая функция/);
+  assert.match(context.changelogBodyForLanguage(body, "zh"), /新功能/);
+  assert.match(context.changelogBodyForLanguage(body, "ko"), /새 기능/);
+  assert.match(context.changelogBodyForLanguage(body, "ja"), /新機能/);
+  assert.match(context.changelogBodyForLanguage(body, "id"), /Fitur baru/);
+  assert.match(context.changelogBodyForLanguage(body, "pt"), /New feature/);
+});
+
+test("the installed 1.3.0 notes keep each interface language distinct", () => {
+  const releases = context.parseChangelogReleases(changelogMarkdown);
+  const body = releases[0].body;
+  assert.match(context.changelogBodyForLanguage(body, "de"), /YouTube-Musiksuche/);
+  assert.doesNotMatch(context.changelogBodyForLanguage(body, "de"), /#### Added/);
+  assert.match(context.changelogBodyForLanguage(body, "ja"), /YouTube 音楽検索/);
+  assert.doesNotMatch(context.changelogBodyForLanguage(body, "ja"), /#### Ajouté/);
+});

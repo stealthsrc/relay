@@ -134,3 +134,87 @@ test("history uses the authenticated cache for video GIF thumbnails", () => {
   );
   assert.equal(functions.isVideoThumbnail("gif", "image/gif"), false);
 });
+
+const rememberMediaSource = panelSource.slice(
+  panelSource.indexOf("function sameHistoryMedia"),
+  panelSource.indexOf("function renderModeration"),
+);
+
+function createRememberMediaHarness() {
+  let renderCalls = 0;
+  const history = [];
+  const context = vm.createContext({
+    history,
+    renderHistory() {
+      renderCalls += 1;
+    },
+  });
+  vm.runInContext(
+    `${rememberMediaSource}\nglobalThis.rememberMediaForTest = rememberMedia;`,
+    context,
+  );
+  return {
+    history,
+    rememberMedia: context.rememberMediaForTest,
+    renderCalls: () => renderCalls,
+  };
+}
+
+test("rememberMedia skips replayed media that is already in history", () => {
+  const { history, rememberMedia, renderCalls } = createRememberMediaHarness();
+  const video = {
+    kind: "video",
+    messageId: "msg-1",
+    url: "https://cdn.discordapp.com/attachments/1/TTT.mov",
+    filename: "TTT.mov",
+  };
+  const image = {
+    kind: "image",
+    messageId: "msg-2",
+    url: "https://cdn.discordapp.com/attachments/2/photo.png",
+    filename: "photo.png",
+  };
+  const gif = {
+    kind: "gif",
+    messageId: "msg-3",
+    url: "https://cdn.discordapp.com/attachments/3/clip.gif",
+    filename: "clip.gif",
+  };
+  const audio = {
+    kind: "audio",
+    messageId: "msg-4",
+    url: "https://cdn.discordapp.com/attachments/4/track.mp3",
+    filename: "track.mp3",
+  };
+
+  for (const media of [video, image, gif, audio]) {
+    rememberMedia(media);
+  }
+  assert.equal(history.length, 4);
+  assert.equal(renderCalls(), 4);
+
+  for (const media of [video, image, gif, audio]) {
+    rememberMedia({ ...media });
+  }
+  assert.equal(history.length, 4);
+  assert.equal(renderCalls(), 4);
+  assert.deepEqual(
+    history.map(({ messageId, url }) => ({ messageId, url })),
+    [audio, gif, image, video].map(({ messageId, url }) => ({ messageId, url })),
+  );
+});
+
+test("rememberMedia still records distinct attachments from the same message", () => {
+  const { history, rememberMedia } = createRememberMediaHarness();
+  rememberMedia({
+    kind: "image",
+    messageId: "msg-multi",
+    url: "https://cdn.discordapp.com/attachments/1/a.png",
+  });
+  rememberMedia({
+    kind: "image",
+    messageId: "msg-multi",
+    url: "https://cdn.discordapp.com/attachments/1/b.png",
+  });
+  assert.equal(history.length, 2);
+});

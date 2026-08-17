@@ -42,6 +42,15 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit
+
       - name: Test interface and browser sources
         shell: pwsh
         run: >

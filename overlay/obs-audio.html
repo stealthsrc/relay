@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Relay Audio</title>
+    <link rel="stylesheet" href="/obs-assets/obs-audio.css">
+  </head>
+  <body>
+    <!--
+      Composite OBS Browser Source: Discord file audio + TTS voice.
+      Transparent canvas; OBS captures audio from both layers.
+    -->
+    <iframe
+      class="obs-layer obs-layer--audios"
+      src="/audios"
+      title="Relay Discord audio"
+      allow="autoplay"
+      allowtransparency="true"
+      frameborder="0"
+    ></iframe>
+    <iframe
+      class="obs-layer obs-layer--tts"
+      src="/tts"
+      title="Relay TTS audio"
+      allow="autoplay"
+      allowtransparency="true"
+      frameborder="0"
+    ></iframe>
+  </body>
+</html>

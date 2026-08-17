@@ -6,13 +6,26 @@ const audioArtworkElement = document.querySelector("#audio-artwork");
 const audioTitleElement = document.querySelector("#audio-title");
 const audioArtistElement = document.querySelector("#audio-artist");
 const audioMediaTextElement = document.querySelector("#audio-media-text");
-const youtubePlayerElement = document.querySelector("#youtube-player");
+const audioTimeElement = document.querySelector("#audio-time");
+const audioProgressElement = document.querySelector("#audio-progress");
+const audioProgressFillElement = document.querySelector("#audio-progress-fill");
+let youtubePlayerElement = document.querySelector("#youtube-player");
+const youtubeCreditElement = document.querySelector("#youtube-credit");
+const youtubeCreditLabelElement = document.querySelector("#youtube-credit-label");
+const youtubeCreditChannelElement = document.querySelector("#youtube-credit-channel");
+const youtubeCreditSourceElement = document.querySelector("#youtube-credit-source");
+const youtubeCreditAddedElement = document.querySelector("#youtube-credit-added");
+const youtubeCreditTimeElement = document.querySelector("#youtube-credit-time");
+const youtubeCreditProgressFillElement = document.querySelector("#youtube-credit-progress-fill");
 const authorElement = document.querySelector("#author");
 const authorAvatarElement = document.querySelector("#author-avatar");
 const authorNameElement = document.querySelector("#author-name");
 const mediaTextElement = document.querySelector("#media-text");
 const widgetParameters = new URLSearchParams(window.location.search);
-const relaySecret = widgetParameters.get("secret") || "";
+const relaySecret =
+  widgetParameters.get("secret")
+  || document.querySelector('meta[name="relay-secret"]')?.content
+  || "";
 const isWidgetWindow = widgetParameters.get("widget") === "1";
 const isPreview = widgetParameters.get("preview") === "1";
 let interfaceLanguage = widgetParameters.get("lang") || "en";
@@ -21,13 +34,49 @@ const outputClient = isPreview ? "preview" : isWidgetWindow ? "widget" : "obs";
 const coordinatesSplitOutputs = outputClient === "obs"
   && (relayMode === "visual" || relayMode === "audio");
 const moveLabelElement = document.querySelector("#widget-move-label");
-const moveLabels = { en: "Move overlay", fr: "Déplacer l’overlay", es: "Mover overlay", de: "Overlay verschieben" };
-const previewLabels = { en: "Live preview", fr: "Aperçu en direct", es: "Vista previa", de: "Live-Vorschau" };
+const moveLabels = {
+  en: "Move overlay",
+  fr: "Déplacer l’overlay",
+  es: "Mover overlay",
+  de: "Overlay verschieben",
+  ru: "Переместить оверлей",
+  zh: "移动叠加层",
+  ko: "오버레이 이동",
+  ja: "オーバーレイを移動",
+  id: "Pindahkan overlay",
+};
+const previewLabels = {
+  en: "Live preview",
+  fr: "Aperçu en direct",
+  es: "Vista previa",
+  de: "Live-Vorschau",
+  ru: "Предпросмотр",
+  zh: "实时预览",
+  ko: "실시간 미리보기",
+  ja: "ライブプレビュー",
+  id: "Pratinjau langsung",
+};
 const previewCaptionLabels = {
   en: "Discord message shown with the media",
   fr: "Message Discord affiché avec le média",
   es: "Mensaje de Discord mostrado con el medio",
   de: "Discord-Nachricht zum Medium",
+  ru: "Сообщение Discord рядом с медиа",
+  zh: "随媒体显示的 Discord 消息",
+  ko: "미디어와 함께 표시되는 Discord 메시지",
+  ja: "メディアと一緒に表示されるDiscordメッセージ",
+  id: "Pesan Discord yang ditampilkan bersama media",
+};
+const youtubeAddedByLabels = {
+  en: "Added by",
+  fr: "Ajouté par",
+  es: "Añadido por",
+  de: "Hinzugefügt von",
+  ru: "Добавил",
+  zh: "添加者",
+  ko: "추가한 사용자",
+  ja: "追加者",
+  id: "Ditambahkan oleh",
 };
 
 window.setWidgetLocked = (locked) => {
@@ -69,6 +118,7 @@ let pendingPort;
 let isUnloading = false;
 let widgetPlaybackVisible = true;
 let lastAudioPlaybackReport = "";
+let stageClockReady = true;
 let mediaClockReady = !coordinatesSplitOutputs;
 let videoOutputBusy = false;
 let audioOutputBusy = false;
@@ -82,6 +132,28 @@ let youtubePendingPlayback;
 let youtubePlaybackId;
 let youtubeGeneration = 0;
 let youtubeActiveGeneration = 0;
+/** YouTube payloads waiting because media or TTS is currently on screen. */
+let deferredYoutubeQueue = [];
+const DEFERRED_YOUTUBE_LIMIT = 20;
+/** True while a notification/TTS client holds the shared stage. */
+let ttsBusy = false;
+/**
+ * Peer Discord media occupancy from the server stage clock.
+ * On split OBS outputs (/medias vs /youtube) this is the only way the YouTube
+ * iframe learns that an image/GIF/video/audio is already on stage.
+ */
+let mediaBusy = false;
+/**
+ * Authoritative jukebox occupancy from the server (`stageClock.musicBusy`).
+ * Prefer this over local musicPlay flags so a lagged socket cannot strand media.
+ */
+let musicBusy = false;
+let reportedMediaStageBusy = false;
+let mediaStageClaimPending = false;
+let lastStageClockPayload = {};
+let reconnectHydrationPending = false;
+let youtubeCreditTimer;
+let youtubeCreditRange;
 
 function outputSocketUrl(
   host,
@@ -128,6 +200,123 @@ function loadYoutubeApi() {
   return youtubeApiPromise;
 }
 
+function decodeBasicHtmlEntities(value) {
+  return String(value ?? "")
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
+      const code = Number.parseInt(hex, 16);
+      try {
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      } catch {
+        return match;
+      }
+    })
+    .replace(/&#(\d+);/g, (match, dec) => {
+      const code = Number(dec);
+      try {
+        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      } catch {
+        return match;
+      }
+    })
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function showYoutubeCredit(payload = {}) {
+  if ((relayMode !== "youtube" && !isWidgetWindow) || !youtubeCreditElement) return;
+  window.clearTimeout(youtubeCreditTimer);
+  youtubeCreditTimer = undefined;
+  const title = decodeBasicHtmlEntities(payload.title || "").trim();
+  const channel = decodeBasicHtmlEntities(payload.channelTitle || "").trim();
+  const primary = isWidgetWindow ? title : channel;
+  const requester = decodeBasicHtmlEntities(payload.requestedBy || "").trim();
+  if (!primary && !requester) {
+    hideYoutubeCredit();
+    return;
+  }
+  youtubeCreditElement.classList.toggle("youtube-credit--widget", isWidgetWindow);
+  if (youtubeCreditChannelElement) {
+    youtubeCreditChannelElement.textContent = primary;
+    youtubeCreditChannelElement.hidden = !primary;
+  }
+  if (youtubeCreditAddedElement) {
+    const label = youtubeAddedByLabels[interfaceLanguage] || youtubeAddedByLabels.en;
+    youtubeCreditAddedElement.textContent = requester ? `${label} ${requester}` : "";
+    youtubeCreditAddedElement.hidden = !requester;
+  }
+  if (isWidgetWindow) {
+    if (youtubeCreditLabelElement) youtubeCreditLabelElement.textContent = "Now playing";
+    if (youtubeCreditSourceElement) {
+      youtubeCreditSourceElement.textContent = channel;
+      youtubeCreditSourceElement.hidden = !channel;
+    }
+    const start = Math.max(0, Number(payload.startSeconds) || 0);
+    const configuredEnd = Number(payload.endSeconds);
+    const duration = Number(payload.durationSeconds);
+    const end = Number.isFinite(configuredEnd) && configuredEnd > start
+      ? configuredEnd
+      : Math.max(start, Number.isFinite(duration) ? duration : 0);
+    youtubeCreditRange = end > start ? { start, end } : undefined;
+    updateYoutubeCreditProgress();
+  }
+  youtubeCreditElement.hidden = false;
+  youtubeCreditElement.setAttribute("aria-hidden", "false");
+  youtubeCreditElement.classList.add("is-visible");
+}
+
+function updateYoutubeCreditProgress() {
+  window.clearTimeout(youtubeCreditTimer);
+  youtubeCreditTimer = undefined;
+  if (!isWidgetWindow || !youtubeCreditRange) {
+    if (youtubeCreditTimeElement) youtubeCreditTimeElement.hidden = true;
+    if (youtubeCreditProgressFillElement) youtubeCreditProgressFillElement.style.width = "0%";
+    return;
+  }
+  const { start, end } = youtubeCreditRange;
+  const playerTime = Number(youtubePlayer?.getCurrentTime?.());
+  const current = Math.min(end, Math.max(start, Number.isFinite(playerTime) ? playerTime : start));
+  const percent = ((current - start) / (end - start)) * 100;
+  if (youtubeCreditTimeElement) {
+    youtubeCreditTimeElement.textContent = `${formatAudioClock(current)} → ${formatAudioClock(end)}`;
+    youtubeCreditTimeElement.hidden = false;
+  }
+  if (youtubeCreditProgressFillElement) {
+    youtubeCreditProgressFillElement.style.width = `${percent.toFixed(2)}%`;
+  }
+  youtubeCreditTimer = window.setTimeout(updateYoutubeCreditProgress, 1000);
+}
+
+function hideYoutubeCredit() {
+  if (!youtubeCreditElement) return;
+  window.clearTimeout(youtubeCreditTimer);
+  youtubeCreditTimer = undefined;
+  youtubeCreditRange = undefined;
+  youtubeCreditElement.classList.remove("is-visible");
+  youtubeCreditElement.classList.remove("youtube-credit--widget");
+  youtubeCreditElement.hidden = true;
+  youtubeCreditElement.setAttribute("aria-hidden", "true");
+  if (youtubeCreditChannelElement) {
+    youtubeCreditChannelElement.textContent = "";
+    youtubeCreditChannelElement.hidden = false;
+  }
+  if (youtubeCreditSourceElement) {
+    youtubeCreditSourceElement.textContent = "";
+    youtubeCreditSourceElement.hidden = true;
+  }
+  if (youtubeCreditAddedElement) {
+    youtubeCreditAddedElement.textContent = "";
+    youtubeCreditAddedElement.hidden = false;
+  }
+  if (youtubeCreditTimeElement) {
+    youtubeCreditTimeElement.textContent = "";
+    youtubeCreditTimeElement.hidden = true;
+  }
+  if (youtubeCreditProgressFillElement) youtubeCreditProgressFillElement.style.width = "0%";
+}
+
 function loadYoutubePendingPlayback() {
   if (
     !youtubePlayerReady
@@ -146,6 +335,7 @@ function loadYoutubePendingPlayback() {
   if (Number.isFinite(Number(pending.endSeconds)) && Number(pending.endSeconds) > options.startSeconds) {
     options.endSeconds = Number(pending.endSeconds);
   }
+  showYoutubeCredit(pending);
   youtubePlayer.loadVideoById(options);
   if (typeof youtubePlayer.playVideo === "function") youtubePlayer.playVideo();
 }
@@ -164,46 +354,144 @@ function allowYoutubeAutoplay() {
   const frame = youtubePlayer?.getIframe?.();
   if (!frame?.setAttribute) return;
   frame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
+  frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+}
+
+/** Soft CC / annotations off. Burned-in hardsubs in the video file cannot be removed. */
+function disableYoutubeCaptions() {
+  if (!youtubePlayer) return;
+  try {
+    youtubePlayer.unloadModule?.("captions");
+  } catch {
+    // Optional API; ignore when unavailable.
+  }
+  try {
+    youtubePlayer.setOption?.("captions", "track", {});
+  } catch {
+    // Optional API; ignore when unavailable.
+  }
+}
+
+function unloadYoutubePlayer() {
+  hideYoutubeCredit();
+  if (youtubePlayer) {
+    try {
+      if (typeof youtubePlayer.stopVideo === "function") youtubePlayer.stopVideo();
+    } catch {
+      // Ignore stop failures during teardown.
+    }
+    try {
+      const frame = youtubePlayer.getIframe?.();
+      if (frame) {
+        // Blank the iframe before destroy so OBS/CEF drops the last frame / chrome.
+        try {
+          frame.src = "about:blank";
+        } catch {
+          // Ignore navigation failures on a tearing-down frame.
+        }
+        frame.removeAttribute("src");
+        frame.style.display = "none";
+        frame.setAttribute("aria-hidden", "true");
+      }
+    } catch {
+      // Optional API; continue with destroy.
+    }
+    try {
+      if (typeof youtubePlayer.destroy === "function") youtubePlayer.destroy();
+    } catch {
+      // Ignore destroy failures; still clear local state below.
+    }
+  }
+  youtubePlayer = undefined;
+  youtubePlayerReady = false;
+
+  // Nuclear unload for OBS Browser Source: destroy alone can leave compositor
+  // cache (play button corner chrome). Replace the host node with a fresh shell.
+  const host = youtubePlayerElement || document.querySelector("#youtube-player");
+  if (host?.parentNode) {
+    const next = document.createElement("div");
+    next.id = "youtube-player";
+    next.className = "youtube-player";
+    next.setAttribute("aria-hidden", "true");
+    host.parentNode.replaceChild(next, host);
+    youtubePlayerElement = next;
+  } else if (host) {
+    host.classList.remove("youtube-player--obs");
+    host.setAttribute("aria-hidden", "true");
+    host.style.display = "none";
+    if (typeof host.replaceChildren === "function") host.replaceChildren();
+    else host.innerHTML = "";
+    youtubePlayerElement = host;
+  }
 }
 
 function createYoutubePlayer() {
   if (!youtubePlayerElement || youtubePlayer || !window.YT?.Player) return;
+  // Dedicated OBS /youtube and the combined Windows widget show the full video.
+  const showVideo = relayMode === "youtube" || isWidgetWindow;
+  const playbackId = youtubePendingPlayback?.playbackId || youtubePlaybackId;
+  const generation = youtubePendingPlayback?.generation || youtubeGeneration;
+  let createdPlayer;
+  const isCurrentPlayer = () => (
+    createdPlayer === youtubePlayer
+    && playbackId === youtubePlaybackId
+    && generation === youtubeGeneration
+  );
   youtubePlayerReady = false;
-  youtubePlayer = new window.YT.Player("youtube-player", {
-    width: "1",
-    height: "1",
+  youtubePlayerElement.style.display = "";
+  if (showVideo) {
+    youtubePlayerElement.classList.add("youtube-player--obs");
+    youtubePlayerElement.setAttribute("aria-hidden", "false");
+  }
+  createdPlayer = new window.YT.Player(youtubePlayerElement.id || "youtube-player", {
+    width: showVideo ? "100%" : "1",
+    height: showVideo ? "100%" : "1",
     playerVars: {
       autoplay: 1,
+      cc_load_policy: 0,
       controls: 0,
       disablekb: 1,
       fs: 0,
       iv_load_policy: 3,
       modestbranding: 1,
+      mute: 1,
       origin: window.location.origin,
       playsinline: 1,
+      rel: 0,
     },
     events: {
       onReady: () => {
+        if (!isCurrentPlayer()) return;
         youtubePlayerReady = true;
         allowYoutubeAutoplay();
-        applyYoutubeAudioSettings();
+        disableYoutubeCaptions();
+        // Mute first so OBS/CEF autoplay is allowed, then apply intended volume.
+        youtubePlayer.mute?.();
         loadYoutubePendingPlayback();
+        applyYoutubeAudioSettings();
       },
       onStateChange: (event) => {
+        if (!isCurrentPlayer()) return;
         if (event.data === (window.YT?.PlayerState?.PLAYING ?? 1)) {
           allowYoutubeAutoplay();
+          disableYoutubeCaptions();
           applyYoutubeAudioSettings();
           return;
         }
         if (event.data === window.YT?.PlayerState?.ENDED) {
-          finishYoutubePlayback(youtubePlaybackId, youtubeActiveGeneration);
+          finishYoutubePlayback(playbackId, generation, true);
         }
       },
       onError: () => {
-        finishYoutubePlayback(youtubePlaybackId, youtubeActiveGeneration);
+        // A failed embed (e.g. OBS still on 127.0.0.1 getting YouTube error 150) must not
+        // clear server-side playback while another output (Windows widget) still plays.
+        if (finishYoutubePlayback(playbackId, generation, false)) {
+          playDeferredYoutubeOrNextMedia();
+        }
       },
     },
   });
+  youtubePlayer = createdPlayer;
 }
 
 function finishYoutubePlayback(playbackId, generation, notifyServer = true) {
@@ -211,7 +499,7 @@ function finishYoutubePlayback(playbackId, generation, notifyServer = true) {
   if (
     notifyServer
     && !isPreview
-    && outputClient === "obs"
+    && (outputClient === "obs" || outputClient === "widget")
     && socket?.readyState === 1
   ) {
     socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId } }));
@@ -219,31 +507,165 @@ function finishYoutubePlayback(playbackId, generation, notifyServer = true) {
   youtubePendingPlayback = undefined;
   youtubePlaybackId = undefined;
   youtubeActiveGeneration = 0;
-  showNextMedia();
+  unloadYoutubePlayer();
+  syncMediaStageBusy();
+  // Server may reply with musicPlay (next queued track) or musicIdle (resume media).
+  // Do not advance media here — that would race a following MusicPlay.
   return true;
 }
 
+function removeDeferredYoutubePlayback(playbackId) {
+  if (!playbackId) return false;
+  const previousLength = deferredYoutubeQueue.length;
+  deferredYoutubeQueue = deferredYoutubeQueue.filter(
+    (playback) => playback.playbackId !== playbackId,
+  );
+  return deferredYoutubeQueue.length !== previousLength;
+}
+
 function stopYoutubePlayback(playbackId) {
+  const removedDeferred = removeDeferredYoutubePlayback(playbackId);
   const activeId = youtubePlaybackId || youtubePendingPlayback?.playbackId;
-  if (!activeId || (playbackId && activeId !== playbackId)) return false;
+  if (playbackId && activeId !== playbackId) {
+    return removedDeferred;
+  }
+  if (!activeId && !youtubePlayer) {
+    return removedDeferred;
+  }
   youtubeGeneration += 1;
   youtubePendingPlayback = undefined;
   youtubePlaybackId = undefined;
   youtubeActiveGeneration = 0;
-  if (youtubePlayer && typeof youtubePlayer.stopVideo === "function") youtubePlayer.stopVideo();
+  unloadYoutubePlayer();
+  syncMediaStageBusy();
   return true;
 }
 
-function startYoutubeMusic(payload = {}) {
-  if (isPreview || !["audio", "all"].includes(relayMode)) return;
+function mediaStageOccupied() {
+  return Boolean(
+    currentMedia
+    || youtubePlaybackId
+    || youtubePendingPlayback
+    || mediaStageClaimPending
+  );
+}
+
+function syncMediaStageBusy() {
+  if (isPreview || socket?.readyState !== 1) return;
+  const busy = mediaStageOccupied();
+  if (busy === reportedMediaStageBusy) return;
+  reportedMediaStageBusy = busy;
+  // Clear optimistic local grant when we release; peer occupancy arrives via stageClock.
+  if (!busy) mediaBusy = false;
+  socket.send(JSON.stringify({
+    type: "stageClock",
+    payload: { lane: "media", busy },
+  }));
+}
+
+function mediaStageBlocked() {
+  // musicBusy: YouTube jukebox. ttsBusy: spoken notifications.
+  // Peer mediaBusy: Discord file audio on /audios, or Windows Now Playing
+  // reporting the media lane — ignore our own occupancy echo.
+  return musicBusy || ttsBusy || (mediaBusy && !mediaStageOccupied());
+}
+
+function youtubeStageBlocked() {
+  // Ignore our own media-lane report while we already hold YouTube on this page.
+  return ttsBusy || (mediaBusy && !mediaStageOccupied());
+}
+
+function clearMediaStageClaim() {
+  mediaStageClaimPending = false;
+  if (reportedMediaStageBusy && !mediaStageOccupied()) {
+    reportedMediaStageBusy = false;
+  }
+}
+
+function resolveMediaStageClaim() {
+  if (!mediaStageClaimPending) return;
+  if (
+    (lastStageClockPayload.granted === false && lastStageClockPayload.lane === "media")
+    || ttsBusy
+    || musicBusy
+  ) {
+    mediaStageClaimPending = false;
+    reportedMediaStageBusy = false;
+    return;
+  }
+  if (!mediaBusy) return;
+  activateQueuedMedia();
+  mediaStageClaimPending = false;
+  syncMediaStageBusy();
+}
+
+function playDeferredYoutubeOrNextMedia() {
+  if (
+    !stageClockReady
+    || currentMedia
+    || youtubePlaybackId
+    || ttsBusy
+    || mediaStageClaimPending
+  ) return;
+  if (deferredYoutubeQueue.length > 0) {
+    if (youtubeStageBlocked()) return;
+    const next = deferredYoutubeQueue.shift();
+    beginYoutubeMusic(next);
+    return;
+  }
+  if (mediaStageBlocked()) return;
+  showNextMedia();
+}
+
+function activateQueuedMedia() {
+  if (
+    !stageClockReady
+    || (isWidgetWindow && !widgetPlaybackVisible)
+    || currentMedia
+    || youtubePlaybackId
+    || musicBusy
+    || ttsBusy
+    || !mediaClockReady
+  ) {
+    syncMediaStageBusy();
+    return;
+  }
+  if (deferredYoutubeQueue.length > 0) {
+    playDeferredYoutubeOrNextMedia();
+    return;
+  }
+  if (queue.length === 0) {
+    syncMediaStageBusy();
+    return;
+  }
+  currentMedia = queue.shift();
+  const generation = ++playbackGeneration;
+  setAuthor(currentMedia);
+  setMediaText(currentMedia);
+  syncMediaStageBusy();
+  if (isCoordinatedMedia(currentMedia) && !outputLeaseHeld) {
+    waitingForOutputLease = true;
+    requestOutputLease();
+    return;
+  }
+  startCurrentMedia(generation);
+}
+
+function beginYoutubeMusic(payload = {}) {
   const videoId = typeof payload.videoId === "string" ? payload.videoId : "";
   const playbackId = typeof payload.playbackId === "string" ? payload.playbackId : "";
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId) || !playbackId) return;
 
-  interruptPlayback();
+  // Only interrupt other YouTube / stray media when actually starting playback.
+  // Media must not be interrupted when we are deferring (handled in startYoutubeMusic).
+  if (youtubePlaybackId || youtubePendingPlayback) {
+    stopYoutubePlayback();
+  }
+
   const generation = ++youtubeGeneration;
   youtubePlaybackId = playbackId;
   youtubePendingPlayback = { ...payload, videoId, playbackId, generation };
+  syncMediaStageBusy();
   loadYoutubeApi()
     .then(() => {
       if (generation !== youtubeGeneration || !youtubePendingPlayback) return;
@@ -252,8 +674,28 @@ function startYoutubeMusic(payload = {}) {
     })
     .catch(() => {
       youtubeApiPromise = undefined;
-      finishYoutubePlayback(playbackId, generation);
+      finishYoutubePlayback(playbackId, generation, false);
+      playDeferredYoutubeOrNextMedia();
     });
+}
+
+function startYoutubeMusic(payload = {}) {
+  // Discord file audio stays on /audios. YouTube uses /youtube in OBS and the
+  // combined media widget on Windows.
+  if (isPreview || !["youtube", "all"].includes(relayMode)) return;
+  const videoId = typeof payload.videoId === "string" ? payload.videoId : "";
+  const playbackId = typeof payload.playbackId === "string" ? payload.playbackId : "";
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId) || !playbackId) return;
+
+  // While media or TTS holds the stage, queue YouTube instead of interrupting it.
+  // `mediaBusy` covers peer OBS iframes (/medias) that share the stage clock.
+  if (!stageClockReady || currentMedia || youtubeStageBlocked()) {
+    if (deferredYoutubeQueue.length >= DEFERRED_YOUTUBE_LIMIT) return;
+    deferredYoutubeQueue.push({ ...payload, videoId, playbackId });
+    return;
+  }
+
+  beginYoutubeMusic(payload);
 }
 
 function sendOutputLeaseState(busy) {
@@ -313,6 +755,39 @@ function setAudioArtwork(media) {
   audioArtworkElement.src = media.artworkId
     ? `/media-artwork/${encodeURIComponent(media.artworkId)}?secret=${encodeURIComponent(relaySecret)}`
     : FALLBACK_AVATAR;
+}
+
+function formatAudioClock(seconds) {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function clearAudioTransport() {
+  if (audioTimeElement) {
+    audioTimeElement.textContent = "";
+    audioTimeElement.hidden = true;
+  }
+  if (audioProgressFillElement) audioProgressFillElement.style.width = "0%";
+  if (audioProgressElement) {
+    audioProgressElement.hidden = true;
+    audioProgressElement.setAttribute("aria-valuenow", "0");
+  }
+}
+
+function updateAudioTransport(playbackElement = audioElement) {
+  if (!audioTimeElement || !audioProgressElement || !audioProgressFillElement) return;
+  const duration = Number(playbackElement?.duration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    clearAudioTransport();
+    return;
+  }
+  const current = Math.min(duration, Math.max(0, Number(playbackElement.currentTime) || 0));
+  const percent = Math.min(100, Math.max(0, (current / duration) * 100));
+  audioTimeElement.textContent = `${formatAudioClock(current)} → ${formatAudioClock(duration)}`;
+  audioTimeElement.hidden = false;
+  audioProgressFillElement.style.width = `${percent}%`;
+  audioProgressElement.hidden = false;
+  audioProgressElement.setAttribute("aria-valuenow", String(Math.round(percent)));
 }
 
 function setAuthor(media) {
@@ -395,8 +870,19 @@ function showPreview() {
 
 function fitVisualToViewport(element, width, height, insetPx = 0) {
   if (!width || !height || !window.innerWidth || !window.innerHeight) return;
+  // CSS applies transform: scale(var(--content-scale)). Fit into viewport/scale so the
+  // scaled result still fits (object-fit contain) instead of clipping top/bottom.
+  const scale = Math.max(
+    0.5,
+    Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--content-scale"),
+    ) || 1,
+  );
+  // Aspect decision uses the full viewport; inset only shrinks the fitted box.
   const fitByWidth = width / height >= window.innerWidth / window.innerHeight;
-  const fittedSize = insetPx ? `calc(100% - ${insetPx}px)` : "100%";
+  const fittedSize = insetPx
+    ? `calc((100% - ${insetPx}px) / ${scale})`
+    : `calc(100% / ${scale})`;
   element.style.width = fitByWidth ? fittedSize : "auto";
   element.style.height = fitByWidth ? "auto" : fittedSize;
 }
@@ -404,12 +890,24 @@ function fitVisualToViewport(element, width, height, insetPx = 0) {
 function applyOutputGeometry() {
   const geometry = isWidgetWindow ? config.mediaWidgetGeometry : config.mediaObsGeometry;
   const crop = (value) => Math.min(40, Math.max(0, Number(value) || 0));
-  const scale = Math.min(200, Math.max(50, Number(geometry?.contentScale) || 100));
+  // Widget: never zoom past 100% — that was cropping images at the edges.
+  let scale = Math.min(200, Math.max(50, Number(geometry?.contentScale) || 100));
+  if (isWidgetWindow) {
+    scale = Math.min(scale, 100);
+  }
   const rootStyle = document.documentElement.style;
-  rootStyle.setProperty("--crop-top", `${crop(geometry?.cropTop)}%`);
-  rootStyle.setProperty("--crop-right", `${crop(geometry?.cropRight)}%`);
-  rootStyle.setProperty("--crop-bottom", `${crop(geometry?.cropBottom)}%`);
-  rootStyle.setProperty("--crop-left", `${crop(geometry?.cropLeft)}%`);
+  // Windows media widget always shows the full frame (no user crop).
+  if (isWidgetWindow) {
+    rootStyle.setProperty("--crop-top", "0%");
+    rootStyle.setProperty("--crop-right", "0%");
+    rootStyle.setProperty("--crop-bottom", "0%");
+    rootStyle.setProperty("--crop-left", "0%");
+  } else {
+    rootStyle.setProperty("--crop-top", `${crop(geometry?.cropTop)}%`);
+    rootStyle.setProperty("--crop-right", `${crop(geometry?.cropRight)}%`);
+    rootStyle.setProperty("--crop-bottom", `${crop(geometry?.cropBottom)}%`);
+    rootStyle.setProperty("--crop-left", `${crop(geometry?.cropLeft)}%`);
+  }
   rootStyle.setProperty("--content-scale", String(scale / 100));
 }
 
@@ -440,6 +938,7 @@ function resetElements() {
   audioMediaTextElement.classList.remove("is-visible");
   audioMediaTextElement.hidden = true;
   audioMediaTextElement.textContent = "";
+  clearAudioTransport();
   setAudioArtwork({});
   authorElement.classList.remove("is-visible");
   authorElement.hidden = true;
@@ -478,6 +977,16 @@ function finishCurrentMedia(expectedGeneration = playbackGeneration) {
   resetElements();
   currentMedia = undefined;
   waitingForOutputLease = false;
+  syncMediaStageBusy();
+  if (!stageClockReady) return;
+  if (deferredYoutubeQueue.length > 0) {
+    if (isCoordinatedMedia(finishedMedia)) releaseOutputLease();
+    if (finishedMedia.kind === "audio") reportAudioPlayback("idle", finishedMedia);
+    if (youtubeStageBlocked()) return;
+    const next = deferredYoutubeQueue.shift();
+    beginYoutubeMusic(next);
+    return;
+  }
   showNextMedia();
   if (isCoordinatedMedia(finishedMedia) && !isCoordinatedMedia(currentMedia)) {
     releaseOutputLease();
@@ -502,13 +1011,15 @@ function hideCurrentMedia(expectedGeneration = playbackGeneration) {
 
 function skipCurrentMedia() {
   if (stopYoutubePlayback()) {
-    showNextMedia();
+    // Server skip/promote may follow with musicPlay; musicIdle resumes media if not.
     return;
   }
+  // IDs may already be cleared while the iframe still shows paused chrome.
+  if (youtubePlayer) unloadYoutubePlayer();
   if (currentMedia) {
     finishCurrentMedia();
   } else {
-    showNextMedia();
+    playDeferredYoutubeOrNextMedia();
   }
 }
 
@@ -593,6 +1104,7 @@ function loadPlayback(media, playbackElement, visualElement, generation) {
     if (event.type === "playing" || event.type === "timeupdate") {
       armWatchdog(20000);
       reportAudioPlayback("playing");
+      if (visualElement === audioCardElement) updateAudioTransport(playbackElement);
     }
     else armWatchdog(15000);
   };
@@ -669,6 +1181,7 @@ function startCurrentMedia(generation = playbackGeneration) {
     audioArtistElement.textContent = currentMedia.artist || "";
     audioArtistElement.hidden = !currentMedia.artist;
     setAudioArtwork(currentMedia);
+    clearAudioTransport();
     audioCardElement.hidden = false;
     loadPlayback(currentMedia, audioElement, audioCardElement, generation);
   } else {
@@ -678,30 +1191,31 @@ function startCurrentMedia(generation = playbackGeneration) {
 
 function showNextMedia() {
   if (
-    (isWidgetWindow && !widgetPlaybackVisible)
+    !stageClockReady
+    || (isWidgetWindow && !widgetPlaybackVisible)
     || currentMedia
     || youtubePlaybackId
-    || queue.length === 0
+    || mediaStageBlocked()
     || !mediaClockReady
+    || mediaStageClaimPending
   ) return;
-  currentMedia = queue.shift();
-  const generation = ++playbackGeneration;
-  setAuthor(currentMedia);
-  setMediaText(currentMedia);
-  if (isCoordinatedMedia(currentMedia) && !outputLeaseHeld) {
-    waitingForOutputLease = true;
-    requestOutputLease();
+  if (deferredYoutubeQueue.length > 0) {
+    playDeferredYoutubeOrNextMedia();
     return;
   }
-  startCurrentMedia(generation);
+  if (queue.length === 0) return;
+  mediaStageClaimPending = true;
+  syncMediaStageBusy();
 }
 
 function clearOverlay() {
   queue.length = 0;
+  deferredYoutubeQueue.length = 0;
   stopYoutubePlayback();
   finishCurrentMedia();
   waitingForOutputLease = false;
   releaseOutputLease();
+  syncMediaStageBusy();
 }
 
 const MEDIA_QUEUE_LIMIT = 50;
@@ -723,6 +1237,7 @@ function interruptPlayback() {
   if (!currentMedia) {
     waitingForOutputLease = false;
     releaseOutputLease();
+    syncMediaStageBusy();
     return;
   }
   const interruptedMedia = currentMedia;
@@ -732,6 +1247,31 @@ function interruptPlayback() {
   playbackGeneration += 1;
   resetElements();
   currentMedia = undefined;
+  syncMediaStageBusy();
+}
+
+function applyStageClock(payload = {}) {
+  stageClockReady = true;
+  lastStageClockPayload = payload && typeof payload === "object" ? payload : {};
+  mediaBusy = Boolean(payload.mediaBusy);
+  const isReconnectHydration = reconnectHydrationPending;
+  reconnectHydrationPending = false;
+  // Prefer server musicBusy when present so a missed musicIdle cannot strand media.
+  if (Object.prototype.hasOwnProperty.call(payload, "musicBusy")) {
+    musicBusy = Boolean(payload.musicBusy);
+  }
+  ttsBusy = Boolean(payload.ttsBusy);
+  if (isReconnectHydration && payload.musicBusy === false) {
+    deferredYoutubeQueue.length = 0;
+  }
+  resolveMediaStageClaim();
+  if (isWidgetWindow && widgetPlaybackVisible && currentMedia && !activeVisual) {
+    setAuthor(currentMedia);
+    setMediaText(currentMedia);
+    startCurrentMedia();
+    return;
+  }
+  playDeferredYoutubeOrNextMedia();
 }
 
 function controlAudio(control = {}) {
@@ -817,13 +1357,27 @@ function handleMessage(event) {
     controlAudio(message.payload);
   } else if (message.type === "musicPlay") {
     if (isPreview) return;
+    // Hint before stageClock arrives so /medias can queue immediately on OBS splits.
+    musicBusy = true;
     startYoutubeMusic(message.payload);
   } else if (message.type === "musicStop") {
     if (isPreview) return;
-    if (stopYoutubePlayback(message.payload?.playbackId)) showNextMedia();
+    // Only stop local YouTube. Do not advance media here — musicPlay (next track)
+    // or musicIdle (resume media) follows from the server. Leave musicBusy set;
+    // MusicStop is often followed by the next MusicPlay while the jukebox stays busy.
+    stopYoutubePlayback(message.payload?.playbackId);
+  } else if (message.type === "musicIdle") {
+    if (isPreview) return;
+    musicBusy = false;
+    deferredYoutubeQueue.length = 0;
+    stopYoutubePlayback();
+    playDeferredYoutubeOrNextMedia();
   } else if (message.type === "clear") {
     if (isPreview) return;
     clearOverlay();
+  } else if (message.type === "stageClock") {
+    if (isPreview) return;
+    applyStageClock(message.payload);
   } else if (message.type === "mediaClock") {
     applyMediaClock(message.payload);
     showNextMedia();
@@ -852,8 +1406,9 @@ function handleMessage(event) {
 }
 
 function applyAppearance(preferences = {}) {
-  interfaceLanguage = ["en", "fr", "es", "de"].includes(preferences.language)
-    ? preferences.language : interfaceLanguage;
+  interfaceLanguage = Object.hasOwn(moveLabels, preferences.language)
+    ? preferences.language
+    : interfaceLanguage;
   document.documentElement.lang = interfaceLanguage;
   document.documentElement.dataset.theme = preferences.theme || "dark";
   const rgb = Array.isArray(preferences.accentRgb) ? preferences.accentRgb : [88, 185, 137];
@@ -886,12 +1441,17 @@ function moveToPendingPort() {
     outputSocketUrl(`${window.location.hostname}:${pendingPort}`, "probe", "ws:"),
   );
   let ready = false;
+  const probeWatchdog = window.setTimeout(() => {
+    if (!ready) probe.close();
+  }, 5000);
   probe.addEventListener("open", () => {
     ready = true;
+    window.clearTimeout(probeWatchdog);
     probe.close();
     window.location.replace(nextUrl);
   });
   probe.addEventListener("close", () => {
+    window.clearTimeout(probeWatchdog);
     if (!ready && !isUnloading) {
       window.setTimeout(moveToPendingPort, 1000);
     }
@@ -915,6 +1475,14 @@ function connect() {
     outputLeaseHeld = false;
     outputLeasePending = false;
     waitingForOutputLease = false;
+    reportedMediaStageBusy = false;
+    mediaStageClaimPending = false;
+    lastStageClockPayload = {};
+    reconnectHydrationPending = true;
+    stageClockReady = isPreview;
+    ttsBusy = false;
+    mediaBusy = false;
+    musicBusy = false;
     mediaClockReady = !coordinatesSplitOutputs;
     if (pendingPort) {
       moveToPendingPort();
@@ -930,16 +1498,19 @@ window.setWidgetVisible = (visible) => {
   widgetPlaybackVisible = visible;
   if (!visible) {
     reportAudioPlayback("idle");
+    deferredYoutubeQueue.length = 0;
+    reconnectHydrationPending = true;
     stopYoutubePlayback();
     playbackGeneration += 1;
     resetElements();
+    stageClockReady = isPreview;
     window.clearTimeout(reconnectTimer);
     reconnectTimer = undefined;
     socket?.close();
     return;
   }
   if (!socket || socket.readyState >= 2) connect();
-  if (currentMedia) {
+  if (stageClockReady && currentMedia) {
     setAuthor(currentMedia);
     setMediaText(currentMedia);
     startCurrentMedia();

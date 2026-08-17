@@ -18,7 +18,7 @@
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
   <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
   <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.2.7" src="https://img.shields.io/badge/version-1.2.7-2F6FED" />
+  <img alt="Version 1.3.0" src="https://img.shields.io/badge/version-1.3.0-2F6FED" />
 </p>
 
 <p align="center">
@@ -269,14 +269,15 @@ relay-bot/
 ├── tts/                 Dedicated TTS Browser Source
 ├── notifications/       TTS notification Browser Source and widget
 ├── assets/              Relay identity and README visuals
-├── docs/                Design records and implementation notes
-├── USAGE.md             Full user guide
+├── docs/                Design records, YouTube API tutorial, implementation notes
+├── USAGE.md             Full user guide (incl. YouTube API key)
 └── README.md            Product and developer overview
 ```
 
 ## Documentation
 
-- **[User guide](USAGE.md)** — Discord, OBS, moderation, TTS, widgets, and troubleshooting
+- **[User guide](USAGE.md)** — Discord, OBS, moderation, TTS, widgets, YouTube music API, and troubleshooting
+- **[YouTube API setup](docs/youtube-api-setup.md)** — Google Cloud → YouTube Data API v3 → key in Relay (English)
 - **[Design system](docs/design-system.md)** — visual identity and interface constraints
 - **[Architecture](docs/architecture.md)** — runtime components, trust boundaries, and contributor source map
 - **[Contributing](CONTRIBUTING.md)** — local setup, validation, and contribution rules

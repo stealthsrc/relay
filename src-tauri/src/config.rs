@@ -9,10 +9,11 @@ use serde::{Deserialize, Serialize};
 use tauri_plugin_global_shortcut::Shortcut;
 
 use crate::custom_commands::{CustomCommandDefinition, validate_custom_commands};
+use crate::model::InterfacePreferences;
 use crate::privacy::{
     ForbiddenConcept, MAX_CONFIGURED_REGEXES, MAX_PRIVACY_LIST_ENTRIES,
     MAX_PRIVACY_LIST_VALUE_CHARS, PrivacyCategory, PrivacyClassification, ProtectionLevel,
-    SuspiciousPolicy, default_privacy_categories,
+    default_privacy_categories,
 };
 
 pub const DEFAULT_PORT: u16 = 4590;
@@ -22,8 +23,18 @@ pub const DEFAULT_STICKER_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_NOTIFICATION_DURATION_MS: u64 = 8_000;
 pub const DEFAULT_WIDGET_WIDTH: f64 = 640.0;
 pub const DEFAULT_WIDGET_HEIGHT: f64 = 360.0;
-pub const DEFAULT_NOTIFICATION_WIDGET_WIDTH: f64 = 510.0;
-pub const DEFAULT_NOTIFICATION_WIDGET_HEIGHT: f64 = 130.0;
+pub const DEFAULT_NOTIFICATION_WIDGET_WIDTH: f64 = 400.0;
+pub const DEFAULT_NOTIFICATION_WIDGET_HEIGHT: f64 = 104.0;
+/// Now Playing card size for the shared Windows notification widget.
+/// Kept separate from TTS notification dimensions.
+pub const DEFAULT_MUSIC_WIDGET_WIDTH: f64 = 560.0;
+pub const DEFAULT_MUSIC_WIDGET_HEIGHT: f64 = 112.0;
+const LEGACY_MUSIC_WIDGET_WIDTH: f64 = 980.0;
+const LEGACY_MUSIC_WIDGET_HEIGHT: f64 = 360.0;
+const LEGACY_NOTIFICATION_WIDGET_WIDTH: f64 = 980.0;
+const LEGACY_NOTIFICATION_WIDGET_HEIGHT: f64 = 180.0;
+const PREVIOUS_NOTIFICATION_WIDGET_WIDTH: f64 = 480.0;
+const PREVIOUS_NOTIFICATION_WIDGET_HEIGHT: f64 = 112.0;
 pub const DEFAULT_SKIP_SHORTCUT: &str = "control+alt+KeyS";
 pub const MAX_PRIVACY_EXEMPT_ROLE_IDS: usize = 100;
 pub const MIN_WIDGET_WIDTH: f64 = 160.0;
@@ -119,9 +130,6 @@ pub struct AppConfig {
     pub moderation_allow_videos: bool,
     pub moderation_allow_audio: bool,
     pub privacy_scan_enabled: bool,
-    pub privacy_suspicious_policy: SuspiciousPolicy,
-    pub privacy_suspicious_threshold: u8,
-    pub privacy_sensitive_threshold: u8,
     pub privacy_similarity_boost: u8,
     pub privacy_concepts: Vec<ForbiddenConcept>,
     pub privacy_filter_exempt_role_ids: Vec<String>,
@@ -143,6 +151,7 @@ pub struct AppConfig {
     pub command_changelog_enabled: bool,
     pub custom_commands: Vec<CustomCommandDefinition>,
     pub channel_lock: Option<ChannelLockSnapshot>,
+    pub interface_preferences: InterfacePreferences,
     pub widget_x: Option<i32>,
     pub widget_y: Option<i32>,
     pub widget_width: f64,
@@ -155,6 +164,10 @@ pub struct AppConfig {
     pub notification_widget_y: Option<i32>,
     pub notification_widget_width: f64,
     pub notification_widget_height: f64,
+    pub music_widget_x: Option<i32>,
+    pub music_widget_y: Option<i32>,
+    pub music_widget_width: f64,
+    pub music_widget_height: f64,
     pub notification_widget_visible: bool,
     pub notification_widget_locked: bool,
     pub media_obs_geometry: OutputGeometry,
@@ -182,7 +195,7 @@ impl Default for AppConfig {
             tts_character_limit: 0,
             tts_queue_limit: 50,
             tts_speech_enabled: true,
-            tts_notifications_obs_enabled: false,
+            tts_notifications_obs_enabled: true,
             bot_online_status: "online".into(),
             bot_activity_type: "custom".into(),
             bot_activity_text: String::new(),
@@ -194,9 +207,6 @@ impl Default for AppConfig {
             moderation_allow_videos: true,
             moderation_allow_audio: true,
             privacy_scan_enabled: false,
-            privacy_suspicious_policy: SuspiciousPolicy::Review,
-            privacy_suspicious_threshold: 2,
-            privacy_sensitive_threshold: 4,
             privacy_similarity_boost: 4,
             privacy_concepts: Vec::new(),
             privacy_filter_exempt_role_ids: Vec::new(),
@@ -218,6 +228,7 @@ impl Default for AppConfig {
             command_changelog_enabled: true,
             custom_commands: Vec::new(),
             channel_lock: None,
+            interface_preferences: InterfacePreferences::default(),
             widget_x: None,
             widget_y: None,
             widget_width: DEFAULT_WIDGET_WIDTH,
@@ -230,6 +241,10 @@ impl Default for AppConfig {
             notification_widget_y: None,
             notification_widget_width: DEFAULT_NOTIFICATION_WIDGET_WIDTH,
             notification_widget_height: DEFAULT_NOTIFICATION_WIDGET_HEIGHT,
+            music_widget_x: None,
+            music_widget_y: None,
+            music_widget_width: DEFAULT_MUSIC_WIDGET_WIDTH,
+            music_widget_height: DEFAULT_MUSIC_WIDGET_HEIGHT,
             notification_widget_visible: false,
             notification_widget_locked: false,
             media_obs_geometry: OutputGeometry::default(),
@@ -287,12 +302,6 @@ impl AppConfig {
         }
         if !(1..=50).contains(&self.tts_queue_limit) {
             bail!("The TTS queue limit must be between 1 and 50.");
-        }
-        if !(1..=100).contains(&self.privacy_suspicious_threshold)
-            || !(1..=100).contains(&self.privacy_sensitive_threshold)
-            || self.privacy_sensitive_threshold <= self.privacy_suspicious_threshold
-        {
-            bail!("Privacy score thresholds are invalid.");
         }
         if !(1..=100).contains(&self.privacy_similarity_boost) {
             bail!("Privacy similarity boost must be between 1 and 100.");
@@ -356,18 +365,36 @@ impl AppConfig {
         {
             bail!("The Discord bot activity must contain at most 128 printable characters.");
         }
+        validate_interface_preferences(&self.interface_preferences)?;
         validate_custom_commands(&self.custom_commands)?;
         validate_widget_size(self.widget_width, self.widget_height)?;
         validate_widget_size(
             self.notification_widget_width,
             self.notification_widget_height,
         )?;
+        validate_widget_size(self.music_widget_width, self.music_widget_height)?;
         self.media_obs_geometry.validate()?;
         self.media_widget_geometry.validate()?;
         self.notification_obs_geometry.validate()?;
         self.notification_widget_geometry.validate()?;
         Ok(())
     }
+}
+
+fn validate_interface_preferences(preferences: &InterfacePreferences) -> Result<()> {
+    if !matches!(
+        preferences.language.as_str(),
+        "en" | "fr" | "es" | "de" | "ru" | "zh" | "ko" | "ja" | "id"
+    ) {
+        bail!("The interface language is invalid.");
+    }
+    if !matches!(preferences.theme.as_str(), "light" | "dark") {
+        bail!("The interface theme is invalid.");
+    }
+    if !(80..=140).contains(&preferences.font_scale) {
+        bail!("The interface font scale must be between 80 and 140 percent.");
+    }
+    Ok(())
 }
 
 fn validate_privacy_list(values: &[String], label: &str) -> Result<()> {
@@ -509,7 +536,14 @@ fn deserialize_config(bytes: &[u8]) -> Result<(AppConfig, bool)> {
     let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
     let missing_gif_duration = value.get("gifDurationMs").is_none();
     let missing_sticker_duration = value.get("stickerDurationMs").is_none();
-    let migrated = missing_gif_duration || missing_sticker_duration;
+    let missing_music_width = value.get("musicWidgetWidth").is_none();
+    let missing_music_height = value.get("musicWidgetHeight").is_none();
+    let missing_music_x = value.get("musicWidgetX").is_none();
+    let missing_music_y = value.get("musicWidgetY").is_none();
+    let mut migrated = missing_gif_duration
+        || missing_sticker_duration
+        || missing_music_width
+        || missing_music_height;
     if missing_gif_duration {
         let duration = value
             .get("displayDurationMs")
@@ -525,6 +559,106 @@ fn deserialize_config(bytes: &[u8]) -> Result<(AppConfig, bool)> {
             serde_json::json!(DEFAULT_STICKER_DURATION_MS),
         );
     }
+    // Music now uses a compact 16:9 toast rather than the taller TTS card.
+    if (missing_music_width || missing_music_height)
+        && let Some(config) = value.as_object_mut()
+    {
+        if missing_music_width {
+            config.insert(
+                "musicWidgetWidth".into(),
+                serde_json::json!(DEFAULT_MUSIC_WIDGET_WIDTH),
+            );
+        }
+        if missing_music_height {
+            config.insert(
+                "musicWidgetHeight".into(),
+                serde_json::json!(DEFAULT_MUSIC_WIDGET_HEIGHT),
+            );
+        }
+    }
+    // TTS and music used to share one dock (notificationWidgetX/Y). Seed music
+    // placement once so existing cards keep their spot, then the two can diverge.
+    if (missing_music_x || missing_music_y)
+        && let Some(config) = value.as_object_mut()
+    {
+        let mut seeded = false;
+        if missing_music_x && let Some(x) = config.get("notificationWidgetX").cloned() {
+            config.insert("musicWidgetX".into(), x);
+            seeded = true;
+        }
+        if missing_music_y && let Some(y) = config.get("notificationWidgetY").cloned() {
+            config.insert("musicWidgetY".into(), y);
+            seeded = true;
+        }
+        if seeded {
+            migrated = true;
+        }
+    }
+    // 1.2.7 briefly shipped a 980×360 video-first default. Migrate only that
+    // exact generated size; explicitly customized dimensions remain untouched.
+    let legacy_video_preview_size = value
+        .get("musicWidgetWidth")
+        .and_then(|width| width.as_f64())
+        == Some(LEGACY_MUSIC_WIDGET_WIDTH)
+        && value
+            .get("musicWidgetHeight")
+            .and_then(|height| height.as_f64())
+            == Some(LEGACY_MUSIC_WIDGET_HEIGHT);
+    if legacy_video_preview_size {
+        if let Some(config) = value.as_object_mut() {
+            config.insert(
+                "musicWidgetWidth".into(),
+                serde_json::json!(DEFAULT_MUSIC_WIDGET_WIDTH),
+            );
+            config.insert(
+                "musicWidgetHeight".into(),
+                serde_json::json!(DEFAULT_MUSIC_WIDGET_HEIGHT),
+            );
+        }
+        migrated = true;
+    }
+    // Migrate the two generated notification sizes that preceded the denser
+    // toast. Explicitly customized dimensions remain untouched.
+    let notification_width = value
+        .get("notificationWidgetWidth")
+        .and_then(|width| width.as_f64());
+    let notification_height = value
+        .get("notificationWidgetHeight")
+        .and_then(|height| height.as_f64());
+    let generated_notification_size = matches!(
+        (notification_width, notification_height),
+        (Some(width), Some(height))
+            if (width, height)
+                == (
+                    LEGACY_NOTIFICATION_WIDGET_WIDTH,
+                    LEGACY_NOTIFICATION_WIDGET_HEIGHT,
+                )
+                || (width, height)
+                    == (
+                        PREVIOUS_NOTIFICATION_WIDGET_WIDTH,
+                        PREVIOUS_NOTIFICATION_WIDGET_HEIGHT,
+                    )
+    );
+    if generated_notification_size {
+        if let Some(config) = value.as_object_mut() {
+            config.insert(
+                "notificationWidgetWidth".into(),
+                serde_json::json!(DEFAULT_NOTIFICATION_WIDGET_WIDTH),
+            );
+            config.insert(
+                "notificationWidgetHeight".into(),
+                serde_json::json!(DEFAULT_NOTIFICATION_WIDGET_HEIGHT),
+            );
+            // Saved positions are physical pixels while widget sizes are
+            // logical units. Preserve the top-left here: shifting without a
+            // monitor scale would misplace the window on high-DPI displays.
+        }
+        migrated = true;
+    }
+    // Missing notification widget size keys still pick up AppConfig::default
+    // via serde(default). Never rewrite an explicitly saved custom size —
+    // earlier builds forced any width < 900 / height < 170 back to 980×180
+    // on every launch, which wiped custom card length from Overlay.
     Ok((serde_json::from_value(value)?, migrated))
 }
 
@@ -572,9 +706,6 @@ mod tests {
             moderation_allow_videos: false,
             moderation_allow_audio: true,
             privacy_scan_enabled: true,
-            privacy_suspicious_policy: SuspiciousPolicy::Review,
-            privacy_suspicious_threshold: 2,
-            privacy_sensitive_threshold: 4,
             privacy_similarity_boost: 4,
             privacy_concepts: Vec::new(),
             privacy_filter_exempt_role_ids: Vec::new(),
@@ -604,6 +735,12 @@ mod tests {
                 ..CustomCommandDefinition::default()
             }],
             channel_lock: None,
+            interface_preferences: InterfacePreferences {
+                language: "fr".into(),
+                theme: "light".into(),
+                accent_rgb: [21, 126, 88],
+                font_scale: 110,
+            },
             widget_x: Some(-640),
             widget_y: Some(120),
             widget_width: 960.0,
@@ -616,6 +753,10 @@ mod tests {
             notification_widget_y: Some(40),
             notification_widget_width: 620.0,
             notification_widget_height: 180.0,
+            music_widget_x: Some(880),
+            music_widget_y: Some(20),
+            music_widget_width: 540.0,
+            music_widget_height: 360.0,
             notification_widget_visible: true,
             notification_widget_locked: true,
             media_obs_geometry: OutputGeometry {
@@ -645,6 +786,27 @@ mod tests {
         };
         store.save(&updated).unwrap();
         assert_eq!(store.load().unwrap(), updated);
+    }
+
+    #[test]
+    fn interface_preferences_survive_a_config_round_trip() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let store = ConfigStore::new(path.clone());
+        let config = AppConfig {
+            interface_preferences: crate::model::InterfacePreferences {
+                language: "ja".into(),
+                theme: "light".into(),
+                accent_rgb: [12, 34, 56],
+                font_scale: 125,
+            },
+            ..AppConfig::default()
+        };
+
+        store.save(&config).unwrap();
+        let loaded = ConfigStore::new(path).load().unwrap();
+
+        assert_eq!(loaded.interface_preferences, config.interface_preferences);
     }
 
     #[test]
@@ -796,6 +958,239 @@ mod tests {
         let persisted: serde_json::Value =
             serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         assert_eq!(persisted["stickerDurationMs"], 8_000);
+    }
+
+    #[test]
+    fn preserves_custom_notification_widget_size_and_output_geometry() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ConfigStore::new(directory.path().join("config.json"));
+        let updated = AppConfig {
+            notification_widget_width: 540.0,
+            notification_widget_height: 144.0,
+            music_widget_width: 720.0,
+            music_widget_height: 280.0,
+            media_obs_geometry: OutputGeometry {
+                content_scale: 140,
+                crop_left: 8,
+                ..OutputGeometry::default()
+            },
+            media_widget_geometry: OutputGeometry {
+                content_scale: 120,
+                ..OutputGeometry::default()
+            },
+            notification_obs_geometry: OutputGeometry {
+                content_scale: 105,
+                crop_top: 4,
+                ..OutputGeometry::default()
+            },
+            notification_widget_geometry: OutputGeometry {
+                content_scale: 112,
+                crop_bottom: 6,
+                ..OutputGeometry::default()
+            },
+            widget_width: 800.0,
+            widget_height: 450.0,
+            ..AppConfig::default()
+        };
+        store.save(&updated).unwrap();
+        assert_eq!(store.load().unwrap(), updated);
+    }
+
+    #[test]
+    fn migrates_missing_music_widget_size_to_compact_default() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = legacy.as_object_mut().unwrap();
+        object.insert("notificationWidgetWidth".into(), serde_json::json!(540.0));
+        object.insert("notificationWidgetHeight".into(), serde_json::json!(160.0));
+        object.remove("musicWidgetWidth");
+        object.remove("musicWidgetHeight");
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path.clone()).load().unwrap();
+        assert_eq!(migrated.notification_widget_width, 540.0);
+        assert_eq!(migrated.notification_widget_height, 160.0);
+        assert_eq!(migrated.music_widget_width, DEFAULT_MUSIC_WIDGET_WIDTH);
+        assert_eq!(migrated.music_widget_height, DEFAULT_MUSIC_WIDGET_HEIGHT);
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(persisted["musicWidgetWidth"], DEFAULT_MUSIC_WIDGET_WIDTH);
+        assert_eq!(persisted["musicWidgetHeight"], DEFAULT_MUSIC_WIDGET_HEIGHT);
+        assert_eq!(persisted["notificationWidgetWidth"], 540.0);
+        assert_eq!(persisted["notificationWidgetHeight"], 160.0);
+    }
+
+    #[test]
+    fn migrates_video_first_music_default_to_compact_toast() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = legacy.as_object_mut().unwrap();
+        object.insert(
+            "musicWidgetWidth".into(),
+            serde_json::json!(LEGACY_MUSIC_WIDGET_WIDTH),
+        );
+        object.insert(
+            "musicWidgetHeight".into(),
+            serde_json::json!(LEGACY_MUSIC_WIDGET_HEIGHT),
+        );
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path.clone()).load().unwrap();
+        assert_eq!(migrated.music_widget_width, DEFAULT_MUSIC_WIDGET_WIDTH);
+        assert_eq!(migrated.music_widget_height, DEFAULT_MUSIC_WIDGET_HEIGHT);
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(persisted["musicWidgetWidth"], DEFAULT_MUSIC_WIDGET_WIDTH);
+        assert_eq!(persisted["musicWidgetHeight"], DEFAULT_MUSIC_WIDGET_HEIGHT);
+    }
+
+    #[test]
+    fn migrates_stretched_notification_default_to_compact_toast() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = legacy.as_object_mut().unwrap();
+        object.insert(
+            "notificationWidgetWidth".into(),
+            serde_json::json!(LEGACY_NOTIFICATION_WIDGET_WIDTH),
+        );
+        object.insert(
+            "notificationWidgetHeight".into(),
+            serde_json::json!(LEGACY_NOTIFICATION_WIDGET_HEIGHT),
+        );
+        object.insert("notificationWidgetX".into(), serde_json::json!(940));
+        object.insert("notificationWidgetY".into(), serde_json::json!(12));
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path.clone()).load().unwrap();
+        assert_eq!(
+            migrated.notification_widget_width,
+            DEFAULT_NOTIFICATION_WIDGET_WIDTH
+        );
+        assert_eq!(
+            migrated.notification_widget_height,
+            DEFAULT_NOTIFICATION_WIDGET_HEIGHT
+        );
+        assert_eq!(migrated.notification_widget_x, Some(940));
+        assert_eq!(migrated.notification_widget_y, Some(12));
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(
+            persisted["notificationWidgetWidth"],
+            DEFAULT_NOTIFICATION_WIDGET_WIDTH
+        );
+        assert_eq!(
+            persisted["notificationWidgetHeight"],
+            DEFAULT_NOTIFICATION_WIDGET_HEIGHT
+        );
+        assert_eq!(persisted["notificationWidgetX"], 940);
+    }
+
+    #[test]
+    fn migrates_previous_compact_notification_size() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut previous = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = previous.as_object_mut().unwrap();
+        object.insert(
+            "notificationWidgetWidth".into(),
+            serde_json::json!(PREVIOUS_NOTIFICATION_WIDGET_WIDTH),
+        );
+        object.insert(
+            "notificationWidgetHeight".into(),
+            serde_json::json!(PREVIOUS_NOTIFICATION_WIDGET_HEIGHT),
+        );
+        object.insert("notificationWidgetX".into(), serde_json::json!(1440));
+        fs::write(&path, serde_json::to_vec_pretty(&previous).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path).load().unwrap();
+        assert_eq!(
+            migrated.notification_widget_width,
+            DEFAULT_NOTIFICATION_WIDGET_WIDTH
+        );
+        assert_eq!(
+            migrated.notification_widget_height,
+            DEFAULT_NOTIFICATION_WIDGET_HEIGHT
+        );
+        assert_eq!(migrated.notification_widget_x, Some(1440));
+    }
+
+    #[test]
+    fn keeps_custom_notification_widget_size() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut config = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = config.as_object_mut().unwrap();
+        object.insert("notificationWidgetWidth".into(), serde_json::json!(720.0));
+        object.insert("notificationWidgetHeight".into(), serde_json::json!(160.0));
+        object.insert("notificationWidgetX".into(), serde_json::json!(940));
+        fs::write(&path, serde_json::to_vec_pretty(&config).unwrap()).unwrap();
+
+        let loaded = ConfigStore::new(path).load().unwrap();
+        assert_eq!(loaded.notification_widget_width, 720.0);
+        assert_eq!(loaded.notification_widget_height, 160.0);
+        assert_eq!(loaded.notification_widget_x, Some(940));
+    }
+
+    #[test]
+    fn keeps_custom_music_widget_size() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut config = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = config.as_object_mut().unwrap();
+        object.insert("musicWidgetWidth".into(), serde_json::json!(720.0));
+        object.insert("musicWidgetHeight".into(), serde_json::json!(280.0));
+        fs::write(&path, serde_json::to_vec_pretty(&config).unwrap()).unwrap();
+
+        let loaded = ConfigStore::new(path).load().unwrap();
+        assert_eq!(loaded.music_widget_width, 720.0);
+        assert_eq!(loaded.music_widget_height, 280.0);
+    }
+
+    #[test]
+    fn migrates_missing_music_widget_position_from_notification_position() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = legacy.as_object_mut().unwrap();
+        object.insert("notificationWidgetX".into(), serde_json::json!(2020));
+        object.insert("notificationWidgetY".into(), serde_json::json!(48));
+        object.remove("musicWidgetX");
+        object.remove("musicWidgetY");
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+
+        let migrated = ConfigStore::new(path.clone()).load().unwrap();
+        assert_eq!(migrated.notification_widget_x, Some(2020));
+        assert_eq!(migrated.notification_widget_y, Some(48));
+        assert_eq!(migrated.music_widget_x, Some(2020));
+        assert_eq!(migrated.music_widget_y, Some(48));
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(persisted["musicWidgetX"], 2020);
+        assert_eq!(persisted["musicWidgetY"], 48);
+        assert_eq!(persisted["notificationWidgetX"], 2020);
+        assert_eq!(persisted["notificationWidgetY"], 48);
+    }
+
+    #[test]
+    fn keeps_existing_music_widget_position_during_load() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let mut config = serde_json::to_value(AppConfig::default()).unwrap();
+        let object = config.as_object_mut().unwrap();
+        object.insert("notificationWidgetX".into(), serde_json::json!(100));
+        object.insert("notificationWidgetY".into(), serde_json::json!(20));
+        object.insert("musicWidgetX".into(), serde_json::json!(880));
+        object.insert("musicWidgetY".into(), serde_json::json!(40));
+        fs::write(&path, serde_json::to_vec_pretty(&config).unwrap()).unwrap();
+
+        let loaded = ConfigStore::new(path).load().unwrap();
+        assert_eq!(loaded.notification_widget_x, Some(100));
+        assert_eq!(loaded.notification_widget_y, Some(20));
+        assert_eq!(loaded.music_widget_x, Some(880));
+        assert_eq!(loaded.music_widget_y, Some(40));
     }
 
     #[test]

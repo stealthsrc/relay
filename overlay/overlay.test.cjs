@@ -47,6 +47,8 @@ test("media previews stay visible and isolated from the live media queue", () =>
   const panelSource = fs.readFileSync(__dirname + "/../gui/panel.js", "utf8");
   assert.match(panelSource, /previewUrl\.searchParams\.set\("preview", "1"\)/);
   assert.match(panelSource, /url\.searchParams\.set\("preview", "1"\)/);
+  assert.match(panelSource, /http:\/\/127\.0\.0\.1:\$\{port\}\$\{path\}/);
+  assert.match(panelSource, /path = metadata\.previewKey === "notificationUrl" \? "\/notifications" : "\/medias"/);
 });
 
 test("media outputs identify their source and local client context", () => {
@@ -123,6 +125,7 @@ function element() {
     removeAttribute(name) {
       if (name === "src") this.src = "";
     },
+    setAttribute() {},
     load() {},
     pauseCalls: 0,
     pause() { this.pauseCalls += 1; },
@@ -130,13 +133,41 @@ function element() {
   };
 }
 
-function createHarness(search = "?secret=private", mode = "all") {
+function createHarness(search = "?secret=private", mode = "all", autoGrantStage = true, metaSecret = "") {
   const selectors = [
     "#image", "#video", "#audio", "#audio-card", "#audio-artwork", "#audio-title", "#audio-artist", "#audio-media-text",
+    "#audio-time", "#audio-progress", "#audio-progress-fill",
     "#author", "#author-avatar", "#author-name", "#media-text", "#youtube-player",
+    "#youtube-credit", "#youtube-credit-label",
+    "#youtube-credit-channel", "#youtube-credit-source", "#youtube-credit-added",
+    "#youtube-credit-time", "#youtube-credit-progress-fill",
     "#widget-move-label",
   ];
   const elements = Object.fromEntries(selectors.map((selector) => [selector, element()]));
+  elements["#audio"].currentTime = 0;
+  elements["#audio"].duration = Number.NaN;
+  elements["#audio-progress"].setAttribute = function setAttribute(name, value) {
+    this.attributes = this.attributes || {};
+    this.attributes[name] = value;
+  };
+  elements["#audio-progress"].hidden = true;
+  elements["#audio-time"].hidden = true;
+  elements["#audio-progress-fill"].style.width = "0%";
+  elements["#youtube-player"].replaceChildren = function replaceChildren() {
+    this.innerHTML = "";
+  };
+  elements["#youtube-player"].innerHTML = "";
+  elements["#youtube-player"].setAttribute = function setAttribute(name, value) {
+    this.attributes = this.attributes || {};
+    this.attributes[name] = value;
+    if (name === "aria-hidden") this.ariaHidden = value;
+  };
+  elements["#youtube-credit"].hidden = true;
+  elements["#youtube-credit"].setAttribute = function setAttribute(name, value) {
+    this.attributes = this.attributes || {};
+    this.attributes[name] = value;
+    if (name === "aria-hidden") this.ariaHidden = value;
+  };
   const sockets = [];
   const youtubePlayers = [];
   const timers = [];
@@ -152,7 +183,21 @@ function createHarness(search = "?secret=private", mode = "all") {
     }
     addEventListener(type, listener) { this.listeners.set(type, listener); }
     emit(type, data) { this.listeners.get(type)?.({ data }); }
-    send(data) { this.sent.push(JSON.parse(data)); }
+    send(data) {
+      const message = JSON.parse(data);
+      this.sent.push(message);
+      if (
+        autoGrantStage
+        && message.type === "stageClock"
+        && message.payload?.lane === "media"
+        && message.payload?.busy === true
+      ) {
+        this.emit("message", JSON.stringify({
+          type: "stageClock",
+          payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+        }));
+      }
+    }
     close() { this.readyState = 3; }
   }
 
@@ -171,9 +216,20 @@ function createHarness(search = "?secret=private", mode = "all") {
       this.options = options;
       this.loaded = undefined;
       this.stopCalls = 0;
+      this.destroyCalls = 0;
       this.muteCalls = 0;
       this.unMuteCalls = 0;
+      this.unloadModuleCalls = [];
+      this.setOptionCalls = [];
       this.volume = undefined;
+      this.currentTime = 0;
+      this.iframeAttributes = {};
+      this.iframe = {
+        setAttribute: (name, value) => {
+          this.iframeAttributes[name] = value;
+        },
+        getAttribute: (name) => this.iframeAttributes[name],
+      };
       youtubePlayers.push(this);
     }
 
@@ -181,10 +237,16 @@ function createHarness(search = "?secret=private", mode = "all") {
     loadVideoById(options) { this.loaded = options; }
     playVideo() {}
     stopVideo() { this.stopCalls += 1; }
+    destroy() { this.destroyCalls += 1; }
     mute() { this.muteCalls += 1; }
     unMute() { this.unMuteCalls += 1; }
     setVolume(value) { this.volume = value; }
+    unloadModule(name) { this.unloadModuleCalls.push(name); }
+    setOption(module, option, value) { this.setOptionCalls.push([module, option, value]); }
+    getCurrentTime() { return this.currentTime; }
+    getIframe() { return this.iframe; }
     emitState(data) { this.options.events.onStateChange({ data }); }
+    emitError() { this.options.events.onError({ data: 150 }); }
   }
 
   const window = {
@@ -194,12 +256,24 @@ function createHarness(search = "?secret=private", mode = "all") {
     addEventListener() {},
     clearTimeout() {},
     setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; },
+    getComputedStyle() {
+      return {
+        getPropertyValue(name) {
+          if (Object.prototype.hasOwnProperty.call(cssProperties, name)) {
+            return cssProperties[name];
+          }
+          if (name === "--content-scale") return "1";
+          return "";
+        },
+      };
+    },
     YT: { Player: FakeYoutubePlayer, PlayerState: { ENDED: 0 } },
   };
   const context = vm.createContext({
     URL,
     URLSearchParams,
     WebSocket: MockWebSocket,
+    getComputedStyle: (...args) => window.getComputedStyle(...args),
     document: {
       documentElement: {
         classList: classList(),
@@ -207,9 +281,13 @@ function createHarness(search = "?secret=private", mode = "all") {
         lang: "en",
         style: { setProperty(name, value) { cssProperties[name] = value; } },
       },
-      querySelector: (selector) => selector === 'meta[name="relay-mode"]'
-        ? { content: mode }
-        : elements[selector],
+      querySelector: (selector) => {
+        if (selector === 'meta[name="relay-mode"]') return { content: mode };
+        if (selector === 'meta[name="relay-secret"]') {
+          return metaSecret ? { content: metaSecret } : null;
+        }
+        return elements[selector];
+      },
     },
     encodeURIComponent,
     window,
@@ -265,8 +343,23 @@ function sendMedia(harnesses, media) {
   const targets = Array.isArray(harnesses) ? harnesses : [harnesses];
   for (const harness of targets) {
     harness.socket.emit("message", JSON.stringify({ type: "media", payload: media }));
+    // Unit tests have no server: after a media-lane claim, grant the stage when free.
+    const musicBusy = vm.runInContext("musicBusy", harness.context);
+    const ttsBusy = vm.runInContext("ttsBusy", harness.context);
+    const claimPending = vm.runInContext("mediaStageClaimPending", harness.context);
+    if (claimPending && !musicBusy && !ttsBusy) {
+      harness.socket.emit("message", JSON.stringify({
+        type: "stageClock",
+        payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+      }));
+    }
   }
 }
+
+test("short OBS pages authenticate from the injected relay-secret meta tag", () => {
+  const harness = createHarness("", "visual", true, "private");
+  assert.match(harness.socket.url, /secret=private/);
+});
 
 test("media output applies live crop and scale for OBS and widgets", () => {
   const obs = createHarness();
@@ -292,12 +385,16 @@ test("media output applies live crop and scale for OBS and widgets", () => {
       mediaWidgetGeometry: { cropTop: 10, contentScale: 180 },
     },
   }));
-  assert.equal(widget.cssProperties["--crop-top"], "10%");
-  assert.equal(widget.cssProperties["--content-scale"], "1.8");
+  // Widget ignores crop and caps content scale at 100% so images are never edge-clipped.
+  assert.equal(widget.cssProperties["--crop-top"], "0%");
+  assert.equal(widget.cssProperties["--crop-bottom"], "0%");
+  assert.equal(widget.cssProperties["--content-scale"], "1");
 
   const css = fs.readFileSync(__dirname + "/overlay.css", "utf8");
   assert.match(css, /clip-path: inset\(var\(--crop-top\)/);
   assert.match(css, /\.audio-card[\s\S]*var\(--content-scale\)/);
+  assert.match(css, /\.audio-card\s*\{[^}]*top:\s*16px/s);
+  assert.match(css, /\.audio-card__progress\s*\{[^}]*height:\s*4px/s);
   assert.match(css, /\.overlay__author[\s\S]*var\(--content-scale\)/);
 });
 
@@ -305,14 +402,14 @@ test("video fitting preserves its aspect ratio without touching the WebView2 vie
   const { context, elements } = createHarness();
   vm.runInContext("fitVisualToViewport(videoElement, 408, 720, VIDEO_COMPOSITOR_INSET_PX)", context);
   assert.equal(elements["#video"].style.width, "auto");
-  assert.equal(elements["#video"].style.height, "calc(100% - 4px)");
+  assert.equal(elements["#video"].style.height, "calc((100% - 4px) / 1)");
 
   vm.runInContext("fitVisualToViewport(videoElement, 1280, 720, VIDEO_COMPOSITOR_INSET_PX)", context);
-  assert.equal(elements["#video"].style.width, "calc(100% - 4px)");
+  assert.equal(elements["#video"].style.width, "calc((100% - 4px) / 1)");
   assert.equal(elements["#video"].style.height, "auto");
 
   vm.runInContext("fitVisualToViewport(imageElement, 408, 720)", context);
-  assert.equal(elements["#image"].style.height, "100%");
+  assert.equal(elements["#image"].style.height, "calc(100% / 1)");
 });
 
 test("media overlay reads the camelCase Discord avatar and falls back locally", () => {
@@ -422,6 +519,8 @@ test("audio captions stay in the Now Playing card instead of covering the artwor
 
 test("media overlay follows a configured server port once it responds", () => {
   const { location, sockets, socket } = createHarness();
+  const source = fs.readFileSync(__dirname + "/overlay.js", "utf8");
+  assert.match(source, /probeWatchdog[\s\S]*probe\.close\(\)/);
 
   socket.emit("message", JSON.stringify({
     type: "config",
@@ -462,8 +561,37 @@ test("audio overlay uses embedded artwork and falls back to the Relay logo", () 
   assert.equal(artwork.src, "/overlay-assets/relay-radar.png");
 });
 
+test("Discord audio Now Playing shows live clock and progress bar", () => {
+  const { elements, socket } = createHarness();
+  const audio = elements["#audio"];
+
+  socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: {
+      kind: "audio",
+      url: "https://cdn.discordapp.com/track.mp3",
+      title: "Runnin' Down A Dream",
+      artist: "Tom Petty",
+    },
+  }));
+
+  audio.duration = 148;
+  audio.currentTime = 0;
+  audio.emit("loadeddata");
+  audio.emit("timeupdate");
+  assert.equal(elements["#audio-time"].hidden, false);
+  assert.equal(elements["#audio-time"].textContent, "0:00 → 2:28");
+  assert.equal(elements["#audio-progress"].hidden, false);
+  assert.equal(elements["#audio-progress-fill"].style.width, "0%");
+
+  audio.currentTime = 55;
+  audio.emit("timeupdate");
+  assert.equal(elements["#audio-time"].textContent, "0:55 → 2:28");
+  assert.equal(elements["#audio-progress-fill"].style.width, `${(55 / 148) * 100}%`);
+});
+
 test("YouTube music uses the official IFrame player and rejects stale stops", async () => {
-  const audio = createHarness("?secret=private", "audio");
+  const audio = createHarness("?secret=private", "youtube");
   audio.socket.emit("message", JSON.stringify({
     type: "musicPlay",
     payload: {
@@ -471,65 +599,286 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
       videoId: "dQw4w9WgXcQ",
       startSeconds: 0,
       endSeconds: 30,
+      channelTitle: "Rick Astley",
+      requestedBy: "stealthy",
     },
   }));
   await Promise.resolve();
   const player = audio.youtubePlayers[0];
   assert.ok(player);
+  assert.equal(player.options.width, "100%");
+  assert.equal(player.options.height, "100%");
+  assert.equal(player.options.playerVars.cc_load_policy, 0);
+  assert.equal(player.options.playerVars.iv_load_policy, 3);
+  assert.equal(audio.elements["#youtube-player"].classList.contains("youtube-player--obs"), true);
   player.ready();
+  assert.ok(player.muteCalls >= 1);
+  assert.ok(player.unMuteCalls >= 1);
+  assert.deepEqual(player.unloadModuleCalls, ["captions"]);
+  assert.equal(player.setOptionCalls[0]?.[0], "captions");
+  assert.equal(player.setOptionCalls[0]?.[1], "track");
+  assert.equal(JSON.stringify(player.setOptionCalls[0]?.[2]), "{}");
   assert.equal(JSON.stringify(player.loaded), JSON.stringify({
     videoId: "dQw4w9WgXcQ",
     startSeconds: 0,
     endSeconds: 30,
   }));
+  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "Rick Astley");
+  assert.equal(audio.elements["#youtube-credit-added"].textContent, "Added by stealthy");
+  assert.equal(audio.elements["#youtube-credit"].hidden, false);
 
   audio.socket.emit("message", JSON.stringify({
     type: "musicPlay",
-    payload: { playbackId: "p2", videoId: "9bZkp7q19f0", startSeconds: 0 },
+    payload: {
+      playbackId: "p2",
+      videoId: "9bZkp7q19f0",
+      startSeconds: 0,
+      channelTitle: "PSY",
+      requestedBy: "ada",
+    },
   }));
   await Promise.resolve();
-  assert.equal(player.stopCalls, 1);
+  assert.ok(player.destroyCalls >= 1);
   assert.equal(vm.runInContext("youtubePlaybackId", audio.context), "p2");
+  const nextPlayer = audio.youtubePlayers[1];
+  assert.ok(nextPlayer);
+  nextPlayer.ready();
+  assert.equal(nextPlayer.loaded.videoId, "9bZkp7q19f0");
+  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "PSY");
+  assert.equal(audio.elements["#youtube-credit-added"].textContent, "Added by ada");
 
   audio.socket.emit("message", JSON.stringify({
     type: "musicStop",
     payload: { playbackId: "p1" },
   }));
   assert.equal(vm.runInContext("youtubePlaybackId", audio.context), "p2");
-  player.emitState(0);
-  assert.deepEqual(audio.socket.sent.at(-1), {
-    type: "musicEnded",
-    payload: { playbackId: "p2" },
-  });
+  assert.equal(nextPlayer.destroyCalls, 0);
+  nextPlayer.emitState(0);
+  assert.ok(audio.socket.sent.some((message) => (
+    message.type === "musicEnded" && message.payload?.playbackId === "p2"
+  )));
+  assert.ok(nextPlayer.destroyCalls >= 1);
+  assert.equal(audio.elements["#youtube-player"].classList.contains("youtube-player--obs"), false);
+  assert.equal(audio.elements["#youtube-credit"].hidden, true);
 });
 
-test("Windows widget follows its sound preference for YouTube music", async () => {
-  const widget = createHarness("?secret=private&widget=1");
+test("late callbacks from a destroyed YouTube player cannot finish its replacement", async () => {
+  for (const callback of ["ended", "error"]) {
+    const harness = createHarness("?secret=private&widget=1", "all");
+    harness.socket.emit("message", JSON.stringify({
+      type: "musicPlay",
+      payload: { playbackId: `${callback}-p1`, videoId: "dQw4w9WgXcQ" },
+    }));
+    await Promise.resolve();
+    const firstPlayer = harness.youtubePlayers[0];
+    firstPlayer.ready();
+
+    harness.socket.emit("message", JSON.stringify({
+      type: "musicPlay",
+      payload: { playbackId: `${callback}-p2`, videoId: "9bZkp7q19f0" },
+    }));
+    await Promise.resolve();
+    const secondPlayer = harness.youtubePlayers[1];
+    secondPlayer.ready();
+
+    if (callback === "ended") firstPlayer.emitState(0);
+    else firstPlayer.emitError();
+
+    assert.equal(vm.runInContext("youtubePlaybackId", harness.context), `${callback}-p2`);
+    assert.equal(secondPlayer.destroyCalls, 0);
+    assert.equal(
+      harness.socket.sent.some((message) => (
+        message.type === "musicEnded" && message.payload?.playbackId === `${callback}-p2`
+      )),
+      false,
+    );
+  }
+});
+
+test("OBS YouTube stop clears the player so no paused chrome remains", async () => {
+  const obs = createHarness("?secret=private", "youtube");
+  obs.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "stop-1",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+      channelTitle: "Channel",
+      requestedBy: "bob",
+    },
+  }));
+  await Promise.resolve();
+  const player = obs.youtubePlayers[0];
+  player.ready();
+  assert.equal(obs.elements["#youtube-credit"].hidden, false);
+
+  obs.socket.emit("message", JSON.stringify({
+    type: "musicStop",
+    payload: { playbackId: "stop-1" },
+  }));
+  assert.equal(vm.runInContext("youtubePlayer", obs.context), undefined);
+  assert.ok(player.destroyCalls >= 1);
+  assert.equal(obs.elements["#youtube-player"].classList.contains("youtube-player--obs"), false);
+  assert.equal(obs.elements["#youtube-credit"].hidden, true);
+  assert.equal(obs.elements["#youtube-credit-channel"].textContent, "");
+
+  obs.socket.emit("message", JSON.stringify({ type: "musicIdle" }));
+  assert.equal(vm.runInContext("youtubePlayer", obs.context), undefined);
+});
+
+test("Windows combined overlay owns full-frame YouTube playback", async () => {
+  const widget = createHarness("?secret=private&widget=1", "all");
   widget.socket.emit("message", JSON.stringify({
     type: "config",
-    payload: { widgetSoundEnabled: false, mediaVolume: 80 },
+    payload: { mediaVolume: 40, widgetSoundEnabled: true },
   }));
   widget.socket.emit("message", JSON.stringify({
     type: "musicPlay",
-    payload: { playbackId: "widget-1", videoId: "dQw4w9WgXcQ", startSeconds: 0 },
+    payload: {
+      playbackId: "w1",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+      title: "Less than a Lover",
+      channelTitle: "JennieRubyJaneVEVO",
+      thumbnail: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      durationSeconds: 219,
+      requestedBy: "stealthy",
+    },
   }));
   await Promise.resolve();
   const player = widget.youtubePlayers[0];
   assert.ok(player);
+  assert.equal(player.options.width, "100%");
+  assert.equal(player.options.height, "100%");
+  assert.equal(widget.elements["#youtube-player"].classList.contains("youtube-player--obs"), true);
   player.ready();
-  assert.equal(player.muteCalls, 1);
-  assert.equal(player.volume, 0);
+  assert.equal(
+    widget.elements["#youtube-credit-channel"].textContent,
+    "Less than a Lover",
+  );
+  assert.equal(widget.elements["#youtube-credit-source"].textContent, "JennieRubyJaneVEVO");
+  assert.equal(widget.elements["#youtube-credit-label"].textContent, "Now playing");
+  assert.equal(
+    widget.elements["#youtube-credit-added"].textContent,
+    "Added by stealthy",
+  );
+  assert.equal(widget.elements["#youtube-credit-time"].textContent, "0:00 → 3:39");
+  assert.equal(widget.elements["#youtube-credit"].classList.contains("youtube-credit--widget"), true);
+  assert.equal(widget.elements["#youtube-credit"].hidden, false);
+  player.currentTime = 62;
+  assert.equal(widget.runTimerByDelay(1000), true);
+  assert.equal(widget.elements["#youtube-credit-time"].textContent, "1:02 → 3:39");
+  assert.equal(widget.elements["#youtube-credit-progress-fill"].style.width, "28.31%");
+  assert.ok(player.unMuteCalls >= 1);
+  assert.equal(player.volume, 40);
+  assert.equal(vm.runInContext("youtubePlaybackId", widget.context), "w1");
 
   widget.socket.emit("message", JSON.stringify({
-    type: "config",
-    payload: { widgetSoundEnabled: true, mediaVolume: 80 },
+    type: "musicStop",
+    payload: { playbackId: "stale-widget-id" },
   }));
-  assert.equal(player.unMuteCalls, 1);
+  assert.equal(vm.runInContext("youtubePlaybackId", widget.context), "w1");
+  assert.equal(player.destroyCalls, 0);
+
+  player.emitState(0);
+  assert.ok(widget.socket.sent.some((message) => (
+    message.type === "musicEnded" && message.payload?.playbackId === "w1"
+  )));
+  assert.ok(player.destroyCalls >= 1);
+  assert.equal(widget.elements["#youtube-credit"].hidden, true);
+});
+
+test("Discord audio overlays ignore YouTube musicPlay events", async () => {
+  const audio = createHarness("?secret=private", "audio");
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "ignored",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+    },
+  }));
+  await Promise.resolve();
+  assert.equal(audio.youtubePlayers.length, 0);
+});
+
+test("YouTube embed errors do not clear server-side playback via musicEnded", async () => {
+  const audio = createHarness("?secret=private", "youtube");
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "err-1",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+    },
+  }));
+  await Promise.resolve();
+  const player = audio.youtubePlayers[0];
+  player.ready();
+  const beforeMusicEnded = audio.socket.sent.filter((message) => message.type === "musicEnded").length;
+  player.emitError();
+  assert.equal(
+    audio.socket.sent.filter((message) => message.type === "musicEnded").length,
+    beforeMusicEnded,
+  );
+  assert.equal(vm.runInContext("youtubePlaybackId", audio.context), undefined);
+  assert.ok(player.stopCalls >= 1);
+});
+
+test("OBS YouTube reports natural endings", async () => {
+  const obs = createHarness("?secret=private", "youtube");
+  obs.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "obs-end",
+      videoId: "dQw4w9WgXcQ",
+      startSeconds: 0,
+    },
+  }));
+  await Promise.resolve();
+  const player = obs.youtubePlayers[0];
+  player.ready();
+  player.emitState(0);
+  assert.ok(obs.socket.sent.some((message) => (
+    message.type === "musicEnded" && message.payload?.playbackId === "obs-end"
+  )));
+});
+
+test("OBS YouTube follows volume settings", async () => {
+  const obs = createHarness("?secret=private", "youtube");
+  obs.socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { widgetSoundEnabled: false, mediaVolume: 80 },
+  }));
+  obs.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "obs-1", videoId: "dQw4w9WgXcQ", startSeconds: 0 },
+  }));
+  await Promise.resolve();
+  const player = obs.youtubePlayers[0];
+  assert.ok(player);
+  player.ready();
+  assert.ok(player.muteCalls >= 1);
+  // OBS /youtube is not a widget window — it unmutes for stream audio.
+  assert.ok(player.unMuteCalls >= 1);
   assert.equal(player.volume, 80);
 
   player.emitState(1);
-  assert.equal(player.unMuteCalls, 2);
-  assert.equal(player.volume, 80);
+  assert.equal(player.iframeAttributes.allow, "autoplay; encrypted-media; picture-in-picture");
+  assert.equal(player.iframeAttributes.referrerpolicy, "strict-origin-when-cross-origin");
+});
+
+test("YouTube iframe keeps a referrer so WebView embeds are authorized", async () => {
+  const audio = createHarness("?secret=private", "youtube");
+  audio.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "ref-1", videoId: "dQw4w9WgXcQ", startSeconds: 0 },
+  }));
+  await Promise.resolve();
+  const player = audio.youtubePlayers[0];
+  player.ready();
+  assert.equal(player.iframeAttributes.referrerpolicy, "strict-origin-when-cross-origin");
+  assert.equal(player.iframeAttributes.allow, "autoplay; encrypted-media; picture-in-picture");
 });
 
 test("desktop media widget stays muted to avoid duplicate OBS audio", () => {
@@ -595,7 +944,7 @@ test("desktop media widget keeps video visible when WebView2 blocks audible auto
   assert.equal(video.classList.contains("is-visible"), true);
 });
 
-test("desktop media widget restores active images, GIFs, video and audio after hide and show", () => {
+test("desktop media widget restores active media after its reconnect stageClock", () => {
   for (const [selector, media] of [
     ["#image", { kind: "image", url: "https://cdn.discordapp.com/photo.png" }],
     ["#video", { kind: "gif", contentType: "video/mp4", url: "https://cdn.discordapp.com/loop.mp4" }],
@@ -608,11 +957,47 @@ test("desktop media widget restores active images, GIFs, video and audio after h
     assert.equal(widget.elements[selector].src, "");
     assert.equal(widget.socket.readyState, 3);
     vm.runInContext("window.setWidgetVisible(true)", widget.context);
-    assert.equal(widget.elements[selector].src, media.url);
     assert.equal(widget.sockets.length, 2);
+    assert.equal(widget.elements[selector].src, "");
+    widget.sockets.at(-1).emit("message", JSON.stringify({
+      type: "stageClock",
+      payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+    }));
+    assert.equal(widget.elements[selector].src, media.url);
     widget.socket.emit("close");
     assert.equal(widget.elements[selector].src, media.url);
   }
+});
+
+test("native hide discards deferred YouTube before authoritative idle hydration", async () => {
+  const widget = createHarness("?secret=private&widget=1", "all");
+  widget.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: true },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "hidden-stale-yt", videoId: "dQw4w9WgXcQ" },
+  }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 1);
+
+  vm.runInContext("window.setWidgetVisible(false)", widget.context);
+  assert.equal(vm.runInContext("stageClockReady", widget.context), false);
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 0);
+  assert.equal(widget.socket.readyState, 3);
+
+  vm.runInContext("window.setWidgetVisible(true)", widget.context);
+  const reconnected = widget.sockets.at(-1);
+  reconnected.emit("open");
+  reconnected.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  await Promise.resolve();
+
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 0);
+  assert.equal(vm.runInContext("youtubePlaybackId", widget.context), undefined);
+  assert.equal(widget.youtubePlayers.length, 0);
 });
 
 test("OBS audio uses the unchanged bytes cached by Relay", () => {
@@ -795,17 +1180,117 @@ test("reconnecting split outputs require one exclusive lease before resuming", (
   assert.equal(visual.elements["#video"].src, "");
   assert.equal(audio.elements["#audio"].src, "");
 
+  visualSocket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  audioSocket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
   sendMediaGrant(visual, true, { videoBusy: true }, visualSocket);
   sendMediaGrant(audio, false, { videoBusy: true }, audioSocket);
   assert.equal(visual.elements["#video"].src, "https://cdn.discordapp.com/resume.mp4");
   assert.equal(audio.elements["#audio"].src, "");
 });
 
+test("combined widget waits for stageClock before resuming retained media after reconnect", () => {
+  const widget = createHarness("?secret=private&widget=1", "all");
+  widget.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "image", url: "https://cdn.discordapp.com/first.png" },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "image", url: "https://cdn.discordapp.com/retained.png" },
+  }));
+  assert.equal(widget.elements["#image"].src, "https://cdn.discordapp.com/first.png");
+
+  widget.socket.emit("close");
+  assert.equal(widget.runTimerByDelay(1000), true);
+  const reconnected = widget.sockets.at(-1);
+  reconnected.emit("open");
+  assert.equal(widget.elements["#image"].src, "");
+
+  reconnected.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.equal(widget.elements["#image"].src, "https://cdn.discordapp.com/retained.png");
+});
+
+test("idle reconnect drops stale deferred YouTube", async () => {
+  const widget = createHarness("?secret=private&widget=1", "all");
+  widget.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: true },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "stale-reconnect-yt", videoId: "dQw4w9WgXcQ" },
+  }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 1);
+
+  widget.socket.emit("close");
+  assert.equal(widget.runTimerByDelay(1000), true);
+  const reconnected = widget.sockets.at(-1);
+  reconnected.emit("open");
+  reconnected.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  await Promise.resolve();
+
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 0);
+  assert.equal(vm.runInContext("youtubePlaybackId", widget.context), undefined);
+  assert.equal(widget.youtubePlayers.length, 0);
+});
+
+test("active reconnect retains deferred YouTube until authoritative stageClock", async () => {
+  const widget = createHarness("?secret=private&widget=1", "all");
+  widget.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: true },
+  }));
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "reconnect-yt", videoId: "dQw4w9WgXcQ" },
+  }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 1);
+
+  widget.socket.emit("close");
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", widget.context), 1);
+  assert.equal(widget.runTimerByDelay(1000), true);
+  const reconnected = widget.sockets.at(-1);
+  reconnected.emit("open");
+  await Promise.resolve();
+  assert.equal(widget.youtubePlayers.length, 0);
+
+  reconnected.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: false },
+  }));
+  await Promise.resolve();
+  assert.equal(widget.youtubePlayers.length, 1);
+  assert.equal(vm.runInContext("youtubePlaybackId", widget.context), "reconnect-yt");
+});
+
 test("media widget move label follows the Relay language", () => {
-  const english = createHarness("?secret=private&widget=1&lang=en");
-  const french = createHarness("?secret=private&widget=1&lang=fr");
-  assert.equal(english.elements["#widget-move-label"].textContent, "Move overlay");
-  assert.equal(french.elements["#widget-move-label"].textContent, "Déplacer l’overlay");
+  const expected = {
+    en: "Move overlay",
+    fr: "Déplacer l’overlay",
+    es: "Mover overlay",
+    de: "Overlay verschieben",
+    ru: "Переместить оверлей",
+    zh: "移动叠加层",
+    ko: "오버레이 이동",
+    ja: "オーバーレイを移動",
+    id: "Pindahkan overlay",
+  };
+  for (const [language, label] of Object.entries(expected)) {
+    const widget = createHarness(`?secret=private&widget=1&lang=${language}`);
+    assert.equal(widget.elements["#widget-move-label"].textContent, label);
+  }
 });
 
 test("multi-user bursts keep every image and GIF in FIFO order", () => {
@@ -910,4 +1395,237 @@ test("a stalled image advances to the next queued media", () => {
   runNextTimer();
   runNextTimer();
   assert.equal(elements["#image"].src, "https://cdn.discordapp.com/next.png");
+});
+
+test("media and YouTube wait while TTS holds the shared stage", () => {
+  const { context, elements, socket, youtubePlayers } = createHarness("?secret=private", "all");
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, ttsBusy: true },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "image", url: "https://cdn.discordapp.com/wait.png" },
+  }));
+  assert.equal(elements["#image"].src, "");
+
+  socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "yt-deferred",
+      videoId: "dQw4w9WgXcQ",
+      title: "Track",
+    },
+  }));
+  assert.equal(vm.runInContext("youtubePlaybackId", context), undefined);
+  assert.equal(youtubePlayers.length, 0);
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, ttsBusy: false },
+  }));
+  assert.equal(vm.runInContext("youtubePlaybackId", context), "yt-deferred");
+  assert.equal(elements["#image"].src, "");
+  assert.ok(socket.sent.some((message) => (
+    message.type === "stageClock"
+    && message.payload?.lane === "media"
+    && message.payload?.busy === true
+  )));
+});
+
+test("media waits for the server stage grant before becoming visible", () => {
+  const { elements, socket } = createHarness("?secret=private", "all", false);
+  socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "image", url: "https://cdn.discordapp.com/race.png" },
+  }));
+
+  assert.equal(elements["#image"].src, "");
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "media", busy: true },
+  });
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+  }));
+  assert.equal(elements["#image"].src, "https://cdn.discordapp.com/race.png");
+});
+
+test("musicStop removes a matching deferred YouTube playback", async () => {
+  const harness = createHarness("?secret=private&widget=1", "all");
+  harness.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: true },
+  }));
+  harness.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "deferred-stop", videoId: "dQw4w9WgXcQ" },
+  }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", harness.context), 1);
+
+  harness.socket.emit("message", JSON.stringify({
+    type: "musicStop",
+    payload: { playbackId: "deferred-stop" },
+  }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", harness.context), 0);
+  harness.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  await Promise.resolve();
+  assert.equal(harness.youtubePlayers.length, 0);
+});
+
+test("musicIdle drops deferred YouTube before resuming Discord media", async () => {
+  const harness = createHarness("?secret=private&widget=1", "all");
+  harness.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: true },
+  }));
+  harness.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "deferred-idle", videoId: "dQw4w9WgXcQ" },
+  }));
+  harness.socket.emit("message", JSON.stringify({
+    type: "media",
+    payload: { kind: "image", url: "https://cdn.discordapp.com/resume.png" },
+  }));
+
+  harness.socket.emit("message", JSON.stringify({ type: "musicIdle" }));
+  assert.equal(vm.runInContext("deferredYoutubeQueue.length", harness.context), 0);
+  harness.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  await Promise.resolve();
+  assert.equal(harness.youtubePlayers.length, 0);
+  assert.equal(harness.elements["#image"].src, "https://cdn.discordapp.com/resume.png");
+});
+
+test("OBS /medias waits for YouTube musicBusy before showing images", () => {
+  const visual = createHarness("?secret=private", "visual");
+  sendMediaClock(visual);
+
+  visual.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: false },
+  }));
+  sendMedia(visual, { kind: "image", url: "https://cdn.discordapp.com/queued.png" });
+  assert.equal(visual.elements["#image"].src, "", "image started over active YouTube");
+
+  visual.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "obs-yt",
+      videoId: "dQw4w9WgXcQ",
+      title: "Track",
+    },
+  }));
+  assert.equal(visual.youtubePlayers.length, 0, "visual iframe must not embed YouTube");
+  assert.equal(visual.elements["#image"].src, "");
+
+  visual.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.deepEqual(
+    visual.socket.sent.at(-1),
+    { type: "mediaClock", payload: { busy: true } },
+    "media did not request the OBS visual lease after music ended",
+  );
+  assert.equal(visual.elements["#image"].src, "");
+
+  sendMediaGrant(visual, true, { videoBusy: true });
+  assert.equal(visual.elements["#image"].src, "https://cdn.discordapp.com/queued.png");
+});
+
+test("OBS /youtube waits for peer mediaBusy before starting music", async () => {
+  const youtube = createHarness("?secret=private", "youtube");
+  youtube.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+  }));
+  youtube.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "wait-media",
+      videoId: "dQw4w9WgXcQ",
+      title: "Track",
+    },
+  }));
+  await Promise.resolve();
+  assert.equal(vm.runInContext("youtubePlaybackId", youtube.context), undefined);
+  assert.equal(youtube.youtubePlayers.length, 0);
+
+  youtube.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: false },
+  }));
+  await Promise.resolve();
+  assert.equal(vm.runInContext("youtubePlaybackId", youtube.context), "wait-media");
+  assert.equal(youtube.youtubePlayers.length, 1);
+});
+
+test("OBS /audios waits for YouTube before Discord file audio", () => {
+  const audio = createHarness("?secret=private", "audio");
+  sendMediaClock(audio);
+  audio.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: true, ttsBusy: false },
+  }));
+  sendMedia(audio, { kind: "audio", url: "https://cdn.discordapp.com/track.mp3" });
+  assert.equal(audio.elements["#audio"].src, "", "Discord audio started over YouTube");
+
+  audio.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.deepEqual(audio.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+  sendMediaGrant(audio, true, { audioBusy: true });
+  assert.equal(audio.elements["#audio"].src, "https://cdn.discordapp.com/track.mp3");
+});
+
+test("OBS /medias waits for peer Discord-audio mediaBusy before showing a GIF", () => {
+  const visual = createHarness("?secret=private", "visual");
+  sendMediaClock(visual);
+  visual.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: true, musicBusy: false, ttsBusy: false },
+  }));
+  sendMedia(visual, { kind: "gif", url: "https://cdn.discordapp.com/overlap.gif" });
+  assert.equal(visual.elements["#image"].src, "", "GIF started over peer Discord audio");
+
+  visual.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.deepEqual(visual.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+  sendMediaGrant(visual, true, { videoBusy: true });
+  assert.equal(visual.elements["#image"].src, "https://cdn.discordapp.com/overlap.gif");
+});
+
+test("OBS visual recovers when stageClock clears a missed musicIdle", () => {
+  const visual = createHarness("?secret=private", "visual");
+  sendMediaClock(visual);
+  visual.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: {
+      playbackId: "stuck",
+      videoId: "dQw4w9WgXcQ",
+      title: "Track",
+    },
+  }));
+  sendMedia(visual, { kind: "gif", url: "https://cdn.discordapp.com/loop.gif" });
+  assert.equal(visual.elements["#image"].src, "");
+
+  // Server watch clock recovers without a musicIdle relay event.
+  visual.socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.deepEqual(visual.socket.sent.at(-1), { type: "mediaClock", payload: { busy: true } });
+  sendMediaGrant(visual, true, { videoBusy: true });
+  assert.equal(visual.elements["#image"].src, "https://cdn.discordapp.com/loop.gif");
 });

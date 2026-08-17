@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use reqwest::Client;
@@ -6,10 +6,19 @@ use serde::Deserialize;
 
 const SEARCH_ENDPOINT: &str = "https://www.googleapis.com/youtube/v3/search";
 const VIDEOS_ENDPOINT: &str = "https://www.googleapis.com/youtube/v3/videos";
-const MAX_TRACK_DURATION_SECONDS: u64 = 180;
-const SEARCH_CANDIDATE_LIMIT: usize = 25;
-const RESULT_LIMIT: usize = 10;
+/// Jukebox-friendly upper bound; full singles/MVs usually sit under this.
+const MAX_TRACK_DURATION_SECONDS: u64 = 300;
+/// Drop Shorts-length edits; most spam clips land under a minute.
+const MIN_TRACK_DURATION_SECONDS: u64 = 60;
+const RELEVANCE_CANDIDATE_LIMIT: usize = 40;
+const RECENT_CANDIDATE_LIMIT: usize = 15;
+const RESULT_LIMIT: usize = 15;
 const MAX_QUERY_CHARS: usize = 200;
+/// Keep the Discord dropdown aligned with youtube.com relevance for the first picks.
+const RELEVANCE_PRIMARY: usize = 10;
+const MUSIC_CATEGORY_ID: &str = "10";
+/// Titles with this many `#` tags are treated as hashtag spam.
+const MAX_HASHTAGS_BEFORE_SPAM: usize = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct YouTubeTrack {
@@ -49,6 +58,8 @@ struct VideoItem {
     id: String,
     #[serde(rename = "contentDetails")]
     content_details: VideoContentDetails,
+    #[serde(default)]
+    snippet: Option<VideoDetailsSnippet>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,6 +68,18 @@ struct VideoContentDetails {
 }
 
 #[derive(Debug, Deserialize)]
+struct VideoDetailsSnippet {
+    #[serde(rename = "categoryId")]
+    category_id: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct VideoDetails {
+    duration_seconds: u64,
+    category_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 struct VideoSnippet {
     title: String,
     #[serde(rename = "channelTitle")]
@@ -64,14 +87,14 @@ struct VideoSnippet {
     thumbnails: ThumbnailSet,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct ThumbnailSet {
     default: Option<Thumbnail>,
     medium: Option<Thumbnail>,
     high: Option<Thumbnail>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Thumbnail {
     url: String,
 }
@@ -83,10 +106,46 @@ pub async fn search(query: &str, api_key: &str) -> Result<Vec<YouTubeTrack>> {
     }
 
     let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(12))
         .build()
         .map_err(|_| anyhow::anyhow!("Unable to initialize the YouTube client."))?;
-    let max_results = SEARCH_CANDIDATE_LIMIT.to_string();
+
+    // Relevance matches the website ranking. Date is a best-effort filler only —
+    // a quota/API hiccup on one call must not blank the whole Discord search.
+    let (relevance_result, recent_result) = tokio::join!(
+        search_page(
+            &client,
+            api_key,
+            &query,
+            "relevance",
+            RELEVANCE_CANDIDATE_LIMIT
+        ),
+        search_page(&client, api_key, &query, "date", RECENT_CANDIDATE_LIMIT),
+    );
+    let (relevance, recent) = match (relevance_result, recent_result) {
+        (Ok(relevance), Ok(recent)) => (relevance, recent),
+        (Ok(relevance), Err(_)) => (relevance, Vec::new()),
+        (Err(_), Ok(recent)) => (Vec::new(), recent),
+        (Err(relevance_error), Err(_)) => return Err(relevance_error),
+    };
+
+    let search_items = merge_search_candidates(relevance, recent);
+    if search_items.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let details = fetch_video_details(&client, api_key, &search_items).await?;
+    Ok(map_search_results(search_items, details))
+}
+
+async fn search_page(
+    client: &Client,
+    api_key: &str,
+    query: &str,
+    order: &str,
+    max_results: usize,
+) -> Result<Vec<(String, VideoSnippet)>> {
+    let max_results = max_results.clamp(1, 50).to_string();
     let search_response = client
         .get(SEARCH_ENDPOINT)
         .query(&[
@@ -94,64 +153,155 @@ pub async fn search(query: &str, api_key: &str) -> Result<Vec<YouTubeTrack>> {
             ("type", "video"),
             ("videoEmbeddable", "true"),
             ("maxResults", max_results.as_str()),
-            ("order", "viewCount"),
-            ("q", query.as_str()),
+            ("order", order),
+            ("q", query),
             ("key", api_key),
         ])
         .send()
         .await
         .map_err(|_| anyhow::anyhow!("YouTube search failed."))?;
-    if !search_response.status().is_success() {
+    let status = search_response.status();
+    let body = search_response
+        .bytes()
+        .await
+        .map_err(|_| anyhow::anyhow!("YouTube search returned an invalid response."))?;
+    if !status.is_success() {
         bail!(
-            "YouTube search failed with status {}.",
-            search_response.status()
+            "{}",
+            youtube_error_message(&body, status.as_u16(), "search")
         );
     }
-    let search_response = serde_json::from_slice::<SearchResponse>(
-        &search_response
-            .bytes()
-            .await
-            .map_err(|_| anyhow::anyhow!("YouTube search returned an invalid response."))?,
-    )
-    .map_err(|_| anyhow::anyhow!("YouTube search returned an invalid response."))?;
+    let search_response = serde_json::from_slice::<SearchResponse>(&body)
+        .map_err(|_| anyhow::anyhow!("YouTube search returned an invalid response."))?;
 
-    let search_items = search_response
+    Ok(search_response
         .items
         .into_iter()
         .filter_map(|item| item.id.video_id.map(|video_id| (video_id, item.snippet)))
-        .collect::<Vec<_>>();
-    if search_items.is_empty() {
-        return Ok(Vec::new());
-    }
+        .collect())
+}
 
-    let video_ids = search_items
-        .iter()
-        .map(|(video_id, _)| video_id.as_str())
-        .collect::<Vec<_>>()
-        .join(",");
-    let videos_response = client
-        .get(VIDEOS_ENDPOINT)
-        .query(&[
-            ("part", "contentDetails"),
-            ("id", video_ids.as_str()),
-            ("key", api_key),
-        ])
-        .send()
-        .await
-        .map_err(|_| anyhow::anyhow!("YouTube duration lookup failed."))?;
-    if !videos_response.status().is_success() {
-        bail!(
-            "YouTube duration lookup failed with status {}.",
-            videos_response.status()
-        );
+/// Relevance leads; recent uploads only fill gaps afterward (never outrank top picks).
+fn merge_search_candidates(
+    relevance: Vec<(String, VideoSnippet)>,
+    recent: Vec<(String, VideoSnippet)>,
+) -> Vec<(String, VideoSnippet)> {
+    let mut seen = HashSet::new();
+    let mut merged = Vec::with_capacity(relevance.len() + recent.len());
+
+    for item in relevance {
+        if seen.insert(item.0.clone()) {
+            merged.push(item);
+        }
     }
-    let videos_response =
-        serde_json::from_slice::<VideoResponse>(&videos_response.bytes().await.map_err(|_| {
+    for item in recent {
+        if seen.insert(item.0.clone()) {
+            merged.push(item);
+        }
+    }
+    merged
+}
+
+async fn fetch_video_details(
+    client: &Client,
+    api_key: &str,
+    search_items: &[(String, VideoSnippet)],
+) -> Result<HashMap<String, VideoDetails>> {
+    let mut details = HashMap::new();
+    for chunk in search_items.chunks(50) {
+        let video_ids = chunk
+            .iter()
+            .map(|(video_id, _)| video_id.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let videos_response = client
+            .get(VIDEOS_ENDPOINT)
+            .query(&[
+                ("part", "contentDetails,snippet"),
+                ("id", video_ids.as_str()),
+                ("key", api_key),
+            ])
+            .send()
+            .await
+            .map_err(|_| anyhow::anyhow!("YouTube duration lookup failed."))?;
+        let status = videos_response.status();
+        let body = videos_response.bytes().await.map_err(|_| {
             anyhow::anyhow!("YouTube duration lookup returned an invalid response.")
-        })?)
-        .map_err(|_| anyhow::anyhow!("YouTube duration lookup returned an invalid response."))?;
+        })?;
+        if !status.is_success() {
+            bail!(
+                "{}",
+                youtube_error_message(&body, status.as_u16(), "duration lookup")
+            );
+        }
+        let videos_response = serde_json::from_slice::<VideoResponse>(&body).map_err(|_| {
+            anyhow::anyhow!("YouTube duration lookup returned an invalid response.")
+        })?;
 
-    Ok(map_search_results(search_items, videos_response))
+        for item in videos_response.items {
+            if let Some(duration) = parse_iso8601_duration(&item.content_details.duration) {
+                details.insert(
+                    item.id,
+                    VideoDetails {
+                        duration_seconds: duration,
+                        category_id: item.snippet.and_then(|snippet| snippet.category_id),
+                    },
+                );
+            }
+        }
+    }
+    Ok(details)
+}
+
+fn youtube_error_message(body: &[u8], status: u16, action: &str) -> String {
+    #[derive(Deserialize)]
+    struct ErrorBody {
+        error: Option<ErrorObject>,
+    }
+    #[derive(Deserialize)]
+    struct ErrorObject {
+        message: Option<String>,
+        #[serde(default)]
+        errors: Vec<ErrorItem>,
+    }
+    #[derive(Deserialize)]
+    struct ErrorItem {
+        reason: Option<String>,
+    }
+
+    if let Ok(parsed) = serde_json::from_slice::<ErrorBody>(body) {
+        if let Some(error) = parsed.error {
+            let reason = error
+                .errors
+                .first()
+                .and_then(|item| item.reason.as_deref())
+                .unwrap_or("");
+            if matches!(reason, "quotaExceeded" | "dailyLimitExceeded") {
+                return format!(
+                    "YouTube {action} quota exceeded. Wait for the daily reset or raise the Google Cloud quota."
+                );
+            }
+            if matches!(
+                reason,
+                "keyInvalid" | "ipRefererBlocked" | "apiNotActivated"
+            ) {
+                return format!(
+                    "YouTube API key rejected ({reason}). Check Music settings and Google Cloud."
+                );
+            }
+            if let Some(message) = error.message {
+                let safe = message
+                    .chars()
+                    .filter(|character| !character.is_control())
+                    .take(160)
+                    .collect::<String>();
+                if !safe.is_empty() {
+                    return format!("YouTube {action} failed ({status}): {safe}");
+                }
+            }
+        }
+    }
+    format!("YouTube {action} failed with status {status}.")
 }
 
 fn normalize_query(query: &str) -> Result<String> {
@@ -162,52 +312,90 @@ fn normalize_query(query: &str) -> Result<String> {
     Ok(query.chars().take(MAX_QUERY_CHARS).collect())
 }
 
+fn is_jukebox_duration(duration_seconds: u64) -> bool {
+    (MIN_TRACK_DURATION_SECONDS..=MAX_TRACK_DURATION_SECONDS).contains(&duration_seconds)
+}
+
+/// Detect Shorts / fyp hashtag spam that relevance alone still returns.
+fn is_shorts_spam_title(title: &str) -> bool {
+    let lower = title.to_ascii_lowercase();
+    if lower.contains("#shorts")
+        || lower.contains("#short")
+        || lower.contains("#fyp")
+        || lower.contains("#ytshorts")
+    {
+        return true;
+    }
+    title.matches('#').count() >= MAX_HASHTAGS_BEFORE_SPAM
+}
+
+fn is_music_category(category_id: Option<&str>) -> bool {
+    category_id == Some(MUSIC_CATEGORY_ID)
+}
+
 fn map_search_results(
     search_items: Vec<(String, VideoSnippet)>,
-    videos_response: VideoResponse,
+    details: HashMap<String, VideoDetails>,
 ) -> Vec<YouTubeTrack> {
-    let durations = videos_response
-        .items
-        .into_iter()
-        .filter_map(|item| {
-            parse_iso8601_duration(&item.content_details.duration)
-                .map(|duration| (item.id, duration))
-        })
-        .collect::<HashMap<_, _>>();
+    let mut primary = Vec::new();
+    let mut music_boost = Vec::new();
+    let mut fillers = Vec::new();
+    let mut primary_kept = 0_usize;
 
-    search_items
-        .into_iter()
-        .filter_map(|(video_id, snippet)| {
-            let duration_seconds = durations.get(&video_id).copied()?;
-            if duration_seconds == 0 || duration_seconds > MAX_TRACK_DURATION_SECONDS {
-                return None;
-            }
-            let title = clean_text(&snippet.title, 200);
-            let channel_title = clean_text(&snippet.channel_title, 100);
-            let thumbnail = snippet
-                .thumbnails
-                .high
-                .or(snippet.thumbnails.medium)
-                .or(snippet.thumbnails.default)
-                .map(|thumbnail| thumbnail.url)
-                .filter(|url| url.starts_with("https://"))?;
-            if title.is_empty() || channel_title.is_empty() {
-                return None;
-            }
-            Some(YouTubeTrack {
-                video_id,
-                title,
-                channel_title,
-                thumbnail,
-                duration_seconds,
-            })
-        })
-        .take(RESULT_LIMIT)
-        .collect()
+    for (video_id, snippet) in search_items {
+        let Some(video) = details.get(&video_id) else {
+            continue;
+        };
+        if !is_jukebox_duration(video.duration_seconds) {
+            continue;
+        }
+        let title = clean_text(&snippet.title, 200);
+        if title.is_empty() || is_shorts_spam_title(&title) {
+            continue;
+        }
+        let channel_title = clean_text(&snippet.channel_title, 100);
+        let thumbnail = snippet
+            .thumbnails
+            .high
+            .or(snippet.thumbnails.medium)
+            .or(snippet.thumbnails.default)
+            .map(|thumbnail| thumbnail.url)
+            .filter(|url| url.starts_with("https://"));
+        let Some(thumbnail) = thumbnail else {
+            continue;
+        };
+        if channel_title.is_empty() {
+            continue;
+        }
+        let track = YouTubeTrack {
+            video_id,
+            title,
+            channel_title,
+            thumbnail,
+            duration_seconds: video.duration_seconds,
+        };
+        // First quality hits keep youtube.com relevance order; later slots may
+        // soft-prefer Music category when filling the Discord dropdown.
+        if primary_kept < RELEVANCE_PRIMARY {
+            primary.push(track);
+            primary_kept += 1;
+        } else if is_music_category(video.category_id.as_deref()) {
+            music_boost.push(track);
+        } else {
+            fillers.push(track);
+        }
+    }
+
+    let mut ranked = Vec::with_capacity(RESULT_LIMIT);
+    ranked.extend(primary);
+    ranked.extend(music_boost);
+    ranked.extend(fillers);
+    ranked.truncate(RESULT_LIMIT);
+    ranked
 }
 
 fn clean_text(value: &str, max_chars: usize) -> String {
-    value
+    decode_basic_html_entities(value)
         .chars()
         .filter(|character| !character.is_control())
         .collect::<String>()
@@ -217,6 +405,51 @@ fn clean_text(value: &str, max_chars: usize) -> String {
         .chars()
         .take(max_chars)
         .collect()
+}
+
+fn decode_basic_html_entities(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(start) = rest.find('&') {
+        output.push_str(&rest[..start]);
+        rest = &rest[start..];
+        let Some(end) = rest.find(';') else {
+            output.push_str(rest);
+            return output;
+        };
+        let entity = &rest[..=end];
+        let decoded = match entity {
+            "&amp;" => Some("&"),
+            "&lt;" => Some("<"),
+            "&gt;" => Some(">"),
+            "&quot;" => Some("\""),
+            "&apos;" | "&#39;" | "&#x27;" | "&#X27;" => Some("'"),
+            _ => None,
+        };
+        if let Some(decoded) = decoded {
+            output.push_str(decoded);
+        } else if let Some(code) = entity
+            .strip_prefix("&#x")
+            .or_else(|| entity.strip_prefix("&#X"))
+            .and_then(|value| value.strip_suffix(';'))
+            .and_then(|value| u32::from_str_radix(value, 16).ok())
+            .and_then(char::from_u32)
+        {
+            output.push(code);
+        } else if let Some(code) = entity
+            .strip_prefix("&#")
+            .and_then(|value| value.strip_suffix(';'))
+            .and_then(|value| value.parse::<u32>().ok())
+            .and_then(char::from_u32)
+        {
+            output.push(code);
+        } else {
+            output.push_str(entity);
+        }
+        rest = &rest[end + 1..];
+    }
+    output.push_str(rest);
+    output
 }
 
 fn parse_iso8601_duration(value: &str) -> Option<u64> {
@@ -250,6 +483,27 @@ fn parse_iso8601_duration(value: &str) -> Option<u64> {
 mod tests {
     use super::*;
 
+    fn snippet(title: &str) -> VideoSnippet {
+        VideoSnippet {
+            title: title.into(),
+            channel_title: "Channel".into(),
+            thumbnails: ThumbnailSet {
+                default: Some(Thumbnail {
+                    url: "https://i.ytimg.com/default.jpg".into(),
+                }),
+                medium: None,
+                high: None,
+            },
+        }
+    }
+
+    fn details(duration_seconds: u64, category_id: Option<&str>) -> VideoDetails {
+        VideoDetails {
+            duration_seconds,
+            category_id: category_id.map(str::to_owned),
+        }
+    }
+
     #[test]
     fn parses_youtube_durations() {
         assert_eq!(parse_iso8601_duration("PT2M57S"), Some(177));
@@ -263,5 +517,134 @@ mod tests {
     fn normalizes_queries_without_allowing_controls() {
         assert_eq!(normalize_query("  daft   punk  ").unwrap(), "daft   punk");
         assert!(normalize_query("song\nname").is_err());
+    }
+
+    #[test]
+    fn decodes_basic_html_entities_in_titles() {
+        assert_eq!(
+            clean_text("JENNIE&#39;s Mantra &amp; Friends", 80),
+            "JENNIE's Mantra & Friends"
+        );
+    }
+
+    #[test]
+    fn merge_keeps_relevance_ahead_of_recent_uploads() {
+        let relevance = (1..=6)
+            .map(|index| {
+                (
+                    format!("rel-{index}"),
+                    snippet(&format!("Relevant {index}")),
+                )
+            })
+            .collect::<Vec<_>>();
+        let recent = vec![
+            ("new-1".into(), snippet("Brand new")),
+            ("rel-2".into(), snippet("Already in relevance")),
+            ("new-2".into(), snippet("Also new")),
+        ];
+        let merged = merge_search_candidates(relevance, recent);
+        let ids = merged
+            .iter()
+            .map(|(video_id, _)| video_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ids,
+            vec![
+                "rel-1", "rel-2", "rel-3", "rel-4", "rel-5", "rel-6", "new-1", "new-2"
+            ]
+        );
+    }
+
+    #[test]
+    fn shorts_spam_titles_are_detected() {
+        assert!(is_shorts_spam_title(
+            "jisoo dance #blackpink #fyp #ytshorts"
+        ));
+        assert!(is_shorts_spam_title("CLIP #shorts"));
+        assert!(!is_shorts_spam_title(
+            "JISOO - FLOWER (Official Music Video)"
+        ));
+        assert!(!is_shorts_spam_title("JISOO – FLOWER (Lyrics)"));
+    }
+
+    #[test]
+    fn jukebox_duration_rejects_shorts_length_and_marathons() {
+        assert!(!is_jukebox_duration(48));
+        assert!(is_jukebox_duration(60));
+        assert!(is_jukebox_duration(174));
+        assert!(is_jukebox_duration(300));
+        assert!(!is_jukebox_duration(301));
+    }
+
+    #[test]
+    fn map_search_results_prefers_relevance_and_filters_spam() {
+        let mut items = Vec::new();
+        // First 10 slots simulate relevance primary window.
+        for index in 1..=10 {
+            items.push((
+                format!("rel-{index}"),
+                snippet(&format!("Relevant song {index}")),
+            ));
+        }
+        items.push((
+            "short-spam".into(),
+            snippet("jisoo edit #blackpink #fyp #ytshorts"),
+        ));
+        items.push(("recent-music".into(), snippet("Fresh official audio")));
+        items.push(("recent-other".into(), snippet("Interview clip")));
+
+        let mut details_map = HashMap::new();
+        for index in 1..=10 {
+            details_map.insert(format!("rel-{index}"), details(150, Some("10")));
+        }
+        details_map.insert("short-spam".into(), details(42, Some("22")));
+        details_map.insert("recent-music".into(), details(175, Some("10")));
+        details_map.insert("recent-other".into(), details(120, Some("24")));
+
+        let tracks = map_search_results(items, details_map);
+        let ids = tracks
+            .iter()
+            .map(|track| track.video_id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(!ids.contains(&"short-spam"));
+        assert_eq!(
+            &ids[..10],
+            &[
+                "rel-1", "rel-2", "rel-3", "rel-4", "rel-5", "rel-6", "rel-7", "rel-8", "rel-9",
+                "rel-10",
+            ]
+        );
+        assert_eq!(ids[10], "recent-music");
+        assert_eq!(ids[11], "recent-other");
+    }
+
+    #[test]
+    fn map_search_results_keeps_streamable_tracks_only() {
+        let items = vec![
+            ("short".into(), snippet("Too short")),
+            ("ok".into(), snippet("Good track")),
+            ("long".into(), snippet("Too long")),
+            ("spam".into(), snippet("clip #shorts #fyp #ytshorts")),
+        ];
+        let details_map = HashMap::from([
+            ("short".into(), details(12, Some("10"))),
+            ("ok".into(), details(148, Some("10"))),
+            ("long".into(), details(400, Some("10"))),
+            ("spam".into(), details(90, Some("22"))),
+        ]);
+        let tracks = map_search_results(items, details_map);
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0].video_id, "ok");
+        assert_eq!(tracks[0].duration_seconds, 148);
+    }
+
+    #[test]
+    fn youtube_error_message_detects_quota_without_leaking_bodies_unparsed() {
+        let body =
+            br#"{"error":{"message":"Quota exceeded","errors":[{"reason":"quotaExceeded"}]}}"#;
+        let message = youtube_error_message(body, 403, "search");
+        assert!(message.contains("quota exceeded"));
+        assert!(!message.contains("AIza"));
     }
 }

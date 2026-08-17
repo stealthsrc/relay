@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc,
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -29,6 +29,7 @@ use crate::{
     },
     music::{MusicSelection, MusicState},
     privacy::{self, PrivacyAction, PrivacyReport},
+    stage_scheduler::{StageLane, StageScheduler, StageTicket},
     tts,
 };
 
@@ -106,7 +107,9 @@ pub struct AppCore {
     pub media_audio: RwLock<VecDeque<MediaAudio>>,
     pub tts_synthesis_lock: Mutex<()>,
     pub music: Mutex<MusicState>,
+    music_stage_tickets: Mutex<HashMap<String, StageTicket>>,
     pub relay_tx: broadcast::Sender<RelayEvent>,
+    pub stage_scheduler: StageScheduler,
     pub bot_runtime: Mutex<Option<BotRuntime>>,
     pub custom_command_sync: Mutex<()>,
     pub custom_command_confirmations: Mutex<CustomCommandConfirmations>,
@@ -116,6 +119,8 @@ pub struct AppCore {
     pub widget_resize_generation: AtomicU64,
     pub notification_widget_move_generation: AtomicU64,
     pub notification_widget_resize_generation: AtomicU64,
+    /// Runtime-only marker for a media widget auto-woken by music playback.
+    pub widget_ephemeral_wake: AtomicBool,
     pub interface_preferences: RwLock<InterfacePreferences>,
     pub processed_embed_ids: RwLock<VecDeque<String>>,
     pub cached_media: RwLock<VecDeque<CachedMedia>>,
@@ -128,7 +133,9 @@ impl AppCore {
     pub fn load(config_path: PathBuf) -> Result<Arc<Self>> {
         let config_store = ConfigStore::new(config_path);
         let config = config_store.load()?;
+        let interface_preferences = config.interface_preferences.clone();
         let (relay_tx, _) = broadcast::channel(2_048);
+        let stage_scheduler = StageScheduler::new(relay_tx.clone());
         Ok(Arc::new(Self {
             config: RwLock::new(config),
             config_store,
@@ -144,7 +151,9 @@ impl AppCore {
             media_audio: RwLock::new(VecDeque::with_capacity(MEDIA_AUDIO_CACHE_LIMIT)),
             tts_synthesis_lock: Mutex::new(()),
             music: Mutex::new(MusicState::default()),
+            music_stage_tickets: Mutex::new(HashMap::new()),
             relay_tx,
+            stage_scheduler,
             bot_runtime: Mutex::new(None),
             custom_command_sync: Mutex::new(()),
             custom_command_confirmations: Mutex::new(CustomCommandConfirmations::default()),
@@ -154,7 +163,8 @@ impl AppCore {
             widget_resize_generation: AtomicU64::new(0),
             notification_widget_move_generation: AtomicU64::new(0),
             notification_widget_resize_generation: AtomicU64::new(0),
-            interface_preferences: RwLock::new(InterfacePreferences::default()),
+            widget_ephemeral_wake: AtomicBool::new(false),
+            interface_preferences: RwLock::new(interface_preferences),
             processed_embed_ids: RwLock::new(VecDeque::with_capacity(PROCESSED_EMBED_LIMIT)),
             cached_media: RwLock::new(VecDeque::with_capacity(MEDIA_CACHE_ITEM_LIMIT)),
             pending_privacy_roles: RwLock::new(HashMap::new()),
@@ -167,19 +177,105 @@ impl AppCore {
         *self.media_delivery.write().await = Some(sender);
     }
 
+    pub async fn register_stage_output(
+        &self,
+        timestamp_ms: u64,
+        message_id: &str,
+        part: u16,
+        lane: StageLane,
+    ) -> StageTicket {
+        self.stage_scheduler
+            .reserve(timestamp_ms, message_id, part, lane)
+            .await
+    }
+
+    pub async fn complete_media(&self, ticket: StageTicket, event: MediaEvent) {
+        self.stage_scheduler
+            .ready(ticket, RelayEvent::Media(event))
+            .await;
+    }
+
+    pub async fn complete_sticker(&self, ticket: StageTicket, event: StickerEvent) {
+        self.stage_scheduler
+            .ready(ticket, RelayEvent::Sticker(event))
+            .await;
+    }
+
+    pub async fn complete_tts(&self, ticket: StageTicket, event: TtsEvent) {
+        self.stage_scheduler
+            .ready(ticket, RelayEvent::Tts(event))
+            .await;
+    }
+
+    pub async fn complete_music(&self, ticket: StageTicket, event: MusicPlaybackEvent) {
+        self.stage_scheduler
+            .ready(ticket, RelayEvent::MusicPlay(event))
+            .await;
+    }
+
+    pub async fn cancel_stage_output(&self, ticket: StageTicket) {
+        self.stage_scheduler.cancel(ticket).await;
+    }
+
     pub async fn start_music(
         &self,
         selection: MusicSelection,
         mode: MusicPlaybackMode,
-    ) -> MusicPlaybackEvent {
-        let (previous, playback) = self.music.lock().await.start(selection, mode);
-        if let Some(previous) = previous {
-            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
-                playback_id: previous.playback_id,
-            }));
+        order_timestamp: u64,
+        order_id: &str,
+    ) -> crate::music::MusicStartResult {
+        let ticket = self
+            .register_stage_output(order_timestamp, order_id, 300, StageLane::Music)
+            .await;
+        let result = self.music.lock().await.start(selection, mode);
+        self.emit_music_start(result, ticket).await
+    }
+
+    pub async fn start_music_custom(
+        &self,
+        selection: MusicSelection,
+        start_seconds: u64,
+        end_seconds: u64,
+        order_timestamp: u64,
+        order_id: &str,
+    ) -> Result<crate::music::MusicStartResult, crate::music::CustomRangeError> {
+        let ticket = self
+            .register_stage_output(order_timestamp, order_id, 300, StageLane::Music)
+            .await;
+        let result = self
+            .music
+            .lock()
+            .await
+            .start_custom(selection, start_seconds, end_seconds);
+        match result {
+            Ok(result) => Ok(self.emit_music_start(result, ticket).await),
+            Err(error) => {
+                self.cancel_stage_output(ticket).await;
+                Err(error)
+            }
         }
-        let _ = self.relay_tx.send(RelayEvent::MusicPlay(playback.clone()));
-        playback
+    }
+
+    async fn emit_music_start(
+        &self,
+        result: crate::music::MusicStartResult,
+        ticket: StageTicket,
+    ) -> crate::music::MusicStartResult {
+        match &result {
+            crate::music::MusicStartResult::Started(playback) => {
+                self.complete_music(ticket, playback.clone()).await;
+            }
+            crate::music::MusicStartResult::Queued { playback, .. } => {
+                self.music_stage_tickets
+                    .lock()
+                    .await
+                    .insert(playback.playback_id.clone(), ticket);
+            }
+            crate::music::MusicStartResult::QueueFull => {
+                self.cancel_stage_output(ticket).await;
+            }
+        }
+        result
     }
 
     pub async fn current_music(&self) -> Option<MusicPlaybackEvent> {
@@ -187,31 +283,175 @@ impl AppCore {
     }
 
     pub async fn stop_current_music(&self) -> Option<MusicPlaybackEvent> {
-        let stopped = self.music.lock().await.stop_current();
-        if let Some(playback) = &stopped {
+        let (stopped, next) = {
+            let mut music = self.music.lock().await;
+            let stopped = music.stop_current();
+            let next = if stopped.is_some() {
+                music.promote_next()
+            } else {
+                None
+            };
+            (stopped, next)
+        };
+        if let Some(stopped) = &stopped {
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
             let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
-                playback_id: playback.playback_id.clone(),
+                playback_id: stopped.playback.playback_id.clone(),
             }));
+            self.emit_music_follow_up(next).await;
+            return Some(stopped.playback.clone());
         }
-        stopped
+        None
+    }
+
+    /// Clear current music and the entire pending queue (force-clear / overlay clear).
+    pub async fn clear_all_music(&self) -> Option<MusicPlaybackEvent> {
+        let stopped = self.music.lock().await.clear_all();
+        self.music_stage_tickets.lock().await.clear();
+        if let Some(stopped) = &stopped {
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
+            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+                playback_id: stopped.playback.playback_id.clone(),
+            }));
+            // Always idle after a full clear so TTS/notification clients resume
+            // even when the following Clear event is coalesced or lagged.
+            let _ = self.relay_tx.send(RelayEvent::MusicIdle);
+            return Some(stopped.playback.clone());
+        }
+        None
     }
 
     pub async fn stop_music_if_current(&self, playback_id: &str) -> Option<MusicPlaybackEvent> {
-        let stopped = self.music.lock().await.stop_if_current(playback_id);
-        if let Some(playback) = &stopped {
+        let (stopped, next) = {
+            let mut music = self.music.lock().await;
+            let stopped = music.stop_if_current(playback_id);
+            let next = if stopped.is_some() {
+                music.promote_next()
+            } else {
+                None
+            };
+            (stopped, next)
+        };
+        if let Some(stopped) = &stopped {
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
             let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
-                playback_id: playback.playback_id.clone(),
+                playback_id: stopped.playback.playback_id.clone(),
             }));
+            self.emit_music_follow_up(next).await;
+            return Some(stopped.playback.clone());
         }
-        stopped
+        None
+    }
+
+    /// Stop overlays for `playback_id` even when server state was already cleared
+    /// (e.g. a failing OBS embed reported `musicEnded` while the widget still plays).
+    pub async fn force_stop_music(&self, playback_id: &str) {
+        let had_current = {
+            let mut music = self.music.lock().await;
+            let stopped = music.stop_if_current(playback_id);
+            let next = if stopped.is_some() {
+                music.promote_next()
+            } else {
+                None
+            };
+            (stopped, next)
+        };
+        if let Some(stopped) = &had_current.0 {
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
+        }
+        let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+            playback_id: playback_id.to_string(),
+        }));
+        match had_current {
+            (Some(_), next) => self.emit_music_follow_up(next).await,
+            (None, _) => {
+                let _ = self.relay_tx.send(RelayEvent::MusicIdle);
+            }
+        }
+    }
+
+    /// GUI / hotkey skip: skip current YouTube if any (promoting the queue), else skip media.
+    pub async fn skip_playback(&self) {
+        if self.stop_current_music().await.is_some() {
+            return;
+        }
+        let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+            playback_id: String::new(),
+        }));
+        let _ = self.relay_tx.send(RelayEvent::Skip);
+        self.stage_scheduler.skip_active().await;
     }
 
     pub async fn finish_music(&self, playback_id: &str) -> bool {
-        self.music
-            .lock()
+        let (stopped, next) = {
+            let mut music = self.music.lock().await;
+            let stopped = music.stop_if_current(playback_id);
+            if stopped.is_none() {
+                return false;
+            }
+            let next = music.promote_next();
+            (stopped, next)
+        };
+        if let Some(stopped) = stopped {
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
+            // Broadcast stop so OBS /youtube clients that missed local ENDED still unload.
+            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+                playback_id: stopped.playback.playback_id.clone(),
+            }));
+        }
+        // Promote next or signal idle so overlays can resume media.
+        self.emit_music_follow_up(next).await;
+        true
+    }
+
+    async fn delete_now_playing_message(&self, channel_id: u64, message_id: Option<u64>) {
+        let Some(message_id) = message_id else {
+            return;
+        };
+        let http = {
+            let runtime = self.bot_runtime.lock().await;
+            runtime.as_ref().map(|runtime| runtime.http.clone())
+        };
+        let Some(http) = http else {
+            return;
+        };
+        if serenity::model::id::ChannelId::new(channel_id)
+            .delete_message(&*http, serenity::model::id::MessageId::new(message_id))
             .await
-            .stop_if_current(playback_id)
-            .is_some()
+            .is_err()
+        {
+            // Soft-fail: missing Manage Messages (or already deleted) must not break playback.
+            eprintln!(
+                "relay: failed to delete now-playing message {message_id} in channel {channel_id}"
+            );
+        }
+    }
+
+    async fn emit_music_follow_up(&self, next: Option<MusicPlaybackEvent>) {
+        if let Some(playback) = next {
+            // Release the previous scheduler ticket before the next queued track
+            // competes for the shared stage.
+            let _ = self.relay_tx.send(RelayEvent::MusicIdle);
+            let ticket = self
+                .music_stage_tickets
+                .lock()
+                .await
+                .remove(&playback.playback_id);
+            if let Some(ticket) = ticket {
+                self.complete_music(ticket, playback).await;
+            } else {
+                self.stage_scheduler
+                    .enqueue(RelayEvent::MusicPlay(playback), StageLane::Music)
+                    .await;
+            }
+        } else {
+            let _ = self.relay_tx.send(RelayEvent::MusicIdle);
+        }
     }
 
     pub async fn set_config(&self, config: AppConfig) -> Result<()> {
@@ -294,6 +534,23 @@ impl AppCore {
         full_text: Option<&str>,
         role_ids: &[String],
     ) {
+        let ticket = self
+            .register_stage_output(media.timestamp, &media.message_id, 200, StageLane::Media)
+            .await;
+        self.submit_analyzed_media_with_ticket_and_roles(
+            ticket, media, report, full_text, role_ids,
+        )
+        .await;
+    }
+
+    pub async fn submit_analyzed_media_with_ticket_and_roles(
+        &self,
+        ticket: StageTicket,
+        media: MediaEvent,
+        report: Option<PrivacyReport>,
+        full_text: Option<&str>,
+        role_ids: &[String],
+    ) {
         let config = self.config.read().await.clone();
         let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
         let role_exempt = privacy::has_exempt_role(&config, role_ids);
@@ -335,6 +592,7 @@ impl AppCore {
         };
         privacy::log_decision(&authoritative_report, privacy_action);
         if matches!(privacy_action, PrivacyAction::Block) {
+            self.cancel_stage_output(ticket).await;
             return;
         }
         let manually_moderated = config.moderation_enabled;
@@ -342,13 +600,15 @@ impl AppCore {
         let requires_review =
             matches!(privacy_action, PrivacyAction::Review) || (manually_moderated && type_allowed);
         if manually_moderated && !type_allowed {
+            self.cancel_stage_output(ticket).await;
             return;
         }
         if !requires_review {
             drop(config);
-            self.publish_media(media).await;
+            self.publish_media_with_ticket(ticket, media).await;
             return;
         }
+        self.cancel_stage_output(ticket).await;
         let mut pending = self.pending_media.write().await;
         // Evict the oldest unreviewed item instead of silently dropping new media.
         let evicted_pending_id = if pending.len() >= MODERATION_QUEUE_LIMIT {
@@ -397,6 +657,27 @@ impl AppCore {
 
     pub async fn submit_sticker_with_roles(
         &self,
+        sticker: StickerEvent,
+        text: Option<&str>,
+        bytes: Option<Vec<u8>>,
+        report: Option<PrivacyReport>,
+        role_ids: &[String],
+    ) {
+        let ticket = self
+            .register_stage_output(
+                sticker.timestamp,
+                &sticker.message_id,
+                100,
+                StageLane::Media,
+            )
+            .await;
+        self.submit_sticker_with_ticket_and_roles(ticket, sticker, text, bytes, report, role_ids)
+            .await;
+    }
+
+    pub async fn submit_sticker_with_ticket_and_roles(
+        &self,
+        ticket: StageTicket,
         mut sticker: StickerEvent,
         text: Option<&str>,
         bytes: Option<Vec<u8>>,
@@ -450,6 +731,7 @@ impl AppCore {
         };
         privacy::log_decision(&authoritative_report, privacy_action);
         if matches!(privacy_action, PrivacyAction::Block) {
+            self.cancel_stage_output(ticket).await;
             return;
         }
         let media_kind = if sticker.format == "gif" {
@@ -481,11 +763,13 @@ impl AppCore {
         let manually_moderated = config.moderation_enabled;
         let type_allowed = media_type_allowed(&config, media.kind);
         if manually_moderated && !type_allowed {
+            self.cancel_stage_output(ticket).await;
             return;
         }
         let requires_review =
             matches!(privacy_action, PrivacyAction::Review) || (manually_moderated && type_allowed);
         if requires_review {
+            self.cancel_stage_output(ticket).await;
             let mut pending = self.pending_media.write().await;
             let evicted_pending_id = if pending.len() >= MODERATION_QUEUE_LIMIT {
                 pending.pop_front().map(|item| item.id)
@@ -525,7 +809,7 @@ impl AppCore {
                 .await;
             sticker.cached_media_id = Some(cache_id);
         }
-        self.publish_sticker(sticker);
+        self.publish_sticker_with_ticket(ticket, sticker).await;
     }
 
     pub async fn approve_media(&self, id: u64) -> bool {
@@ -616,7 +900,7 @@ impl AppCore {
                 .await;
                 sticker_event.cached_media_id = Some(cache_id);
             }
-            self.publish_sticker(sticker_event);
+            self.publish_sticker(sticker_event).await;
             return true;
         }
         self.publish_media(media).await;
@@ -841,11 +1125,20 @@ impl AppCore {
             }
         }
         self.prepare_video_compatibility(&mut event).await;
-        let _ = self.relay_tx.send(RelayEvent::Media(event));
+        self.stage_scheduler
+            .enqueue(RelayEvent::Media(event), StageLane::Media)
+            .await;
         Ok(())
     }
 
-    pub async fn publish_media(&self, mut media: MediaEvent) {
+    pub async fn publish_media(&self, media: MediaEvent) {
+        let ticket = self
+            .register_stage_output(media.timestamp, &media.message_id, 200, StageLane::Media)
+            .await;
+        self.publish_media_with_ticket(ticket, media).await;
+    }
+
+    pub async fn publish_media_with_ticket(&self, ticket: StageTicket, mut media: MediaEvent) {
         self.prepare_video_compatibility(&mut media).await;
         self.prepare_media_delivery(media.kind).await;
         {
@@ -853,7 +1146,7 @@ impl AppCore {
             history.push_front(media.clone());
             history.truncate(HISTORY_LIMIT);
         }
-        let _ = self.relay_tx.send(RelayEvent::Media(media));
+        self.complete_media(ticket, media).await;
     }
 
     async fn prepare_video_compatibility(&self, media: &mut MediaEvent) {
@@ -915,8 +1208,20 @@ impl AppCore {
         self.tts_pending_count.load(Ordering::SeqCst)
     }
 
-    fn publish_sticker(&self, sticker: StickerEvent) {
-        let _ = self.relay_tx.send(RelayEvent::Sticker(sticker));
+    async fn publish_sticker(&self, sticker: StickerEvent) {
+        let ticket = self
+            .register_stage_output(
+                sticker.timestamp,
+                &sticker.message_id,
+                100,
+                StageLane::Media,
+            )
+            .await;
+        self.publish_sticker_with_ticket(ticket, sticker).await;
+    }
+
+    async fn publish_sticker_with_ticket(&self, ticket: StageTicket, sticker: StickerEvent) {
+        self.complete_sticker(ticket, sticker).await;
     }
 
     #[allow(dead_code)]
@@ -926,6 +1231,24 @@ impl AppCore {
 
     pub async fn publish_tts_with_roles(
         &self,
+        request: TtsRequest,
+        role_ids: &[String],
+    ) -> Result<()> {
+        let ticket = self
+            .register_stage_output(request.timestamp, &request.id, 0, StageLane::Tts)
+            .await;
+        let result = self
+            .publish_tts_with_ticket_and_roles(ticket, request, role_ids)
+            .await;
+        if result.is_err() {
+            self.cancel_stage_output(ticket).await;
+        }
+        result
+    }
+
+    pub async fn publish_tts_with_ticket_and_roles(
+        &self,
+        ticket: StageTicket,
         request: TtsRequest,
         role_ids: &[String],
     ) -> Result<()> {
@@ -968,12 +1291,32 @@ impl AppCore {
         };
         self.cache_tts_audio(request.id, speech.content_type, speech.bytes)
             .await;
-        let _ = self.relay_tx.send(RelayEvent::Tts(event));
+        self.complete_tts(ticket, event).await;
         Ok(())
     }
 
-    pub fn publish_visual_tts(
+    #[allow(dead_code)]
+    pub async fn publish_visual_tts(
         &self,
+        id: String,
+        text: String,
+        author: crate::model::AuthorIdentity,
+        guild_tag: Option<crate::model::GuildTagIdentity>,
+        timestamp: u64,
+        segments: Vec<VisualSegment>,
+    ) {
+        let ticket = self
+            .register_stage_output(timestamp, &id, 0, StageLane::Tts)
+            .await;
+        self.publish_visual_tts_with_ticket(
+            ticket, id, text, author, guild_tag, timestamp, segments,
+        )
+        .await;
+    }
+
+    pub async fn publish_visual_tts_with_ticket(
+        &self,
+        ticket: StageTicket,
         id: String,
         text: String,
         author: crate::model::AuthorIdentity,
@@ -991,7 +1334,7 @@ impl AppCore {
             visual_only: true,
             segments,
         };
-        let _ = self.relay_tx.send(RelayEvent::Tts(event));
+        self.complete_tts(ticket, event).await;
     }
 
     #[allow(dead_code)]
@@ -1027,6 +1370,27 @@ impl AppCore {
         segments: Vec<VisualSegment>,
         role_ids: &[String],
     ) -> bool {
+        let ticket = self
+            .register_stage_output(timestamp, &id, 0, StageLane::Tts)
+            .await;
+        self.publish_visual_tts_if_allowed_with_ticket_and_roles(
+            ticket, id, text, author, guild_tag, timestamp, segments, role_ids,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn publish_visual_tts_if_allowed_with_ticket_and_roles(
+        &self,
+        ticket: StageTicket,
+        id: String,
+        text: String,
+        author: crate::model::AuthorIdentity,
+        guild_tag: Option<crate::model::GuildTagIdentity>,
+        timestamp: u64,
+        segments: Vec<VisualSegment>,
+        role_ids: &[String],
+    ) -> bool {
         let config = self.config.read().await;
         let scoped_config = privacy::scoped_config_for_roles(&config, role_ids);
         if privacy::privacy_rules_enabled(&scoped_config) {
@@ -1034,10 +1398,16 @@ impl AppCore {
             let action = privacy::action_for(&report, &scoped_config);
             if !matches!(action, PrivacyAction::Allow) {
                 privacy::log_decision(&report, action);
+                drop(config);
+                self.cancel_stage_output(ticket).await;
                 return false;
             }
         }
-        self.publish_visual_tts(id, text, author, guild_tag, timestamp, segments);
+        drop(config);
+        self.publish_visual_tts_with_ticket(
+            ticket, id, text, author, guild_tag, timestamp, segments,
+        )
+        .await;
         true
     }
 }
@@ -1165,6 +1535,29 @@ fn random_session_token() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn app_core_restores_persisted_interface_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.json");
+        let config = AppConfig {
+            interface_preferences: InterfacePreferences {
+                language: "ko".into(),
+                theme: "light".into(),
+                accent_rgb: [42, 84, 126],
+                font_scale: 120,
+            },
+            ..AppConfig::default()
+        };
+        ConfigStore::new(path.clone()).save(&config).unwrap();
+
+        let core = AppCore::load(path).unwrap();
+
+        assert_eq!(
+            *core.interface_preferences.read().await,
+            config.interface_preferences
+        );
+    }
 
     fn media(kind: MediaKind, message_id: &str) -> MediaEvent {
         MediaEvent {
@@ -1648,7 +2041,6 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         core.set_config(AppConfig {
             privacy_scan_enabled: true,
-            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
             moderation_enabled: false,
             ..AppConfig::default()
         })
@@ -1694,7 +2086,6 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         core.set_config(AppConfig {
             privacy_scan_enabled: true,
-            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
             moderation_enabled: false,
             ..AppConfig::default()
         })
@@ -1722,7 +2113,6 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         core.set_config(AppConfig {
             privacy_scan_enabled: true,
-            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
             moderation_enabled: true,
             ..AppConfig::default()
         })
@@ -1779,14 +2169,13 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         core.set_config(AppConfig {
             privacy_scan_enabled: true,
-            privacy_suspicious_policy: privacy::SuspiciousPolicy::Review,
             ..AppConfig::default()
         })
         .await
         .unwrap();
         let old_config = core.config.read().await.clone();
         let report = privacy::classify_text(Some("landscape"), &old_config);
-        core.update_config(|config| config.privacy_suspicious_threshold = 3)
+        core.update_config(|config| config.privacy_similarity_boost = 3)
             .await
             .unwrap();
         core.submit_analyzed_media(media(MediaKind::Image, "stale-safe"), Some(report))
@@ -1880,7 +2269,8 @@ mod tests {
                 url: None,
                 animated: false,
             }],
-        );
+        )
+        .await;
 
         let RelayEvent::Tts(event) = events.recv().await.unwrap() else {
             panic!("expected a TTS relay event");
@@ -1903,7 +2293,6 @@ mod tests {
                 aliases: Vec::new(),
                 regexes: Vec::new(),
             }],
-            privacy_suspicious_policy: privacy::SuspiciousPolicy::Block,
             ..AppConfig::default()
         })
         .await
@@ -2040,5 +2429,60 @@ mod tests {
         let core = AppCore::load(directory.path().join("config.json")).unwrap();
         assert!(core.claim_embed("message-embed-0".into()).await);
         assert!(!core.claim_embed("message-embed-0".into()).await);
+    }
+
+    #[tokio::test]
+    async fn explicit_stage_tickets_keep_delayed_text_ahead_of_newer_ready_media() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        let mut events = core.relay_tx.subscribe();
+
+        let video_ticket = core
+            .register_stage_output(21_590, "100", 200, StageLane::Media)
+            .await;
+        let mut video = media(MediaKind::Video, "video");
+        video.timestamp = 21_590;
+        core.complete_media(video_ticket, video).await;
+        assert!(
+            matches!(events.recv().await.unwrap(), RelayEvent::Media(event) if event.message_id == "video")
+        );
+        core.stage_scheduler.stage_state(true, false, false).await;
+
+        let text_ticket = core
+            .register_stage_output(22_000, "101", 0, StageLane::Tts)
+            .await;
+        let image_ticket = core
+            .register_stage_output(22_010, "102", 200, StageLane::Media)
+            .await;
+        let mut image = media(MediaKind::Image, "image");
+        image.timestamp = 22_010;
+        core.complete_media(image_ticket, image).await;
+        core.complete_tts(
+            text_ticket,
+            TtsEvent {
+                id: "text".into(),
+                text: "older text".into(),
+                author: crate::model::AuthorIdentity {
+                    username: "tester".into(),
+                    display_avatar_url: String::new(),
+                },
+                guild_tag: None,
+                content_type: String::new(),
+                timestamp: 22_000,
+                visual_only: true,
+                segments: Vec::new(),
+            },
+        )
+        .await;
+
+        core.stage_scheduler.stage_state(false, false, false).await;
+        assert!(
+            matches!(events.recv().await.unwrap(), RelayEvent::Tts(event) if event.id == "text")
+        );
+        core.stage_scheduler.stage_state(false, false, true).await;
+        core.stage_scheduler.stage_state(false, false, false).await;
+        assert!(
+            matches!(events.recv().await.unwrap(), RelayEvent::Media(event) if event.message_id == "image")
+        );
     }
 }

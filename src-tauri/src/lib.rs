@@ -1,5 +1,6 @@
 mod artwork;
 mod bot;
+mod changelog;
 mod commands;
 mod config;
 mod credentials;
@@ -7,16 +8,24 @@ mod custom_commands;
 mod media_compat;
 mod model;
 mod music;
+mod music_i18n;
 mod notification_widget;
 mod privacy;
 mod server;
+mod stage_scheduler;
 mod state;
 mod tts;
 mod updater;
 mod widget;
 mod youtube;
 
-use std::{env, path::PathBuf, process::Command, sync::Arc, time::Duration};
+use std::{
+    env,
+    path::PathBuf,
+    process::Command,
+    sync::{Arc, atomic::Ordering},
+    time::Duration,
+};
 
 use tauri::{
     AppHandle, Manager, PhysicalPosition, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
@@ -25,16 +34,18 @@ use tauri::{
 
 use crate::{
     bot::start_bot,
+    changelog::get_changelog_markdown,
     commands::{
         apply_config, approve_pending_media, clear_notification_sound, clear_overlay,
         clear_pending_media, control_audio, download_history_media, get_bootstrap,
         get_media_artwork, get_runtime_status, get_widget_bootstrap, pick_notification_sound,
         refresh_channels, regenerate_secret, reject_pending_media, replay_media,
         save_command_settings, save_credentials, save_custom_commands, set_interface_preferences,
-        set_media_caption_visibility, set_notification_sound_enabled,
+        set_media_caption_visibility, set_music_widget_size, set_notification_sound_enabled,
         set_notification_sound_obs_enabled, set_notification_widget_locked,
-        set_notification_widget_visible, set_output_geometry, set_skip_shortcut, set_widget_locked,
-        skip_media, test_output, toggle_widget,
+        set_notification_widget_visible, set_output_geometry, set_skip_shortcut,
+        set_tts_notifications_obs_enabled, set_widget_locked, skip_media, store_youtube_api_key,
+        test_output, toggle_widget,
     },
     config::{DEFAULT_SKIP_SHORTCUT, migrate_legacy_config},
     model::{MediaKind, RelayEvent, ServerStatus},
@@ -122,7 +133,7 @@ pub fn run() {
                         requests,
                     ));
                     let music_events = core.relay_tx.subscribe();
-                    tauri::async_runtime::spawn(show_music_notification_widget(
+                    tauri::async_runtime::spawn(manage_music_media_widget(
                         app_handle.clone(),
                         core.clone(),
                         music_events,
@@ -141,7 +152,9 @@ pub fn run() {
             refresh_channels,
             set_interface_preferences,
             set_output_geometry,
+            set_music_widget_size,
             save_credentials,
+            store_youtube_api_key,
             apply_config,
             set_media_caption_visibility,
             save_command_settings,
@@ -164,6 +177,7 @@ pub fn run() {
             set_notification_widget_locked,
             set_notification_sound_enabled,
             set_notification_sound_obs_enabled,
+            set_tts_notifications_obs_enabled,
             pick_notification_sound,
             clear_notification_sound,
             tray_open_control_panel,
@@ -177,6 +191,7 @@ pub fn run() {
             set_window_theme,
             open_help_link,
             get_app_version,
+            get_changelog_markdown,
             check_for_updates,
             download_and_install_update,
         ])
@@ -190,12 +205,18 @@ async fn deliver_media_to_local_widget(
     mut requests: tokio::sync::mpsc::UnboundedReceiver<MediaDeliveryRequest>,
 ) {
     while let Some(request) = requests.recv().await {
-        let should_wake = {
+        let (should_wake, widget_connected) = {
             let widget_visible = core.config.read().await.widget_visible;
             let status = core.server_status.read().await;
-            should_wake_media_widget(&status, request.kind, widget_visible)
+            (
+                should_wake_media_widget(&status, request.kind, widget_visible),
+                media_widget_connected(&status),
+            )
         };
-        if should_wake && widget::show(&app, core.clone(), false).await.is_ok() {
+        let has_ephemeral_ownership = core.widget_ephemeral_wake.load(Ordering::Relaxed);
+        if should_show_media_widget(should_wake, has_ephemeral_ownership, widget_connected)
+            && widget::show(&app, core.clone(), false).await.is_ok()
+        {
             for _ in 0..40 {
                 let connected = {
                     let status = core.server_status.read().await;
@@ -211,32 +232,33 @@ async fn deliver_media_to_local_widget(
     }
 }
 
-async fn show_music_notification_widget(
+async fn manage_music_media_widget(
     app: AppHandle,
     core: Arc<AppCore>,
     mut events: tokio::sync::broadcast::Receiver<RelayEvent>,
 ) {
     loop {
         match events.recv().await {
-            Ok(RelayEvent::MusicPlay(playback)) => {
-                ensure_music_audio_widget(&app, &core).await;
-                if !notification_widget::state(&app, &core).await.visible
-                    && notification_widget::set_visible(&app, core.clone(), true)
-                        .await
-                        .is_err()
-                {
-                    continue;
-                }
-                let Ok(payload) = serde_json::to_string(&playback) else {
-                    continue;
-                };
-                let script = format!("window.showMusicNowPlaying?.({payload});");
-                for _ in 0..20 {
-                    if let Some(window) = app.get_webview_window("notification-widget") {
-                        let _ = window.eval(&script);
+            Ok(RelayEvent::MusicPlay(_)) => {
+                let visible = widget::state(&app, &core).await.visible;
+                if should_wake_music_widget(visible) {
+                    if widget::wake_ephemeral(&app, core.clone()).await.is_err() {
+                        continue;
                     }
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    for _ in 0..40 {
+                        let connected = {
+                            let status = core.server_status.read().await;
+                            media_widget_connected(&status)
+                        };
+                        if connected {
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
                 }
+            }
+            Ok(RelayEvent::MusicIdle) | Ok(RelayEvent::Clear) => {
+                dismiss_ephemeral_media_widget_with_retry(&app, core.clone()).await;
             }
             Ok(_) => {}
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
@@ -245,23 +267,31 @@ async fn show_music_notification_widget(
     }
 }
 
-async fn ensure_music_audio_widget(app: &AppHandle, core: &Arc<AppCore>) {
-    let sound_enabled = core.config.read().await.widget_sound_enabled;
-    if !sound_enabled {
-        return;
-    }
-
-    let audio_widget_connected = core.server_status.read().await.outputs.audio.widget_clients > 0;
-    if !audio_widget_connected {
-        let _ = widget::show(app, core.clone(), false).await;
-    }
-
-    for _ in 0..40 {
-        if core.server_status.read().await.outputs.audio.widget_clients > 0 {
+async fn dismiss_ephemeral_media_widget_with_retry(app: &AppHandle, core: Arc<AppCore>) {
+    const ATTEMPTS: usize = 3;
+    for attempt in 0..ATTEMPTS {
+        if widget::dismiss_ephemeral_if_idle(app, core.clone())
+            .await
+            .is_ok()
+        {
             return;
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        if attempt + 1 < ATTEMPTS {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
     }
+}
+
+fn should_wake_music_widget(widget_visible: bool) -> bool {
+    !widget_visible
+}
+
+fn should_show_media_widget(
+    should_wake: bool,
+    has_ephemeral_ownership: bool,
+    widget_connected: bool,
+) -> bool {
+    should_wake || (has_ephemeral_ownership && widget_connected)
 }
 
 fn should_wake_media_widget(status: &ServerStatus, kind: MediaKind, widget_visible: bool) -> bool {
@@ -301,8 +331,7 @@ fn register_skip_shortcut(app: &mut tauri::App, core: Arc<AppCore>) -> tauri::Re
             if event.state() == ShortcutState::Pressed {
                 let core = core.clone();
                 tauri::async_runtime::spawn(async move {
-                    core.stop_current_music().await;
-                    let _ = core.relay_tx.send(crate::model::RelayEvent::Skip);
+                    core.skip_playback().await;
                 });
             }
         });
@@ -486,6 +515,12 @@ fn resolve_external_link(link: &str) -> Result<String, String> {
         "obs" => "https://obsproject.com/kb/browser-source",
         "github" => "https://github.com/stealthsrc",
         "relay-releases" => "https://github.com/stealthsrc/relay/releases/latest",
+        "relay-changelog" => "https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md",
+        "google-cloud" => "https://console.cloud.google.com/",
+        "youtube-api-library" => {
+            "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+        }
+        "google-credentials" => "https://console.cloud.google.com/apis/credentials",
         "privacy-global" => {
             "https://unctad.org/page/data-protection-and-privacy-legislation-worldwide"
         }
@@ -530,6 +565,32 @@ fn is_discord_invite_url(link: &str) -> bool {
 }
 
 #[cfg(test)]
+mod media_widget_wake_tests {
+    use super::{should_show_media_widget, should_wake_music_widget};
+
+    #[test]
+    fn music_wakes_only_a_hidden_media_widget() {
+        assert!(should_wake_music_widget(false));
+        assert!(!should_wake_music_widget(true));
+    }
+
+    #[test]
+    fn normal_media_fallback_wakes_the_widget() {
+        assert!(should_show_media_widget(true, false, false));
+    }
+
+    #[test]
+    fn connected_ephemeral_widget_becomes_persistent_even_with_obs() {
+        assert!(should_show_media_widget(false, true, true));
+    }
+
+    #[test]
+    fn connected_non_ephemeral_widget_is_not_shown_redundantly() {
+        assert!(!should_show_media_widget(false, false, true));
+    }
+}
+
+#[cfg(test)]
 mod external_link_tests {
     use super::{is_discord_invite_url, is_startup_launch, resolve_external_link};
 
@@ -538,6 +599,14 @@ mod external_link_tests {
     #[test]
     fn accepts_the_generated_discord_invite_url() {
         assert_eq!(resolve_external_link(INVITE), Ok(INVITE.to_owned()));
+    }
+
+    #[test]
+    fn opens_the_bundled_changelog_on_github() {
+        assert_eq!(
+            resolve_external_link("relay-changelog"),
+            Ok("https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md".to_owned())
+        );
     }
 
     #[test]

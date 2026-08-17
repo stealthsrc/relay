@@ -1,18 +1,20 @@
 use std::{
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context as _, Result, bail};
+use futures_util::StreamExt;
 use serenity::{
     all::{
-        ButtonStyle, Channel, ChannelId, ChannelType, Command, CommandDataOptionValue,
-        CommandInteraction, CommandOptionType, ComponentInteraction, ComponentInteractionDataKind,
-        Context, CreateActionRow, CreateAllowedMentions, CreateButton, CreateCommand,
-        CreateCommandOption, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind,
-        CreateSelectMenuOption, EventHandler, GatewayIntents, GetMessages, GuildId, Interaction,
-        Message, MessageId, MessageUpdateEvent, OnlineStatus, PermissionOverwrite,
+        ActionRowComponent, ButtonStyle, Channel, ChannelId, ChannelType, Colour, Command,
+        CommandDataOptionValue, CommandInteraction, CommandOptionType, ComponentInteraction,
+        ComponentInteractionDataKind, Context, CreateActionRow, CreateAllowedMentions,
+        CreateButton, CreateCommand, CreateCommandOption, CreateEmbed, CreateInputText,
+        CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateModal,
+        CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditInteractionResponse,
+        EventHandler, GatewayIntents, GetMessages, GuildId, InputTextStyle, Interaction, Message,
+        MessageId, MessageUpdateEvent, ModalInteraction, OnlineStatus, PermissionOverwrite,
         PermissionOverwriteType, Permissions, Ready, StickerFormatType, User, UserId,
     },
     async_trait,
@@ -26,15 +28,20 @@ use crate::{
     artwork,
     commands::emit_output_test,
     config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
-    credentials::{load_discord_credentials, load_or_create_relay_secret, load_youtube_api_key},
+    credentials::{load_discord_credentials, load_youtube_api_key},
     custom_commands,
     model::{
         AuthorIdentity, BotStatus, ChannelSummary, GuildTagIdentity, MediaEvent, MediaKind,
         MusicPlaybackEvent, MusicPlaybackMode, OutputConnectionStatus, OutputTestTarget,
         ServerStatus, StickerEvent, TtsRequest, VisualSegment,
     },
-    music::{SearchSelection, SelectionTake},
+    music::{
+        MusicSelection, MusicSkipDecision, MusicStartResult, SearchSelection, SelectionTake,
+        cooldown_wait_seconds, parse_timestamp,
+    },
+    music_i18n::{self, MusicStrings},
     privacy,
+    stage_scheduler::{StageLane, StageTicket},
     state::{AppCore, BotRuntime},
     youtube,
 };
@@ -46,7 +53,10 @@ const MEDIA_TEXT_LIMIT: usize = 180;
 const MUSIC_COMPONENT_PREFIX: &str = "relay:music:";
 const MUSIC_SEARCH_PREFIX: &str = "relay:music:search:";
 const MUSIC_MODE_PREFIX: &str = "relay:music:mode:";
+const MUSIC_CUSTOM_PREFIX: &str = "relay:music:custom:";
 const MUSIC_SKIP_PREFIX: &str = "relay:music:skip:";
+const MUSIC_CUSTOM_START_ID: &str = "start";
+const MUSIC_CUSTOM_END_ID: &str = "end";
 
 struct Handler {
     core: Arc<AppCore>,
@@ -118,6 +128,21 @@ impl EventHandler for Handler {
                     return;
                 }
             }
+            let stage_ticket =
+                if !message.content.trim().is_empty() || !message.sticker_items.is_empty() {
+                    Some(
+                        self.core
+                            .register_stage_output(
+                                message_timestamp(&message),
+                                &message.id.to_string(),
+                                0,
+                                StageLane::Tts,
+                            )
+                            .await,
+                    )
+                } else {
+                    None
+                };
             let author = message_author(&message);
             let guild_tag = guild_tag_from_user(&message.author);
             let mut sticker_segments = Vec::new();
@@ -142,12 +167,18 @@ impl EventHandler for Handler {
                 )
                 .await
                 {
+                    if let Some(ticket) = stage_ticket {
+                        self.core.cancel_stage_output(ticket).await;
+                    }
                     return;
                 }
                 if privacy::privacy_rules_enabled(&current_scoped_config) {
                     let action = privacy::action_for(&report, &current_scoped_config);
                     if matches!(action, privacy::PrivacyAction::Review) {
                         privacy::log_decision(&report, action);
+                        if let Some(ticket) = stage_ticket {
+                            self.core.cancel_stage_output(ticket).await;
+                        }
                         return;
                     }
                 }
@@ -164,8 +195,12 @@ impl EventHandler for Handler {
                         .unwrap_or_else(|| plain_text_segments(content.into())),
                 };
                 segments.append(&mut sticker_segments);
+                let Some(ticket) = stage_ticket else {
+                    return;
+                };
                 self.core
-                    .publish_visual_tts_if_allowed_with_roles(
+                    .publish_visual_tts_if_allowed_with_ticket_and_roles(
+                        ticket,
                         message.id.to_string(),
                         message.content.clone(),
                         author,
@@ -178,8 +213,12 @@ impl EventHandler for Handler {
                 return;
             }
             if let Some(segments) = parse_visual_segments(&message.content) {
+                let Some(ticket) = stage_ticket else {
+                    return;
+                };
                 self.core
-                    .publish_visual_tts_if_allowed_with_roles(
+                    .publish_visual_tts_if_allowed_with_ticket_and_roles(
+                        ticket,
                         message.id.to_string(),
                         message.content.clone(),
                         author,
@@ -192,9 +231,13 @@ impl EventHandler for Handler {
                 return;
             }
             if let Some(text) = prepare_tts_text(&message.content, config.tts_character_limit) {
+                let Some(ticket) = stage_ticket else {
+                    return;
+                };
                 if !config.tts_speech_enabled {
                     self.core
-                        .publish_visual_tts_if_allowed_with_roles(
+                        .publish_visual_tts_if_allowed_with_ticket_and_roles(
+                            ticket,
                             message.id.to_string(),
                             text.clone(),
                             author,
@@ -215,11 +258,13 @@ impl EventHandler for Handler {
                 };
                 if let Err(error) = self
                     .core
-                    .publish_tts_with_roles(request.clone(), &role_ids)
+                    .publish_tts_with_ticket_and_roles(ticket, request.clone(), &role_ids)
                     .await
                 {
-                    self.core
-                        .publish_visual_tts_if_allowed_with_roles(
+                    let visual_published = self
+                        .core
+                        .publish_visual_tts_if_allowed_with_ticket_and_roles(
+                            ticket,
                             request.id,
                             request.text.clone(),
                             request.author,
@@ -230,10 +275,12 @@ impl EventHandler for Handler {
                         )
                         .await;
                     self.core.bot_status.write().await.error =
-                        Some(format!("Windows TTS failed: {error}"));
+                        tts_failure_status(&error.to_string(), visual_published);
                 } else {
                     self.core.bot_status.write().await.error = None;
                 }
+            } else if let Some(ticket) = stage_ticket {
+                self.core.cancel_stage_output(ticket).await;
             }
             return;
         }
@@ -254,12 +301,46 @@ impl EventHandler for Handler {
             return;
         }
         let media_text = prepare_media_text(&message.content);
+        let timestamp = message_timestamp(&message);
+        let message_id = message.id.to_string();
+        let mut stage_tickets = Vec::new();
+        let mut sticker_tickets = Vec::new();
+        for (index, sticker) in message.sticker_items.iter().take(3).enumerate() {
+            if sticker.image_url().is_none() {
+                continue;
+            }
+            let ticket = self
+                .core
+                .register_stage_output(timestamp, &message_id, 100 + index as u16, StageLane::Media)
+                .await;
+            stage_tickets.push(ticket);
+            sticker_tickets.push((index, ticket));
+        }
+        let mut attachment_tickets = Vec::new();
+        for (index, _) in message
+            .attachments
+            .iter()
+            .filter_map(|item| classify_attachment(item).map(|kind| (item, kind)))
+            .take(3)
+            .enumerate()
+        {
+            let ticket = self
+                .core
+                .register_stage_output(timestamp, &message_id, 200 + index as u16, StageLane::Media)
+                .await;
+            stage_tickets.push(ticket);
+            attachment_tickets.push(ticket);
+        }
 
-        for sticker in message.sticker_items.iter().take(3) {
+        for (index, sticker) in message.sticker_items.iter().take(3).enumerate() {
             let Some(url) = sticker.image_url() else {
                 continue;
             };
             let (format, _) = sticker_format(sticker.format_type);
+            let stage_ticket = sticker_tickets
+                .iter()
+                .find_map(|(ticket_index, ticket)| (*ticket_index == index).then_some(*ticket))
+                .expect("recognized sticker has a stage ticket");
             let sticker_text = format!("{}\n{}", message.content, sticker.name);
             let (privacy_report, bytes) =
                 inspect_sticker(&url, format, Some(&sticker_text), &scoped_config).await;
@@ -277,10 +358,12 @@ impl EventHandler for Handler {
             )
             .await
             {
+                cancel_stage_tickets(&self.core, &stage_tickets).await;
                 return;
             }
             self.core
-                .submit_sticker_with_roles(
+                .submit_sticker_with_ticket_and_roles(
+                    stage_ticket,
                     StickerEvent {
                         id: sticker.id.to_string(),
                         name: sticker.name.clone(),
@@ -304,8 +387,10 @@ impl EventHandler for Handler {
             .iter()
             .filter_map(|item| classify_attachment(item).map(|kind| (item, kind)))
             .take(3)
+            .enumerate()
         {
-            let (attachment, kind) = attachment;
+            let (index, (attachment, kind)) = attachment;
+            let stage_ticket = attachment_tickets[index];
             let mut audio_metadata = if matches!(kind, MediaKind::Audio) {
                 artwork::extract(&attachment.url).await.ok()
             } else {
@@ -385,6 +470,7 @@ impl EventHandler for Handler {
             )
             .await
             {
+                cancel_stage_tickets(&self.core, &stage_tickets).await;
                 return;
             }
             if let Some(embedded) = audio_metadata
@@ -411,7 +497,8 @@ impl EventHandler for Handler {
                 event.audio_id = Some(id);
             }
             self.core
-                .submit_analyzed_media_with_text_and_roles(
+                .submit_analyzed_media_with_ticket_and_roles(
+                    stage_ticket,
                     event,
                     Some(privacy_report),
                     Some(&message.content),
@@ -437,6 +524,14 @@ impl EventHandler for Handler {
         let Some(embeds) = event.embeds else {
             return;
         };
+        let watched_channel_id = self.core.config.read().await.watched_channel_id.clone();
+        if watched_channel_id.is_empty() || event.channel_id.to_string() != watched_channel_id {
+            return;
+        }
+        if let Ok(message) = context.http.get_message(event.channel_id, event.id).await {
+            submit_embedded_gifs(&self.core, &context.http, &message).await;
+            return;
+        }
         if let Some(author) = event.author {
             let message = DeferredEmbedMessage {
                 channel_id: event.channel_id.to_string(),
@@ -453,14 +548,6 @@ impl EventHandler for Handler {
             submit_deferred_embeds(&self.core, &context.http, message).await;
             return;
         }
-
-        let watched_channel_id = self.core.config.read().await.watched_channel_id.clone();
-        if watched_channel_id.is_empty() || event.channel_id.to_string() != watched_channel_id {
-            return;
-        }
-        if let Ok(message) = context.http.get_message(event.channel_id, event.id).await {
-            submit_embedded_gifs(&self.core, &context.http, &message).await;
-        }
     }
 
     async fn interaction_create(&self, context: Context, interaction: Interaction) {
@@ -471,6 +558,12 @@ impl EventHandler for Handler {
                 } else {
                     custom_commands::handle_custom_component(&self.core, &context, &component)
                         .await;
+                }
+                return;
+            }
+            Interaction::Modal(modal) => {
+                if modal.data.custom_id.starts_with(MUSIC_CUSTOM_PREFIX) {
+                    handle_music_custom_modal(&self.core, &context, &modal).await;
                 }
                 return;
             }
@@ -498,9 +591,37 @@ impl EventHandler for Handler {
             return;
         }
 
+        // Changelog fetches GitHub and posts embeds — defer so Discord does not time out.
+        let defer_changelog = command
+            .data
+            .options
+            .first()
+            .is_some_and(|option| option.name == "changelog");
+        if defer_changelog {
+            let defer = CreateInteractionResponse::Defer(
+                CreateInteractionResponseMessage::new().ephemeral(true),
+            );
+            if let Err(error) = command.create_response(&context.http, defer).await {
+                self.core.bot_status.write().await.error =
+                    Some(format!("Discord response failed: {error}"));
+                return;
+            }
+            let content = handle_relay(&self.core, &context.http, &command)
+                .await
+                .unwrap_or_else(|error| format!("Unable to post the changelog: {error:#}"));
+            let edit = EditInteractionResponse::new()
+                .content(content)
+                .allowed_mentions(CreateAllowedMentions::new());
+            if let Err(error) = command.edit_response(&context.http, edit).await {
+                self.core.bot_status.write().await.error =
+                    Some(format!("Discord response failed: {error}"));
+            }
+            return;
+        }
+
         let content = handle_relay(&self.core, &context.http, &command)
             .await
-            .unwrap_or_else(|error| format!("Unable to update Relay: {error}"));
+            .unwrap_or_else(|error| format!("Unable to update Relay: {error:#}"));
         let response = CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
                 .content(content)
@@ -538,50 +659,54 @@ async fn handle_music_message(
         return;
     }
 
+    let strings = music_locale(core).await;
     let api_key = match load_youtube_api_key() {
         Ok(Some(api_key)) => api_key,
         Ok(None) => {
-            let _ = message
-                .channel_id
-                .say(http, "YouTube n'est pas configuré dans Relay.")
-                .await;
+            let _ = message.channel_id.say(http, strings.not_configured).await;
             return;
         }
         Err(_) => {
             core.bot_status.write().await.error =
-                Some("Impossible de lire la clé YouTube enregistrée.".into());
+                Some("Unable to read the saved YouTube API key.".into());
             let _ = message
                 .channel_id
-                .say(
-                    http,
-                    "La recherche YouTube est temporairement indisponible.",
-                )
+                .say(http, strings.search_unavailable)
                 .await;
             return;
         }
     };
+
+    let user_id = message.author.id.get();
+    {
+        let mut music = core.music.lock().await;
+        let now = Instant::now();
+        if let Some(remaining) = music.search_cooldown_remaining(user_id, now) {
+            let seconds = cooldown_wait_seconds(remaining).to_string();
+            let reply = music_i18n::fill(strings.search_cooldown, &[("seconds", &seconds)]);
+            let _ = message.channel_id.say(http, reply).await;
+            return;
+        }
+        // Mark before the API call so failed/retried spam still burns the cooldown.
+        music.mark_search_attempt(user_id, now);
+    }
+
     let results = match youtube::search(query, &api_key).await {
         Ok(results) => results,
-        Err(_) => {
-            core.bot_status.write().await.error = Some("La recherche YouTube a échoué.".into());
-            let _ = message
-                .channel_id
-                .say(
-                    http,
-                    "La recherche YouTube est temporairement indisponible.",
-                )
-                .await;
+        Err(error) => {
+            let detail = error.to_string();
+            core.bot_status.write().await.error = Some(detail.clone());
+            let reply = if detail.to_ascii_lowercase().contains("quota") {
+                "YouTube API quota exceeded for today. Try again after the daily reset, or raise the quota in Google Cloud."
+            } else {
+                strings.search_unavailable
+            };
+            let _ = message.channel_id.say(http, reply).await;
             return;
         }
     };
     if results.is_empty() {
-        let _ = message
-            .channel_id
-            .say(
-                http,
-                "Aucun résultat YouTube de 3 minutes maximum n'a été trouvé.",
-            )
-            .await;
+        let _ = message.channel_id.say(http, strings.no_results).await;
         return;
     }
 
@@ -593,10 +718,10 @@ async fn handle_music_message(
         results.clone(),
     );
     let mut embed = CreateEmbed::new()
-        .title("Résultats YouTube")
-        .description(format!(
-            "Choisis un titre pour « {} ».",
-            truncate_text(&query, 180)
+        .title(strings.results_title)
+        .description(music_i18n::fill(
+            strings.choose_title,
+            &[("query", &truncate_text(&query, 180))],
         ));
     let mut options = Vec::with_capacity(results.len());
     for (index, track) in results.iter().enumerate() {
@@ -625,7 +750,7 @@ async fn handle_music_message(
                 format!("{MUSIC_SEARCH_PREFIX}{search_id}"),
                 CreateSelectMenuKind::String { options },
             )
-            .placeholder("Choisir un titre"),
+            .placeholder(strings.choose_placeholder),
         )])
         .allowed_mentions(CreateAllowedMentions::new());
     if message
@@ -635,7 +760,7 @@ async fn handle_music_message(
         .is_err()
     {
         core.bot_status.write().await.error =
-            Some("Discord n'a pas accepté les résultats YouTube.".into());
+            Some("Discord rejected the YouTube search results.".into());
     }
 }
 
@@ -644,6 +769,7 @@ async fn handle_music_component(
     context: &Context,
     component: &ComponentInteraction,
 ) {
+    let strings = music_locale(core).await;
     let custom_id = component.data.custom_id.as_str();
     if let Some(search_id) = custom_id.strip_prefix(MUSIC_SEARCH_PREFIX) {
         let Some(video_id) = (match &component.data.kind {
@@ -654,25 +780,43 @@ async fn handle_music_component(
                 core,
                 context,
                 component,
-                "Aucun titre n'a été sélectionné.",
+                strings.nothing_selected,
                 Vec::new(),
             )
             .await;
             return;
         };
-        let selection =
-            core.music
-                .lock()
-                .await
-                .select_search(search_id, component.user.id.get(), &video_id);
+        let selection = core.music.lock().await.select_search(
+            search_id,
+            component.user.id.get(),
+            &music_requester_name(&component.user),
+            &video_id,
+        );
         match selection {
             SearchSelection::Selected(selection_id) => {
+                let duration_seconds = core
+                    .music
+                    .lock()
+                    .await
+                    .selection_duration_seconds(&selection_id)
+                    .unwrap_or(0);
+                let preview_seconds = duration_seconds.min(30);
+                let preview_end = format_duration(preview_seconds);
+                let full_end = format_duration(duration_seconds);
+                let content = format!(
+                    "{}\n{}\n{}\n{}\n{}",
+                    strings.choose_mode,
+                    music_i18n::fill(strings.preview_bullet, &[("end", &preview_end)]),
+                    music_i18n::fill(strings.full_bullet, &[("end", &full_end)]),
+                    strings.custom_bullet,
+                    strings.owner_only_action,
+                );
                 respond_music_component(
                     core,
                     context,
                     component,
-                    "Choisis le mode de lecture. Cette action est réservée à la personne qui a lancé la recherche.",
-                    music_mode_components(&selection_id),
+                    &content,
+                    music_mode_components(&selection_id, duration_seconds, &strings),
                 )
                 .await;
             }
@@ -681,7 +825,7 @@ async fn handle_music_component(
                     core,
                     context,
                     component,
-                    "Cette recherche appartient à une autre personne.",
+                    strings.search_not_owner,
                     Vec::new(),
                 )
                 .await;
@@ -691,7 +835,7 @@ async fn handle_music_component(
                     core,
                     context,
                     component,
-                    "Cette recherche a expiré ou le titre n'est plus disponible.",
+                    strings.search_expired,
                     Vec::new(),
                 )
                 .await;
@@ -711,13 +855,82 @@ async fn handle_music_component(
                 .await
                 .cancel_selection(selection_id, component.user.id.get());
             let content = match result {
-                SelectionTake::Taken(_) => "Sélection annulée.".to_owned(),
-                SelectionTake::NotOwner => {
-                    "Cette sélection appartient à une autre personne.".into()
-                }
-                SelectionTake::NotFound => "Cette sélection a expiré.".into(),
+                SelectionTake::Taken(_) => strings.selection_cancelled,
+                SelectionTake::NotOwner => strings.selection_not_owner,
+                SelectionTake::NotFound => strings.selection_expired,
             };
-            respond_music_component(core, context, component, &content, Vec::new()).await;
+            respond_music_component(core, context, component, content, Vec::new()).await;
+            return;
+        }
+        if mode_name == "custom" {
+            let access = core
+                .music
+                .lock()
+                .await
+                .peek_selection(selection_id, component.user.id.get());
+            match access {
+                SelectionTake::Taken(_) => {
+                    let _ = core
+                        .music
+                        .lock()
+                        .await
+                        .touch_selection(selection_id, component.user.id.get());
+                    let modal = CreateModal::new(
+                        format!("{MUSIC_CUSTOM_PREFIX}{selection_id}"),
+                        truncate_text(strings.custom_modal_title, 45),
+                    )
+                    .components(vec![
+                        CreateActionRow::InputText(
+                            CreateInputText::new(
+                                InputTextStyle::Short,
+                                truncate_text(strings.custom_start_label, 45),
+                                MUSIC_CUSTOM_START_ID,
+                            )
+                            .placeholder(truncate_text(strings.custom_start_placeholder, 100))
+                            .required(true)
+                            .max_length(12),
+                        ),
+                        CreateActionRow::InputText(
+                            CreateInputText::new(
+                                InputTextStyle::Short,
+                                truncate_text(strings.custom_end_label, 45),
+                                MUSIC_CUSTOM_END_ID,
+                            )
+                            .placeholder(truncate_text(strings.custom_end_placeholder, 100))
+                            .required(true)
+                            .max_length(12),
+                        ),
+                    ]);
+                    if component
+                        .create_response(&context.http, CreateInteractionResponse::Modal(modal))
+                        .await
+                        .is_err()
+                    {
+                        core.bot_status.write().await.error =
+                            Some("Discord rejected the custom clip modal.".into());
+                    }
+                }
+                SelectionTake::NotOwner => {
+                    respond_music_component(
+                        core,
+                        context,
+                        component,
+                        strings.selection_not_owner,
+                        Vec::new(),
+                    )
+                    .await;
+                }
+                SelectionTake::NotFound => {
+                    respond_music_component(
+                        core,
+                        context,
+                        component,
+                        strings.selection_expired,
+                        Vec::new(),
+                    )
+                    .await;
+                }
+            }
             return;
         }
         let mode = match mode_name {
@@ -737,7 +950,7 @@ async fn handle_music_component(
                     core,
                     context,
                     component,
-                    "Cette sélection appartient à une autre personne.",
+                    strings.selection_not_owner,
                     Vec::new(),
                 )
                 .await;
@@ -748,84 +961,84 @@ async fn handle_music_component(
                     core,
                     context,
                     component,
-                    "Cette sélection a expiré.",
+                    strings.selection_expired,
                     Vec::new(),
                 )
                 .await;
                 return;
             }
         };
-        let playback = core.start_music(selection.clone(), mode).await;
-        let now_playing = CreateMessage::new()
-            .content(format!(
-                "▶ {} — {} ({})",
-                truncate_text(&playback.title, 180),
-                truncate_text(&playback.channel_title, 80),
-                format_duration(playback.duration_seconds)
-            ))
-            .components(music_skip_components(&playback))
-            .allowed_mentions(CreateAllowedMentions::new());
-        if let Ok(now_playing_message) = ChannelId::new(selection.channel_id)
-            .send_message(&context.http, now_playing)
-            .await
-        {
-            core.music
-                .lock()
-                .await
-                .set_now_playing_message_id(&playback.playback_id, now_playing_message.id.get());
+        let result = core
+            .start_music(
+                selection.clone(),
+                mode,
+                current_timestamp_ms(),
+                &component.id.to_string(),
+            )
+            .await;
+        match &result {
+            MusicStartResult::QueueFull => {
+                core.music
+                    .lock()
+                    .await
+                    .restore_selection(selection_id, selection.clone());
+                respond_music_component(core, context, component, strings.queue_full, Vec::new())
+                    .await;
+            }
+            MusicStartResult::Started(_) | MusicStartResult::Queued { .. } => {
+                announce_music_playback(
+                    core,
+                    context,
+                    &selection,
+                    &result,
+                    &strings,
+                    Some(component),
+                )
+                .await;
+            }
         }
-        respond_music_component(
-            core,
-            context,
-            component,
-            &format!("Lecture lancée : {}.", truncate_text(&playback.title, 180)),
-            Vec::new(),
-        )
-        .await;
         return;
     }
 
     if let Some(playback_id) = custom_id.strip_prefix(MUSIC_SKIP_PREFIX) {
-        let allowed = core
-            .music
-            .lock()
-            .await
-            .skip_allowed(playback_id, component.user.id.get());
-        if !allowed {
-            respond_music_component(
-                core,
-                context,
-                component,
-                "Requête refusée : seule la personne qui a lancé le titre peut l'arrêter.",
-                Vec::new(),
-            )
-            .await;
-            return;
+        let decision = {
+            let music = core.music.lock().await;
+            music.skip_decision(playback_id, component.user.id.get())
+        };
+        match decision {
+            MusicSkipDecision::Allowed => {}
+            MusicSkipDecision::NotOwner => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    strings.skip_not_owner,
+                    Vec::new(),
+                )
+                .await;
+                return;
+            }
+            MusicSkipDecision::NotCurrent => {
+                // Server state may already be cleared (e.g. a failing OBS embed
+                // reported musicEnded) while the Windows widget still plays.
+                // Acknowledge before delete — UpdateMessage would fail once gone.
+                let _ = component
+                    .create_response(&context.http, CreateInteractionResponse::Acknowledge)
+                    .await;
+                core.force_stop_music(playback_id).await;
+                if component.message.delete(&context.http).await.is_err() {
+                    // Soft-fail: may already be deleted or missing Manage Messages.
+                }
+                return;
+            }
         }
+        // Acknowledge the Skip click first, then stop+delete the announce.
+        let _ = component
+            .create_response(&context.http, CreateInteractionResponse::Acknowledge)
+            .await;
         if core.stop_music_if_current(playback_id).await.is_none() {
-            respond_music_component(
-                core,
-                context,
-                component,
-                "Ce titre n'est plus en lecture.",
-                Vec::new(),
-            )
-            .await;
-            return;
-        }
-        let response = CreateInteractionResponse::UpdateMessage(
-            CreateInteractionResponseMessage::new()
-                .content("⏹ Lecture arrêtée.")
-                .components(Vec::new())
-                .allowed_mentions(CreateAllowedMentions::new()),
-        );
-        if component
-            .create_response(&context.http, response)
-            .await
-            .is_err()
-        {
-            core.bot_status.write().await.error =
-                Some("Discord n'a pas mis à jour le bouton Skip.".into());
+            core.force_stop_music(playback_id).await;
+            let _ = component.message.delete(&context.http).await;
         }
     }
 }
@@ -850,28 +1063,286 @@ async fn respond_music_component(
         .is_err()
     {
         core.bot_status.write().await.error =
-            Some("Discord n'a pas accepté l'interaction musique.".into());
+            Some("Discord rejected the music interaction.".into());
     }
 }
 
-fn music_mode_components(selection_id: &str) -> Vec<CreateActionRow> {
+async fn music_locale(core: &AppCore) -> MusicStrings {
+    let language = core.interface_preferences.read().await.language.clone();
+    music_i18n::music_strings_for_language(&language)
+}
+
+fn music_mode_components(
+    selection_id: &str,
+    duration_seconds: u64,
+    strings: &MusicStrings,
+) -> Vec<CreateActionRow> {
+    let preview_seconds = duration_seconds.min(30);
+    let preview_end = format_duration(preview_seconds);
+    let full_duration = format_duration(duration_seconds);
+    let preview_label = music_i18n::fill(strings.preview_button, &[("end", &preview_end)]);
+    let full_label = music_i18n::fill(strings.full_button, &[("duration", &full_duration)]);
     vec![CreateActionRow::Buttons(vec![
         CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:preview"))
-            .label("▶ 30 secondes")
+            .label(truncate_text(&preview_label, 80))
             .style(ButtonStyle::Primary),
         CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:full"))
-            .label("▶ Intégral")
+            .label(truncate_text(&full_label, 80))
+            .style(ButtonStyle::Secondary),
+        CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:custom"))
+            .label(truncate_text(strings.custom_button, 80))
             .style(ButtonStyle::Secondary),
         CreateButton::new(format!("{MUSIC_MODE_PREFIX}{selection_id}:cancel"))
-            .label("Annuler")
+            .label(truncate_text(strings.cancel, 80))
             .style(ButtonStyle::Danger),
     ])]
 }
 
-fn music_skip_components(playback: &MusicPlaybackEvent) -> Vec<CreateActionRow> {
+async fn handle_music_custom_modal(
+    core: &Arc<AppCore>,
+    context: &Context,
+    modal: &ModalInteraction,
+) {
+    let strings = music_locale(core).await;
+    let Some(selection_id) = modal.data.custom_id.strip_prefix(MUSIC_CUSTOM_PREFIX) else {
+        return;
+    };
+    let start_raw = modal_input_value(modal, MUSIC_CUSTOM_START_ID).unwrap_or_default();
+    let end_raw = modal_input_value(modal, MUSIC_CUSTOM_END_ID).unwrap_or_default();
+    let (Some(start_seconds), Some(end_seconds)) =
+        (parse_timestamp(&start_raw), parse_timestamp(&end_raw))
+    else {
+        respond_music_modal(core, context, modal, strings.custom_invalid).await;
+        return;
+    };
+
+    let selection = match core
+        .music
+        .lock()
+        .await
+        .take_selection(selection_id, modal.user.id.get())
+    {
+        SelectionTake::Taken(selection) => selection,
+        SelectionTake::NotOwner => {
+            respond_music_modal(core, context, modal, strings.selection_not_owner).await;
+            return;
+        }
+        SelectionTake::NotFound => {
+            respond_music_modal(core, context, modal, strings.selection_expired).await;
+            return;
+        }
+    };
+
+    let result = match core
+        .start_music_custom(
+            selection.clone(),
+            start_seconds,
+            end_seconds,
+            current_timestamp_ms(),
+            &modal.id.to_string(),
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(_) => {
+            core.music
+                .lock()
+                .await
+                .restore_selection(selection_id, selection);
+            respond_music_modal(core, context, modal, strings.custom_invalid).await;
+            return;
+        }
+    };
+
+    match &result {
+        MusicStartResult::QueueFull => {
+            core.music
+                .lock()
+                .await
+                .restore_selection(selection_id, selection.clone());
+            respond_music_modal(core, context, modal, strings.queue_full).await;
+        }
+        MusicStartResult::Started(playback) | MusicStartResult::Queued { playback, .. } => {
+            announce_music_playback(core, context, &selection, &result, &strings, None).await;
+            let range = music_playback_range_label(playback);
+            let started_title = truncate_text(&playback.title, 140);
+            let user = truncate_text(&playback.requested_by, 40);
+            let content = match &result {
+                MusicStartResult::Queued { position, .. } => music_i18n::fill(
+                    strings.playback_queued,
+                    &[
+                        ("title", &started_title),
+                        ("position", &position.to_string()),
+                        ("user", &user),
+                    ],
+                ),
+                _ => music_i18n::fill(
+                    strings.playback_started,
+                    &[
+                        ("title", &started_title),
+                        ("range", &range),
+                        ("user", &user),
+                    ],
+                ),
+            };
+            respond_music_modal(core, context, modal, &content).await;
+        }
+    }
+}
+
+fn modal_input_value(modal: &ModalInteraction, custom_id: &str) -> Option<String> {
+    for row in &modal.data.components {
+        for component in &row.components {
+            if let ActionRowComponent::InputText(input) = component {
+                if input.custom_id == custom_id {
+                    return input.value.clone();
+                }
+            }
+        }
+    }
+    None
+}
+
+async fn announce_music_playback(
+    core: &Arc<AppCore>,
+    context: &Context,
+    selection: &MusicSelection,
+    result: &MusicStartResult,
+    strings: &MusicStrings,
+    component: Option<&ComponentInteraction>,
+) {
+    let (playback, queued_position) = match result {
+        MusicStartResult::Started(playback) => (playback, None),
+        MusicStartResult::Queued { playback, position } => (playback, Some(*position)),
+        MusicStartResult::QueueFull => return,
+    };
+    let range = music_playback_range_label(playback);
+    let title = truncate_text(&playback.title, 160);
+    let channel = truncate_text(&playback.channel_title, 60);
+    let user = truncate_text(&playback.requested_by, 40);
+
+    if let Some(position) = queued_position {
+        let position_label = position.to_string();
+        let queued = CreateMessage::new()
+            .content(music_i18n::fill(
+                strings.playback_queued,
+                &[
+                    ("title", &title),
+                    ("position", &position_label),
+                    ("user", &user),
+                ],
+            ))
+            .allowed_mentions(CreateAllowedMentions::new());
+        let _ = ChannelId::new(selection.channel_id)
+            .send_message(&context.http, queued)
+            .await;
+        if let Some(component) = component {
+            let queued_title = truncate_text(&playback.title, 140);
+            respond_music_component(
+                core,
+                context,
+                component,
+                &music_i18n::fill(
+                    strings.playback_queued,
+                    &[
+                        ("title", &queued_title),
+                        ("position", &position_label),
+                        ("user", &user),
+                    ],
+                ),
+                Vec::new(),
+            )
+            .await;
+        }
+        return;
+    }
+
+    let now_playing = CreateMessage::new()
+        .content(music_i18n::fill(
+            strings.now_playing,
+            &[
+                ("title", &title),
+                ("channel", &channel),
+                ("range", &range),
+                ("user", &user),
+            ],
+        ))
+        .components(music_skip_components(playback, strings))
+        .allowed_mentions(CreateAllowedMentions::new());
+    if let Ok(now_playing_message) = ChannelId::new(selection.channel_id)
+        .send_message(&context.http, now_playing)
+        .await
+    {
+        core.music
+            .lock()
+            .await
+            .set_now_playing_message_id(&playback.playback_id, now_playing_message.id.get());
+    }
+    if let Some(component) = component {
+        let started_title = truncate_text(&playback.title, 140);
+        respond_music_component(
+            core,
+            context,
+            component,
+            &music_i18n::fill(
+                strings.playback_started,
+                &[
+                    ("title", &started_title),
+                    ("range", &range),
+                    ("user", &user),
+                ],
+            ),
+            Vec::new(),
+        )
+        .await;
+    }
+}
+
+async fn respond_music_modal(
+    core: &Arc<AppCore>,
+    context: &Context,
+    modal: &ModalInteraction,
+    content: &str,
+) {
+    let response = CreateInteractionResponse::Message(
+        CreateInteractionResponseMessage::new()
+            .content(content)
+            .ephemeral(true)
+            .allowed_mentions(CreateAllowedMentions::new()),
+    );
+    if modal
+        .create_response(&context.http, response)
+        .await
+        .is_err()
+    {
+        core.bot_status.write().await.error =
+            Some("Discord rejected the music modal response.".into());
+    }
+}
+
+fn music_requester_name(user: &User) -> String {
+    user.global_name
+        .clone()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| user.name.clone())
+}
+
+fn music_playback_range_label(playback: &MusicPlaybackEvent) -> String {
+    let start = format_duration(playback.start_seconds);
+    let end = playback
+        .end_seconds
+        .map(format_duration)
+        .unwrap_or_else(|| format_duration(playback.duration_seconds));
+    format!("{start}→{end}")
+}
+
+fn music_skip_components(
+    playback: &MusicPlaybackEvent,
+    strings: &MusicStrings,
+) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![
         CreateButton::new(format!("{MUSIC_SKIP_PREFIX}{}", playback.playback_id))
-            .label("⏭ Skip")
+            .label(truncate_text(strings.skip, 80))
             .style(ButtonStyle::Secondary),
     ])]
 }
@@ -1063,6 +1534,12 @@ fn guild_tag_from_user(user: &User) -> Option<GuildTagIdentity> {
 
 fn message_timestamp(message: &Message) -> u64 {
     message.timestamp.unix_timestamp().max(0) as u64 * 1_000
+}
+
+async fn cancel_stage_tickets(core: &AppCore, tickets: &[StageTicket]) {
+    for ticket in tickets {
+        core.cancel_stage_output(*ticket).await;
+    }
 }
 
 fn sticker_format(format: StickerFormatType) -> (&'static str, &'static str) {
@@ -1544,7 +2021,7 @@ async fn handle_relay(
     let lock_can_restore = option.name == "lock" && config.channel_lock.is_some();
     if !command_enabled(&config, &option.name) && !lock_can_restore {
         return Ok(format!(
-            "`/relay {}` is disabled in the Relay application.",
+            "`/relay {}` is disabled on the Commands page in the Relay application.",
             option.name
         ));
     }
@@ -1564,20 +2041,18 @@ async fn handle_relay(
         }
         "url" => {
             let config = core.config.read().await.clone();
-            let secret = load_or_create_relay_secret()?;
-            Ok(connection_details(&config, &secret))
+            Ok(connection_details(&config))
         }
         "show" => {
             let config = core.config.read().await.clone();
-            let secret = load_or_create_relay_secret()?;
             let channel = if config.watched_channel_id.is_empty() {
                 "not configured".to_owned()
             } else {
                 format!("<#{}>", config.watched_channel_id)
             };
             Ok(format!(
-                "Channel: {channel}\n{}\nThe relay secret is separate from the Discord token. Keep it private.",
-                connection_details(&config, &secret)
+                "Channel: {channel}\n{}",
+                connection_details(&config)
             ))
         }
         "status" => relay_status(core).await,
@@ -1593,10 +2068,9 @@ async fn handle_relay(
         }
         "regenerate" => {
             let config = core.config.read().await.clone();
-            let secret = load_or_create_relay_secret()?;
             Ok(format!(
                 "The permanent relay URL was preserved. No OBS update is required:\n{}",
-                overlay_url(&config, &secret)
+                overlay_url(&config)
             ))
         }
         "clear" => {
@@ -1626,7 +2100,7 @@ async fn handle_relay(
                     _ => None,
                 })
                 .context("a channel is required")?;
-            post_changelog(http, channel_id).await
+            post_changelog(core, http, channel_id).await
         }
         _ => Ok("Unknown Relay subcommand.".into()),
     }
@@ -1634,23 +2108,103 @@ async fn handle_relay(
 
 const CHANGELOG_URL: &str =
     "https://raw.githubusercontent.com/stealthsrc/relay/main/CHANGELOG.md";
+const CHANGELOG_PAGE_URL: &str = "https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md";
 const CHANGELOG_MAX_BYTES: usize = 256 * 1024;
-const DISCORD_MESSAGE_LIMIT: usize = 1_900;
+const CHANGELOG_EMBED_DESCRIPTION_LIMIT: usize = 3_900;
+const CHANGELOG_MAX_EMBEDS: usize = 10;
+const CHANGELOG_EMBED_COLOUR: u32 = 0x2F_B3_A8;
 
-async fn post_changelog(http: &Http, channel_id: ChannelId) -> Result<String> {
-    let bytes = artwork::download_bounded(CHANGELOG_URL, CHANGELOG_MAX_BYTES)
-        .await
-        .context("failed to download the changelog from GitHub")?;
-    let changelog = String::from_utf8(bytes).context("the changelog is not valid UTF-8")?;
-    let section = latest_changelog_section(&changelog)
-        .context("no published release section was found in the changelog")?;
-    for chunk in split_message_chunks(&section, DISCORD_MESSAGE_LIMIT) {
-        channel_id.say(http, chunk).await?;
-    }
-    Ok(format!("Latest release notes posted to <#{channel_id}>."))
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ChangelogSection {
+    heading: String,
+    version: String,
+    date: Option<String>,
+    body: String,
 }
 
-fn latest_changelog_section(changelog: &str) -> Option<String> {
+async fn post_changelog(core: &Arc<AppCore>, http: &Http, channel_id: ChannelId) -> Result<String> {
+    let language = core.interface_preferences.read().await.language.clone();
+    let changelog = fetch_changelog_markdown()
+        .await
+        .context("failed to download CHANGELOG.md from GitHub")?;
+    let mut section = latest_changelog_section(&changelog)
+        .context("no published release section was found in CHANGELOG.md")?;
+    section.body = crate::changelog::changelog_body_for_language(&section.body, &language);
+    let (embeds, truncated) = build_changelog_embeds(&section);
+    if embeds.is_empty() {
+        bail!("the latest changelog section is empty");
+    }
+
+    for embed in embeds {
+        channel_id
+            .send_message(
+                http,
+                CreateMessage::new()
+                    .embed(embed)
+                    .allowed_mentions(CreateAllowedMentions::new()),
+            )
+            .await
+            .context(
+                "failed to post the changelog — ensure the bot can View Channel, Send Messages, and Embed Links in that channel",
+            )?;
+    }
+
+    let mut confirmation = format!(
+        "Posted Relay **{}** release notes as embed(s) to <#{}>.",
+        section.version, channel_id
+    );
+    if truncated {
+        confirmation.push_str(&format!(
+            "\nSome content was truncated. Full notes: <{CHANGELOG_PAGE_URL}>"
+        ));
+    }
+    Ok(confirmation)
+}
+
+async fn fetch_changelog_markdown() -> Result<String> {
+    let url = reqwest::Url::parse(CHANGELOG_URL).context("invalid changelog URL")?;
+    if url.scheme() != "https"
+        || url.host_str() != Some("raw.githubusercontent.com")
+        || url.path() != "/stealthsrc/relay/main/CHANGELOG.md"
+    {
+        bail!("changelog URL is not the expected GitHub raw path");
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("Relay/", env!("CARGO_PKG_VERSION")))
+        .timeout(Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .context("unable to create the changelog HTTP client")?;
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .context("unable to reach GitHub")?
+        .error_for_status()
+        .context("GitHub rejected the changelog request")?;
+    if response
+        .content_length()
+        .is_some_and(|length| length > CHANGELOG_MAX_BYTES as u64)
+    {
+        bail!("CHANGELOG.md exceeds the download size limit");
+    }
+
+    let mut body = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("failed while reading CHANGELOG.md")?;
+        if body.len() + chunk.len() > CHANGELOG_MAX_BYTES {
+            bail!("CHANGELOG.md exceeds the download size limit");
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    String::from_utf8(body).context("CHANGELOG.md is not valid UTF-8")
+}
+
+fn latest_changelog_section(changelog: &str) -> Option<ChangelogSection> {
+    let mut heading = None;
     let mut lines = Vec::new();
     let mut in_release = false;
     for line in changelog.lines() {
@@ -1662,35 +2216,172 @@ fn latest_changelog_section(changelog: &str) -> Option<String> {
             if !in_release {
                 continue;
             }
-        } else if line.starts_with("[") && line.contains("]: http") {
+            heading = Some(line.to_owned());
+            continue;
+        } else if line.starts_with('[') && line.contains("]: http") {
             continue;
         }
         if in_release {
             lines.push(line);
         }
     }
-    if lines.is_empty() {
+    let heading = heading?;
+    let (version, date) = parse_changelog_heading(&heading)?;
+    let body = lines.join("\n").trim().to_owned();
+    if body.is_empty() {
         return None;
     }
-    Some(lines.join("\n").trim().to_owned())
+    Some(ChangelogSection {
+        heading,
+        version,
+        date,
+        body,
+    })
+}
+
+fn parse_changelog_heading(heading: &str) -> Option<(String, Option<String>)> {
+    let rest = heading.strip_prefix("## [")?;
+    let (version, after) = rest.split_once(']')?;
+    let version = version.trim();
+    if version.is_empty() || version.eq_ignore_ascii_case("unreleased") {
+        return None;
+    }
+    let date = after
+        .trim()
+        .strip_prefix('-')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    Some((version.to_owned(), date))
+}
+
+fn discord_format_changelog_body(body: &str) -> String {
+    let mut formatted = String::new();
+    for line in body.lines() {
+        if let Some(title) = line.strip_prefix("#### ") {
+            if !formatted.is_empty() {
+                formatted.push('\n');
+            }
+            formatted.push_str("**");
+            formatted.push_str(title.trim());
+            formatted.push_str("**\n");
+            continue;
+        }
+        if let Some(title) = line.strip_prefix("### ") {
+            if !formatted.is_empty() {
+                formatted.push('\n');
+            }
+            formatted.push_str("**");
+            formatted.push_str(title.trim());
+            formatted.push_str("**\n");
+            continue;
+        }
+        if let Some(item) = line.strip_prefix("- ") {
+            formatted.push('•');
+            formatted.push(' ');
+            formatted.push_str(item);
+            formatted.push('\n');
+            continue;
+        }
+        if line.starts_with("## ") {
+            continue;
+        }
+        formatted.push_str(line);
+        formatted.push('\n');
+    }
+    formatted.trim().to_owned()
+}
+
+fn build_changelog_embeds(section: &ChangelogSection) -> (Vec<CreateEmbed>, bool) {
+    let colour = Colour::new(CHANGELOG_EMBED_COLOUR);
+    let formatted = discord_format_changelog_body(&section.body);
+    let mut descriptions = split_message_chunks(&formatted, CHANGELOG_EMBED_DESCRIPTION_LIMIT);
+    if descriptions.is_empty() {
+        descriptions.push(String::new());
+    }
+
+    let truncated = descriptions.len() > CHANGELOG_MAX_EMBEDS;
+    if truncated {
+        descriptions.truncate(CHANGELOG_MAX_EMBEDS);
+        if let Some(last) = descriptions.last_mut() {
+            let notice = format!("\n\n…truncated. Full changelog: {CHANGELOG_PAGE_URL}");
+            while char_len(last) + char_len(&notice) > CHANGELOG_EMBED_DESCRIPTION_LIMIT
+                && !last.is_empty()
+            {
+                last.pop();
+            }
+            last.push_str(&notice);
+        }
+    }
+
+    let total = descriptions.len();
+    let footer_text = match &section.date {
+        Some(date) => format!("Released {date} · Synced from GitHub CHANGELOG.md"),
+        None => "Synced from GitHub CHANGELOG.md".to_owned(),
+    };
+    let embeds = descriptions
+        .into_iter()
+        .enumerate()
+        .map(|(index, description)| {
+            let title = if total == 1 {
+                format!("Relay {}", section.version)
+            } else {
+                format!("Relay {} ({}/{})", section.version, index + 1, total)
+            };
+            let mut embed = CreateEmbed::new()
+                .colour(colour)
+                .title(title)
+                .url(CHANGELOG_PAGE_URL)
+                .description(description);
+            if index + 1 == total {
+                embed = embed.footer(serenity::all::CreateEmbedFooter::new(footer_text.clone()));
+            }
+            embed
+        })
+        .collect();
+
+    (embeds, truncated)
+}
+
+fn char_len(value: &str) -> usize {
+    value.chars().count()
 }
 
 fn split_message_chunks(text: &str, limit: usize) -> Vec<String> {
+    if limit == 0 {
+        return Vec::new();
+    }
     let mut chunks = Vec::new();
     let mut current = String::new();
     for line in text.lines() {
-        if !current.is_empty() && current.len() + line.len() + 1 > limit {
+        let mut remaining = line;
+        while char_len(remaining) > limit {
+            let (head, tail) = split_at_char_boundary(remaining, limit);
+            if !current.is_empty() {
+                chunks.push(std::mem::take(&mut current));
+            }
+            chunks.push(head.to_owned());
+            remaining = tail;
+        }
+        if !current.is_empty() && char_len(&current) + char_len(remaining) + 1 > limit {
             chunks.push(std::mem::take(&mut current));
         }
         if !current.is_empty() {
             current.push('\n');
         }
-        current.push_str(line);
+        current.push_str(remaining);
     }
     if !current.is_empty() {
         chunks.push(current);
     }
     chunks
+}
+
+fn split_at_char_boundary(value: &str, char_count: usize) -> (&str, &str) {
+    match value.char_indices().nth(char_count) {
+        Some((index, _)) => (&value[..index], &value[index..]),
+        None => (value, ""),
+    }
 }
 
 pub(crate) async fn clear_selected_channel(
@@ -2039,16 +2730,25 @@ async fn restore_channel_permissions(http: &Http, snapshot: &ChannelLockSnapshot
     Ok(())
 }
 
-fn connection_details(config: &AppConfig, secret: &str) -> String {
+fn connection_details(config: &AppConfig) -> String {
     format!(
-        "Relay URL: `http://127.0.0.1:{}`\nOverlay URL: `{}`\nSecret: `{secret}`",
+        "Relay URL: `http://127.0.0.1:{}`\nVisual overlay: `{}`\nAudio overlay: `{}`",
         config.port,
-        overlay_url(config, secret)
+        overlay_url(config),
+        audio_overlay_url(config)
     )
 }
 
-fn overlay_url(config: &AppConfig, secret: &str) -> String {
-    format!("http://127.0.0.1:{}/overlay?secret={secret}", config.port)
+fn overlay_url(config: &AppConfig) -> String {
+    format!(
+        "http://{}:{}/obs/visual",
+        crate::widget::youtube_embed_host(),
+        config.port
+    )
+}
+
+fn audio_overlay_url(config: &AppConfig) -> String {
+    format!("http://127.0.0.1:{}/obs/audio", config.port)
 }
 
 fn classify_attachment(attachment: &serenity::all::Attachment) -> Option<MediaKind> {
@@ -2455,7 +3155,6 @@ async fn set_bot_error(core: &Arc<AppCore>, error: String) {
     status.error = Some(error);
 }
 
-#[allow(dead_code)]
 fn current_timestamp_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -2463,9 +3162,37 @@ fn current_timestamp_ms() -> u64 {
         .as_millis() as u64
 }
 
+fn tts_failure_status(error: &str, visual_published: bool) -> Option<String> {
+    (!visual_published).then(|| format!("Windows TTS failed: {error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn successful_visual_fallback_clears_the_tts_error_status() {
+        assert_eq!(tts_failure_status("voice unavailable", true), None);
+        assert_eq!(
+            tts_failure_status("voice unavailable", false),
+            Some("Windows TTS failed: voice unavailable".into())
+        );
+    }
+
+    #[test]
+    fn deferred_embed_updates_fetch_roles_before_using_the_partial_fallback() {
+        let source = include_str!("bot.rs");
+        let handler = source
+            .split("async fn message_update(")
+            .nth(1)
+            .and_then(|value| value.split("async fn interaction_create(").next())
+            .expect("message update handler");
+        let fetch = handler
+            .find("get_message(event.channel_id, event.id)")
+            .unwrap();
+        let partial = handler.find("role_ids: Vec::new()").unwrap();
+        assert!(fetch < partial);
+    }
 
     #[test]
     fn extracts_only_enabled_discord_guild_tags() {
@@ -2504,15 +3231,19 @@ mod tests {
     }
 
     #[test]
-    fn formats_local_overlay_url_with_secret() {
+    fn formats_local_overlay_urls_without_secret() {
         let config = AppConfig {
             port: 5_321,
             ..AppConfig::default()
         };
+        assert_eq!(overlay_url(&config), "http://localhost:5321/obs/visual");
         assert_eq!(
-            overlay_url(&config, "private"),
-            "http://127.0.0.1:5321/overlay?secret=private"
+            audio_overlay_url(&config),
+            "http://127.0.0.1:5321/obs/audio"
         );
+        let details = connection_details(&config);
+        assert!(details.contains("http://localhost:5321/obs/visual"));
+        assert!(!details.contains("secret"));
     }
 
     #[test]
@@ -2691,15 +3422,42 @@ mod tests {
     fn extracts_the_latest_release_section_from_the_changelog() {
         let changelog = "# Changelog\n\nIntro text.\n\n## [Unreleased]\n\n- Pending change.\n\n## [1.1.0] - 2026-07-12\n\n### Added\n\n- New feature.\n\n## [1.0.0] - 2026-07-12\n\n- First release.\n\n[Unreleased]: https://example.com/compare\n[1.1.0]: https://example.com/tag\n";
         let section = latest_changelog_section(changelog).unwrap();
-        assert!(section.starts_with("## [1.1.0] - 2026-07-12"));
-        assert!(section.contains("New feature."));
-        assert!(!section.contains("Pending change."));
-        assert!(!section.contains("First release."));
-        assert!(!section.contains("example.com"));
+        assert_eq!(section.version, "1.1.0");
+        assert_eq!(section.date.as_deref(), Some("2026-07-12"));
+        assert_eq!(section.heading, "## [1.1.0] - 2026-07-12");
+        assert!(section.body.contains("New feature."));
+        assert!(!section.body.contains("Pending change."));
+        assert!(!section.body.contains("First release."));
+        assert!(!section.body.contains("example.com"));
         assert!(
             latest_changelog_section("# Changelog\n\n## [Unreleased]\n\n- Only pending.\n")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn formats_changelog_markdown_for_discord_embeds() {
+        let body = "### English\n\n#### Added\n\n- New feature.\n\n### Français\n\n#### Ajouté\n\n- Nouvelle fonctionnalité.\n";
+        let formatted = discord_format_changelog_body(body);
+        assert!(formatted.contains("**English**"));
+        assert!(formatted.contains("**Added**"));
+        assert!(formatted.contains("• New feature."));
+        assert!(formatted.contains("**Français**"));
+        assert!(formatted.contains("• Nouvelle fonctionnalité."));
+        assert!(!formatted.contains("####"));
+    }
+
+    #[test]
+    fn builds_changelog_embeds_with_version_title_and_github_link() {
+        let section = ChangelogSection {
+            heading: "## [1.2.6] - 2026-08-14".into(),
+            version: "1.2.6".into(),
+            date: Some("2026-08-14".into()),
+            body: "### English\n\n#### Fixed\n\n- One fix.\n\n### Français\n\n#### Corrigé\n\n- Un correctif.\n".into(),
+        };
+        let (embeds, truncated) = build_changelog_embeds(&section);
+        assert!(!truncated);
+        assert_eq!(embeds.len(), 1);
     }
 
     #[test]
@@ -2711,8 +3469,17 @@ mod tests {
             .join("\n");
         let chunks = split_message_chunks(&text, 1_900);
         assert!(chunks.len() > 1);
-        assert!(chunks.iter().all(|chunk| chunk.len() <= 1_900));
+        assert!(chunks.iter().all(|chunk| char_len(chunk) <= 1_900));
         assert_eq!(chunks.join("\n"), text);
+    }
+
+    #[test]
+    fn hard_splits_oversized_changelog_lines() {
+        let line = "y".repeat(5_000);
+        let chunks = split_message_chunks(&line, 1_000);
+        assert!(chunks.len() > 1);
+        assert!(chunks.iter().all(|chunk| char_len(chunk) <= 1_000));
+        assert_eq!(chunks.concat(), line);
     }
 
     #[test]

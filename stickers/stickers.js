@@ -1,7 +1,10 @@
 const stickerElement = document.querySelector("#sticker");
 const fallbackElement = document.querySelector("#sticker-fallback");
 const parameters = new URLSearchParams(window.location.search);
-const relaySecret = parameters.get("secret") || "";
+const relaySecret =
+  parameters.get("secret")
+  || document.querySelector('meta[name="relay-secret"]')?.content
+  || "";
 const queue = [];
 
 function stickerSocketUrl(
@@ -21,9 +24,21 @@ let reconnectDelayMs = 1000;
 let socket;
 let pendingPort;
 let isUnloading = false;
+let mediaBusy = false;
+let musicActive = false;
+let ttsBusy = false;
+let reportedMediaStageBusy = false;
+let mediaStageClaimPending = false;
+let lastStageClockPayload = {};
 
 function queueLimit() {
   return 50;
+}
+
+function stageBlocked() {
+  return (mediaBusy && !mediaStageClaimPending && !currentSticker)
+    || musicActive
+    || ttsBusy;
 }
 
 function stickerSource(sticker) {
@@ -31,6 +46,17 @@ function stickerSource(sticker) {
     return `/media-cache/${encodeURIComponent(sticker.cachedMediaId)}?secret=${encodeURIComponent(relaySecret)}`;
   }
   return sticker.url || "";
+}
+
+function syncMediaStageBusy() {
+  if (socket?.readyState !== 1) return;
+  const busy = Boolean(currentSticker || mediaStageClaimPending);
+  if (busy === reportedMediaStageBusy) return;
+  reportedMediaStageBusy = busy;
+  socket.send(JSON.stringify({
+    type: "stageClock",
+    payload: { lane: "media", busy },
+  }));
 }
 
 function resetSticker() {
@@ -48,6 +74,7 @@ function finishCurrent() {
   if (!currentSticker) return;
   resetSticker();
   currentSticker = undefined;
+  syncMediaStageBusy();
   playNext();
 }
 
@@ -63,10 +90,14 @@ function showFallback() {
   reveal(fallbackElement);
 }
 
-function playNext() {
-  if (currentSticker || queue.length === 0) return;
+function beginCurrentSticker() {
+  if (currentSticker || queue.length === 0) {
+    syncMediaStageBusy();
+    return;
+  }
   currentSticker = queue.shift();
   resetSticker();
+  syncMediaStageBusy();
   if (currentSticker.format === "lottie" || currentSticker.format === "unknown") {
     showFallback();
     return;
@@ -84,6 +115,28 @@ function playNext() {
   loadWatchdog = window.setTimeout(showFallback, 12000);
 }
 
+function resolveMediaStageClaim() {
+  if (!mediaStageClaimPending) return;
+  if (
+    (lastStageClockPayload.granted === false && lastStageClockPayload.lane === "media")
+    || ttsBusy
+    || musicActive
+  ) {
+    mediaStageClaimPending = false;
+    reportedMediaStageBusy = false;
+    return;
+  }
+  if (!mediaBusy) return;
+  mediaStageClaimPending = false;
+  beginCurrentSticker();
+}
+
+function playNext() {
+  if (currentSticker || queue.length === 0 || stageBlocked() || mediaStageClaimPending) return;
+  mediaStageClaimPending = true;
+  syncMediaStageBusy();
+}
+
 function enqueue(sticker) {
   if (!sticker || queue.length >= queueLimit()) return;
   queue.push(sticker);
@@ -94,6 +147,25 @@ function clearStickers() {
   queue.length = 0;
   resetSticker();
   currentSticker = undefined;
+  mediaStageClaimPending = false;
+  syncMediaStageBusy();
+}
+
+function interruptStickerPlayback() {
+  resetSticker();
+  currentSticker = undefined;
+  mediaStageClaimPending = false;
+}
+
+function applyStageClock(payload = {}) {
+  lastStageClockPayload = payload && typeof payload === "object" ? payload : {};
+  mediaBusy = Boolean(payload.mediaBusy);
+  if (Object.prototype.hasOwnProperty.call(payload, "musicBusy")) {
+    musicActive = Boolean(payload.musicBusy);
+  }
+  ttsBusy = Boolean(payload.ttsBusy);
+  resolveMediaStageClaim();
+  if (!stageBlocked() && !currentSticker && !mediaStageClaimPending) playNext();
 }
 
 function handleMessage(event) {
@@ -117,10 +189,20 @@ function handleMessage(event) {
     if (outputTest?.target === "sticker" && outputTest.sticker) {
       enqueue(outputTest.sticker);
     }
+  } else if (message.type === "stageClock") {
+    applyStageClock(message.payload);
+  } else if (message.type === "musicPlay") {
+    musicActive = true;
+  } else if (message.type === "musicIdle") {
+    musicActive = false;
+    if (!stageBlocked()) playNext();
   } else if (message.type === "clear") {
     clearStickers();
   } else if (message.type === "serverMove") {
-    pendingPort = message.payload.port;
+    const movedPort = Number(message.payload?.port);
+    if (Number.isInteger(movedPort) && movedPort > 0 && movedPort <= 65535) {
+      pendingPort = movedPort;
+    }
   }
 }
 
@@ -133,16 +215,46 @@ function scheduleReconnect() {
   reconnectDelayMs = Math.min(reconnectDelayMs * 2, 10000);
 }
 
+function moveToPendingPort() {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.port = String(pendingPort);
+  const probe = new WebSocket(
+    stickerSocketUrl(`${window.location.hostname}:${pendingPort}`, "probe", "ws:"),
+  );
+  let ready = false;
+  const probeWatchdog = window.setTimeout(() => {
+    if (!ready) probe.close();
+  }, 5000);
+  probe.addEventListener("open", () => {
+    ready = true;
+    window.clearTimeout(probeWatchdog);
+    probe.close();
+    window.location.replace(nextUrl);
+  });
+  probe.addEventListener("close", () => {
+    window.clearTimeout(probeWatchdog);
+    if (!ready && !isUnloading) {
+      window.setTimeout(moveToPendingPort, 1000);
+    }
+  });
+}
+
 function connect() {
   socket = new WebSocket(stickerSocketUrl(window.location.host));
-  socket.addEventListener("open", () => { reconnectDelayMs = 1000; });
+  socket.addEventListener("open", () => {
+    reconnectDelayMs = 1000;
+    playNext();
+  });
   socket.addEventListener("message", handleMessage);
   socket.addEventListener("close", () => {
-    clearStickers();
+    interruptStickerPlayback();
+    mediaBusy = false;
+    musicActive = false;
+    ttsBusy = false;
+    mediaStageClaimPending = false;
+    reportedMediaStageBusy = false;
     if (pendingPort) {
-      const nextUrl = new URL(window.location.href);
-      nextUrl.port = String(pendingPort);
-      window.setTimeout(() => window.location.replace(nextUrl), 500);
+      moveToPendingPort();
       return;
     }
     scheduleReconnect();

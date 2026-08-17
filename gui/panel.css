@@ -2111,6 +2111,7 @@ input[type="range"] {
   width: 100%;
   height: 100%;
   border: 0;
+  background: transparent;
 }
 
 .output-readiness-section {
@@ -2317,6 +2318,7 @@ input[type="range"] {
     linear-gradient(45deg, var(--surface) 25%, transparent 25%) 0 0 / 16px 16px,
     linear-gradient(45deg, transparent 75%, var(--surface) 75%) 0 0 / 16px 16px,
     var(--canvas);
+  color-scheme: normal;
 }
 
 .geometry-size-row {
@@ -2731,6 +2733,83 @@ input[type="range"] {
 
 .about-page {
   max-width: 980px;
+}
+
+.changelog-page {
+  max-width: 980px;
+}
+
+.changelog-releases {
+  display: grid;
+  gap: 12px;
+}
+
+.changelog-release {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.changelog-release summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.changelog-release summary::-webkit-details-marker {
+  display: none;
+}
+
+.changelog-release summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.changelog-release__version {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.changelog-release__date {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.changelog-release__body {
+  display: grid;
+  gap: 10px;
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.changelog-release__body h3,
+.changelog-release__body h4 {
+  margin: 14px 0 0;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.changelog-release__body ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.changelog-release__body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .about-card {

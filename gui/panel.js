@@ -2,18 +2,30 @@ const { invoke } = window.__TAURI__.core;
 
 const translations = {
   en: {
-    navOverview: "Overview", navMedia: "Media", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "History", navHelp: "Help", navAbout: "About",
+    navOverview: "Overview", navMedia: "Media", navMusic: "Music", navOverlay: "Overlay", navModeration: "Moderation", navHistory: "History", navHelp: "Help", navAbout: "About",
     language: "Language", appearance: "Appearance", light: "Light", dark: "Dark", overlays: "OBS sources",
-    system: "System", playback: "Playback", output: "Output", safety: "Safety", archive: "Archive", guide: "Guide", about: "About",
+    system: "System", playback: "Playback", jukebox: "Jukebox", output: "Output", safety: "Safety", archive: "Archive", guide: "Guide", about: "About",
     overviewKicker: "Local broadcast", overviewTitle: "One channel. Every screen.",
     overviewCopy: "Connect Discord once, choose a channel, then keep the relay running quietly in the tray.",
     credentialsTitle: "Discord connection", credentialsCopy: "Credentials are encrypted by Windows and never shown again.",
     clientId: "Discord client ID", botToken: "Discord bot token", youtubeApiKey: "YouTube API key", youtubeApiKeyHelp: "Stored in Windows Credential Manager and never shown again.", connectBot: "Encrypt and start bot",
     inviteUrl: "Bot invitation URL", openInvite: "Open", copy: "Copy", copied: "Copied",
-    routingTitle: "Input routing", routingCopy: "Choose one Discord channel for media and another for spoken messages.",
+    routingTitle: "Input routing", routingCopy: "Choose Discord channels for media and spoken messages. Music lives in the Music section.",
     mediaChannel: "Media channel", ttsChannel: "TTS message channel", musicChannel: "Music channel", localPort: "Local port", saveRouting: "Save routing",
     selectChannel: "Select a visible text channel", ttsDisabled: "TTS disabled", musicDisabled: "Music disabled", unavailableChannel: "Unavailable channel",
     refreshChannels: "Refresh channels", channelsRefreshed: "Channel list updated",
+    musicKicker: "Discord jukebox", musicTitle: "Search YouTube. Play locally.",
+    musicCopy: "Save a YouTube Data API key, pick a music channel, then type a search in Discord.",
+    musicSettingsTitle: "Music settings", musicSettingsCopy: "The API key stays in Windows Credential Manager. Discord replies follow Relay’s interface language.",
+    saveMusic: "Save music settings", youtubeKeyConfigured: "YouTube API key is saved.", youtubeKeyMissing: "No YouTube API key saved yet.",
+    openGoogleCloud: "Open Google Cloud Console",
+    youtubeSource: "Relay Visual (includes YouTube)",
+    youtubeSourceHelp: "Paste as one OBS Browser Source (suggested 1920×1080). Includes medias, stickers, notification cards, and Discord jukebox. Remove any old separate YouTube source to avoid double audio.",
+    musicOverlayTitle: "Overlay OBS / Windows",
+    musicOverlayCopy: "Windows Now Playing uses the 16:9 media floating widget. TTS uses the separate compact notification widget.",
+    musicWidgetWidth: "Media widget width",
+    musicWidgetHeight: "Media widget height",
+    saveMusicOverlay: "Save media widget size",
     mediaKicker: "Playback queue", mediaTitle: "Media, on your terms.",
     mediaCopy: "Images and GIFs use separate display timers. Video and audio continue naturally until they end.",
     transportLabel: "Live transport", transportReady: "Ready for the next item", skip: "Skip current item",
@@ -25,9 +37,9 @@ const translations = {
     ttsQueueLimit: "TTS queue capacity", ttsQueueLimitHelp: "Maximum waiting messages, from 1 to 50.", items: "items",
     ttsSpeech: "TTS voice", ttsSpeechHelp: "When off, TTS messages show as silent notifications.",
     obsNotifications: "Show TTS notifications in OBS", obsNotificationsHelp: "Display the author and message while TTS is speaking.",
-    obsNotificationOutput: "OBS TTS notification overlay", obsNotificationOutputHelp: "Independent Browser Source displayed only inside OBS.",
+    obsNotificationOutput: "OBS TTS notification overlay", obsNotificationOutputHelp: "Notification cards are included in Relay Visual (Overview → OBS Browser Sources). No separate Browser Source needed.",
     enableObsNotifications: "Enable OBS overlay", enableObsNotificationsHelp: "Does not change the Windows widget.",
-    windowsNotificationWidget: "Windows TTS notification widget", windowsNotificationWidgetHelp: "Independent desktop window that can be placed on any monitor.",
+    windowsNotificationWidget: "Windows Notification Widget", windowsNotificationWidgetHelp: "Independent desktop window that can be placed on any monitor.",
     notificationSound: "Notification sound", notificationSoundHelp: "Played by the Windows widget for each message. Any audio file up to 10 seconds.",
     chooseNotificationSound: "Choose audio file", resetNotificationSound: "Remove sound", noNotificationSound: "No file selected.",
     notificationSoundObs: "Notification sound in OBS", notificationSoundObsHelp: "The OBS notification overlay plays the same chosen sound, audible on stream.",
@@ -36,8 +48,11 @@ const translations = {
     overlayKicker: "Program output", overlayTitle: "What OBS receives.",
     overlayCopy: "The canvas stays transparent until media enters the queue.", livePreview: "Live preview",
     transparentCanvas: "Transparent canvas", browserSource: "OBS Browser Sources",
-    browserSourceHelp: "Add each private URL as a separate OBS Browser Source.", visualSource: "Visual media", ttsSource: "TTS audio", notificationSource: "TTS notifications",
-    audioSource: "Audio, music and voice messages", regenerateSecret: "Reconnect OBS sources",
+    browserSourceHelp: "Add these two URLs as OBS Browser Sources. They replace the old separate medias / audios / stickers / TTS / notifications / YouTube sources.", visualSource: "Relay Visual", visualSourceHelp: "Medias, stickers, TTS notification cards, and YouTube jukebox. Use localhost (auto-copied). Suggested size 1920×1080.", ttsSource: "TTS audio", notificationSource: "Relay Visual (includes notifications)",
+    audioSource: "Relay Audio", audioSourceHelp: "Discord file audio and TTS voice. Separate mixer fader from Visual.", regenerateSecret: "Reconnect OBS sources",
+    youtubeSource: "Relay Visual (includes YouTube)", youtubeSourceHelp: "Paste as one OBS Browser Source (suggested 1920×1080). Includes medias, stickers, notification cards, and Discord jukebox. Remove any old separate YouTube source to avoid double audio.",
+    musicOverlayTitle: "Overlay OBS / Windows", musicOverlayCopy: "Windows Now Playing uses the 16:9 media floating widget. TTS uses the separate compact notification widget.",
+    musicWidgetWidth: "Media widget width", musicWidgetHeight: "Media widget height", saveMusicOverlay: "Save media widget size",
     floatingWidget: "Media floating widget", widgetHelp: "Unlock, position it on any monitor, then lock it to pass clicks through.",
     notificationWidget: "TTS notification widget", notificationWidgetHelp: "Show it on Windows, move it anywhere, then lock it to pass clicks through.", showNotificationWidget: "Show on Windows",
     historyKicker: "Last 50 items", historyTitle: "Media history",
@@ -77,7 +92,7 @@ const translations = {
     helpChannelsTitle: "Configure Discord channels", helpChannelsSummary: "Separate media and spoken messages",
     helpChannelsStep1: "Create one text channel for images, GIFs, videos and audio.",
     helpChannelsStep2: "Create a second text channel for plain TTS messages.",
-    helpChannelsStep3: "Select both channels on Overview and save routing.",
+    helpChannelsStep3: "Select media and TTS channels on Overview. Configure the Music channel on the Music page.",
     helpChannelsStep4: "French and English messages automatically use the matching Windows voice.",
     helpObsTitle: "Install the OBS Browser Sources", helpObsSummary: "Media, TTS audio and notifications",
     helpObsStep1: "In OBS, add a separate Browser Source for each URL shown on Overlay.",
@@ -113,18 +128,30 @@ const translations = {
     privacyGlobalReference: "View worldwide privacy legislation — UNCTAD",
   },
   fr: {
-    navOverview: "Aperçu", navMedia: "Médias", navOverlay: "Overlay", navModeration: "Modération", navHistory: "Historique", navHelp: "Aide", navAbout: "À propos",
+    navOverview: "Aperçu", navMedia: "Médias", navMusic: "Musique", navOverlay: "Overlay", navModeration: "Modération", navHistory: "Historique", navHelp: "Aide", navAbout: "À propos",
     language: "Langue", appearance: "Apparence", light: "Clair", dark: "Sombre", overlays: "sources OBS",
-    system: "Système", playback: "Lecture", output: "Sortie", safety: "Sécurité", archive: "Archives", guide: "Guide", about: "À propos",
+    system: "Système", playback: "Lecture", jukebox: "Jukebox", output: "Sortie", safety: "Sécurité", archive: "Archives", guide: "Guide", about: "À propos",
     overviewKicker: "Diffusion locale", overviewTitle: "Un canal. Tous vos écrans.",
     overviewCopy: "Connectez Discord une fois, choisissez un canal, puis laissez le relais fonctionner discrètement dans la zone de notification.",
     credentialsTitle: "Connexion Discord", credentialsCopy: "Les identifiants sont chiffrés par Windows et ne sont jamais réaffichés.",
     clientId: "ID client Discord", botToken: "Token du bot Discord", youtubeApiKey: "Clé API YouTube", youtubeApiKeyHelp: "Stockée dans le coffre Windows et jamais réaffichée.", connectBot: "Chiffrer et démarrer le bot",
     inviteUrl: "URL d’invitation du bot", openInvite: "Ouvrir", copy: "Copier", copied: "Copié",
-    routingTitle: "Routage d’entrée", routingCopy: "Choisissez un canal Discord pour les médias et un autre pour les messages lus.",
+    routingTitle: "Routage d’entrée", routingCopy: "Choisissez les canaux Discord pour les médias et le TTS. La musique est dans la section Musique.",
     mediaChannel: "Canal des médias", ttsChannel: "Canal des messages TTS", musicChannel: "Canal musique", localPort: "Port local", saveRouting: "Enregistrer le routage",
     selectChannel: "Sélectionner un canal texte visible", ttsDisabled: "TTS désactivé", musicDisabled: "Musique désactivée", unavailableChannel: "Canal indisponible",
     refreshChannels: "Actualiser les salons", channelsRefreshed: "Liste des salons mise à jour",
+    musicKicker: "Jukebox Discord", musicTitle: "Cherchez sur YouTube. Jouez en local.",
+    musicCopy: "Enregistrez une clé YouTube Data API, choisissez un canal musique, puis tapez une recherche dans Discord.",
+    musicSettingsTitle: "Réglages musique", musicSettingsCopy: "La clé reste dans le Gestionnaire d’identification Windows. Les réponses Discord suivent la langue de l’interface Relay.",
+    saveMusic: "Enregistrer la musique", youtubeKeyConfigured: "Clé API YouTube enregistrée.", youtubeKeyMissing: "Aucune clé API YouTube enregistrée.",
+    openGoogleCloud: "Ouvrir Google Cloud Console",
+    youtubeSource: "Relay Visual (inclut YouTube)",
+    youtubeSourceHelp: "À coller comme une seule source navigateur OBS (1920×1080 suggéré). Inclut médias, stickers, cartes de notification et jukebox Discord. Retirez l’ancienne source YouTube séparée pour éviter le double audio.",
+    musicOverlayTitle: "Overlay OBS / Windows",
+    musicOverlayCopy: "Windows Now Playing utilise le widget flottant multimédia 16:9. Le TTS utilise le widget compact de notifications séparé.",
+    musicWidgetWidth: "Largeur du widget multimédia",
+    musicWidgetHeight: "Hauteur du widget multimédia",
+    saveMusicOverlay: "Enregistrer la taille du widget multimédia",
     mediaKicker: "File de lecture", mediaTitle: "Vos médias, à votre rythme.",
     mediaCopy: "Les images utilisent une durée d’affichage. Les vidéos et les audios continuent naturellement jusqu’à leur fin.",
     transportLabel: "Contrôle en direct", transportReady: "Prêt pour le prochain élément", skip: "Passer l’élément actuel",
@@ -136,9 +163,9 @@ const translations = {
     ttsQueueLimit: "Capacité de la file TTS", ttsQueueLimitHelp: "Nombre maximal de messages en attente, de 1 à 50.", items: "éléments",
     ttsSpeech: "Voix TTS", ttsSpeechHelp: "Désactivée, les messages TTS deviennent des notifications silencieuses.",
     obsNotifications: "Afficher les notifications TTS dans OBS", obsNotificationsHelp: "Affiche l’auteur et le message pendant la lecture TTS.",
-    obsNotificationOutput: "Overlay de notifications TTS OBS", obsNotificationOutputHelp: "Source navigateur indépendante affichée uniquement dans OBS.",
+    obsNotificationOutput: "Overlay de notifications TTS OBS", obsNotificationOutputHelp: "Les cartes de notification sont incluses dans Relay Visual (Overview → sources OBS). Pas de source séparée nécessaire.",
     enableObsNotifications: "Activer l’overlay OBS", enableObsNotificationsHelp: "Ne modifie pas le widget Windows.",
-    windowsNotificationWidget: "Widget de notifications TTS Windows", windowsNotificationWidgetHelp: "Fenêtre de bureau indépendante, positionnable sur n’importe quel écran.",
+    windowsNotificationWidget: "Widget de notifications Windows", windowsNotificationWidgetHelp: "Fenêtre de bureau indépendante, positionnable sur n’importe quel écran.",
     notificationSound: "Son de notification", notificationSoundHelp: "Joué par le widget Windows à chaque message. N’importe quel fichier audio de 10 secondes maximum.",
     chooseNotificationSound: "Choisir un fichier audio", resetNotificationSound: "Retirer le son", noNotificationSound: "Aucun fichier sélectionné.",
     notificationSoundObs: "Son de notification dans OBS", notificationSoundObsHelp: "L’overlay de notifications OBS joue le même son choisi, audible sur le stream.",
@@ -147,8 +174,11 @@ const translations = {
     overlayKicker: "Sortie programme", overlayTitle: "Ce qu’OBS reçoit.",
     overlayCopy: "La zone reste transparente jusqu’à l’arrivée d’un média.", livePreview: "Aperçu en direct",
     transparentCanvas: "Zone transparente", browserSource: "Sources navigateur OBS",
-    browserSourceHelp: "Ajoutez chaque URL privée comme source navigateur OBS séparée.", visualSource: "Médias visuels", ttsSource: "Audio TTS", notificationSource: "Notifications TTS",
-    audioSource: "Audio, musique et messages vocaux", regenerateSecret: "Reconnecter les sources OBS",
+    browserSourceHelp: "Ajoutez ces deux URLs comme sources navigateur OBS. Elles remplacent les anciennes sources séparées (médias, audios, stickers, TTS, notifications, YouTube).", visualSource: "Relay Visual", visualSourceHelp: "Médias, stickers, cartes TTS et jukebox YouTube. Utilise localhost (copié automatiquement). Taille suggérée 1920×1080.", ttsSource: "Audio TTS", notificationSource: "Relay Visual (inclut les notifications)",
+    audioSource: "Relay Audio", audioSourceHelp: "Audio fichiers Discord et voix TTS. Fader mixer séparé du Visual.", regenerateSecret: "Reconnecter les sources OBS",
+    youtubeSource: "Relay Visual (inclut YouTube)", youtubeSourceHelp: "À coller comme une seule source navigateur OBS (1920×1080 suggéré). Inclut médias, stickers, cartes de notification et jukebox Discord. Retirez l’ancienne source YouTube séparée pour éviter le double audio.",
+    musicOverlayTitle: "Overlay OBS / Windows", musicOverlayCopy: "Windows Now Playing utilise le widget flottant multimédia 16:9. Le TTS utilise le widget compact de notifications séparé.",
+    musicWidgetWidth: "Largeur du widget multimédia", musicWidgetHeight: "Hauteur du widget multimédia", saveMusicOverlay: "Enregistrer la taille du widget multimédia",
     floatingWidget: "Widget flottant des médias", widgetHelp: "Déverrouillez, placez-le sur un écran, puis verrouillez-le pour laisser passer les clics.",
     notificationWidget: "Widget de notifications TTS", notificationWidgetHelp: "Affichez-le sous Windows, déplacez-le librement, puis verrouillez-le pour laisser passer les clics.", showNotificationWidget: "Afficher sous Windows",
     historyKicker: "50 derniers éléments", historyTitle: "Historique des médias",
@@ -188,7 +218,7 @@ const translations = {
     helpChannelsTitle: "Configurer les salons Discord", helpChannelsSummary: "Séparer les médias et les messages lus",
     helpChannelsStep1: "Créez un salon texte pour les images, GIF, vidéos et fichiers audio.",
     helpChannelsStep2: "Créez un second salon texte pour les messages TTS simples.",
-    helpChannelsStep3: "Sélectionnez les deux salons dans Aperçu et enregistrez le routage.",
+    helpChannelsStep3: "Sélectionnez médias et TTS dans Aperçu. Configurez le canal musique dans Musique.",
     helpChannelsStep4: "Les messages français et anglais utilisent automatiquement la voix Windows correspondante.",
     helpObsTitle: "Installer les sources navigateur OBS", helpObsSummary: "Médias, audio TTS et notifications",
     helpObsStep1: "Dans OBS, ajoutez une source navigateur séparée pour chaque URL affichée dans Overlay.",
@@ -280,7 +310,7 @@ translations.es = {
   ttsCharacterLimit: "Límite de caracteres TTS", ttsCharacterLimitHelp: "Usa 0 para una longitud ilimitada.", characters: "car.", ttsQueueLimit: "Capacidad de la cola TTS", ttsQueueLimitHelp: "Máximo de mensajes en espera, de 1 a 50.", items: "elementos",
   ttsSpeech: "Voz TTS", ttsSpeechHelp: "Desactivada, los mensajes TTS se muestran como notificaciones silenciosas.",
   obsNotifications: "Mostrar notificaciones TTS en OBS", obsNotificationsHelp: "Muestra el autor y el mensaje mientras habla el TTS.", obsNotificationOutput: "Overlay de notificaciones TTS de OBS", obsNotificationOutputHelp: "Fuente de navegador independiente visible solo en OBS.",
-  enableObsNotifications: "Activar overlay de OBS", enableObsNotificationsHelp: "No modifica el widget de Windows.", windowsNotificationWidget: "Widget de notificaciones TTS de Windows", windowsNotificationWidgetHelp: "Ventana independiente que puede colocarse en cualquier pantalla.",
+  enableObsNotifications: "Activar overlay de OBS", enableObsNotificationsHelp: "No modifica el widget de Windows.", windowsNotificationWidget: "Widget de notificaciones de Windows", windowsNotificationWidgetHelp: "Ventana independiente que puede colocarse en cualquier pantalla.",
   notificationSound: "Sonido de notificación", notificationSoundHelp: "Reproducido por el widget de Windows con cada mensaje. Cualquier archivo de audio de hasta 10 segundos.",
   chooseNotificationSound: "Elegir archivo de audio", resetNotificationSound: "Quitar sonido", noNotificationSound: "Ningún archivo seleccionado.",
   notificationSoundObs: "Sonido de notificación en OBS", notificationSoundObsHelp: "El overlay de notificaciones de OBS reproduce el mismo sonido elegido, audible en el stream.",
@@ -317,7 +347,7 @@ translations.de = {
   playbackTitle: "Wiedergabeeinstellungen", imageDuration: "Bilddauer", gifDuration: "GIF-Dauer", imageDurationHelp: "Nur für statische Bilder.", gifDurationHelp: "Animierte GIFs wiederholen sich für diese Dauer.", seconds: "Sek.", mediaVolume: "Medienlautstärke", mediaVolumeHelp: "Gilt für Video, Audio und gesprochene Nachrichten.", ttsCharacterLimit: "TTS-Zeichenlimit", ttsCharacterLimitHelp: "0 bedeutet unbegrenzte Nachrichtenlänge.", characters: "Zeichen", ttsQueueLimit: "TTS-Warteschlangengröße", ttsQueueLimitHelp: "Maximal 1 bis 50 wartende Nachrichten.", items: "Elemente",
   widgetSound: "Widget-Ton", widgetSoundHelp: "Gibt den Ton von Videos und Audio im Windows-Widget wieder. OBS-Quellen behalten ihren eigenen Ton.",
   ttsSpeech: "TTS-Stimme", ttsSpeechHelp: "Deaktiviert erscheinen TTS-Nachrichten als stille Benachrichtigungen.",
-  obsNotifications: "TTS-Benachrichtigungen in OBS anzeigen", obsNotificationsHelp: "Zeigt Autor und Nachricht während der TTS-Ausgabe.", obsNotificationOutput: "OBS-TTS-Benachrichtigungs-Overlay", obsNotificationOutputHelp: "Unabhängige Browserquelle, die nur in OBS angezeigt wird.", enableObsNotifications: "OBS-Overlay aktivieren", enableObsNotificationsHelp: "Ändert das Windows-Widget nicht.", windowsNotificationWidget: "Windows-TTS-Benachrichtigungswidget", windowsNotificationWidgetHelp: "Unabhängiges Fenster, das auf jedem Bildschirm platziert werden kann.",
+  obsNotifications: "TTS-Benachrichtigungen in OBS anzeigen", obsNotificationsHelp: "Zeigt Autor und Nachricht während der TTS-Ausgabe.", obsNotificationOutput: "OBS-TTS-Benachrichtigungs-Overlay", obsNotificationOutputHelp: "Unabhängige Browserquelle, die nur in OBS angezeigt wird.", enableObsNotifications: "OBS-Overlay aktivieren", enableObsNotificationsHelp: "Ändert das Windows-Widget nicht.", windowsNotificationWidget: "Windows-Benachrichtigungswidget", windowsNotificationWidgetHelp: "Unabhängiges Fenster, das auf jedem Bildschirm platziert werden kann.",
   notificationSound: "Benachrichtigungston", notificationSoundHelp: "Wird vom Windows-Widget bei jeder Nachricht abgespielt. Beliebige Audiodatei mit maximal 10 Sekunden.",
   chooseNotificationSound: "Audiodatei auswählen", resetNotificationSound: "Ton entfernen", noNotificationSound: "Keine Datei ausgewählt.",
   notificationSoundObs: "Benachrichtigungston in OBS", notificationSoundObsHelp: "Das OBS-Benachrichtigungs-Overlay spielt denselben gewählten Ton, hörbar im Stream.",
@@ -348,7 +378,7 @@ Object.assign(translations.en, {
   commandChannelHelp: "Choose the Discord media channel.", commandUrlHelp: "Show local Relay and OBS URLs ephemerally.",
   commandShowHelp: "Show the active Relay configuration.", commandStatusHelp: "Show live output, queue, and widget status.", commandTestHelp: "Send an isolated local test to a connected output.", commandRegenerateHelp: "Reconnect local outputs without changing their URLs.",
   commandClearHelp: "Delete the requested number of messages from one Discord channel selected in the command.", commandLockHelp: "Toggle the configured media channel lock.",
-  commandChangelogHelp: "Post the latest release notes from GitHub into a chosen channel.",
+  commandChangelogHelp: "Post the latest GitHub release notes as Discord embeds into a chosen channel.",
   commandLockInactive: "The media channel is currently unlocked.", commandLockActive: "The media channel is locked. /relay lock remains available for unlocking.",
   saveCommands: "Save commands", commandsSaved: "Command availability saved",
   commandsPermission: "Channel locking requires Manage Roles; clearing requires Manage Messages. Commands are restricted to Discord administrators.",
@@ -361,7 +391,7 @@ Object.assign(translations.fr, {
   commandChannelHelp: "Choisit le salon Discord des médias.", commandUrlHelp: "Affiche les URL locales Relay et OBS de façon éphémère.",
   commandShowHelp: "Affiche la configuration Relay active.", commandStatusHelp: "Affiche l’état en direct des sorties, files et widgets.", commandTestHelp: "Envoie un test local isolé vers une sortie connectée.", commandRegenerateHelp: "Reconnecte les sorties locales sans modifier leurs URL.",
   commandClearHelp: "Supprime le nombre demandé de messages dans le salon Discord choisi dans la commande.", commandLockHelp: "Verrouille ou déverrouille le salon média configuré.",
-  commandChangelogHelp: "Publie les dernières notes de version depuis GitHub dans le salon choisi.",
+  commandChangelogHelp: "Publie les dernières notes de version GitHub en embeds Discord dans le salon choisi.",
   commandLockInactive: "Le salon média est actuellement déverrouillé.", commandLockActive: "Le salon média est verrouillé. /relay lock reste disponible pour le déverrouiller.",
   saveCommands: "Enregistrer les commandes", commandsSaved: "Disponibilité des commandes enregistrée",
   commandsPermission: "Le verrouillage nécessite Gérer les rôles ; le nettoyage nécessite Gérer les messages. Les commandes sont réservées aux administrateurs Discord.",
@@ -380,7 +410,7 @@ Object.assign(translations.es, {
   commandChannelHelp: "Elige el canal de medios de Discord.", commandUrlHelp: "Muestra de forma efímera las URL locales de Relay y OBS.",
   commandShowHelp: "Muestra la configuración activa de Relay.", commandStatusHelp: "Muestra el estado en directo de salidas, colas y widgets.", commandTestHelp: "Envía una prueba local aislada a una salida conectada.", commandRegenerateHelp: "Reconecta las salidas locales sin cambiar sus URL.",
   commandClearHelp: "Elimina el número solicitado de mensajes del canal Discord elegido en el comando.", commandLockHelp: "Bloquea o desbloquea el canal de medios configurado.",
-  commandChangelogHelp: "Publica las últimas notas de versión desde GitHub en el canal elegido.",
+  commandChangelogHelp: "Publica las últimas notas de versión de GitHub como embeds de Discord en el canal elegido.",
   commandLockInactive: "El canal de medios está desbloqueado.", commandLockActive: "El canal de medios está bloqueado. /relay lock sigue disponible para desbloquearlo.",
   saveCommands: "Guardar comandos", commandsSaved: "Disponibilidad de comandos guardada",
   commandsPermission: "El bloqueo requiere Gestionar roles; la limpieza requiere Gestionar mensajes. Los comandos están restringidos a administradores de Discord.",
@@ -399,7 +429,7 @@ Object.assign(translations.de, {
   commandChannelHelp: "Wählt den Discord-Medienkanal.", commandUrlHelp: "Zeigt lokale Relay- und OBS-URLs ephemer an.",
   commandShowHelp: "Zeigt die aktive Relay-Konfiguration.", commandStatusHelp: "Zeigt den Live-Status von Ausgaben, Warteschlangen und Widgets.", commandTestHelp: "Sendet einen isolierten lokalen Test an eine verbundene Ausgabe.", commandRegenerateHelp: "Verbindet lokale Ausgaben neu, ohne ihre URLs zu ändern.",
   commandClearHelp: "Löscht die angegebene Anzahl Nachrichten aus dem im Befehl gewählten Discord-Kanal.", commandLockHelp: "Sperrt oder entsperrt den konfigurierten Medienkanal.",
-  commandChangelogHelp: "Veröffentlicht die neuesten Versionshinweise von GitHub im gewählten Kanal.",
+  commandChangelogHelp: "Veröffentlicht die neuesten GitHub-Versionshinweise als Discord-Embeds im gewählten Kanal.",
   commandLockInactive: "Der Medienkanal ist derzeit entsperrt.", commandLockActive: "Der Medienkanal ist gesperrt. /relay lock bleibt zum Entsperren verfügbar.",
   saveCommands: "Befehle speichern", commandsSaved: "Befehlsverfügbarkeit gespeichert",
   commandsPermission: "Die Sperre erfordert Rollen verwalten; die Bereinigung erfordert Nachrichten verwalten. Befehle sind auf Discord-Administratoren beschränkt.",
@@ -591,7 +621,7 @@ Object.assign(translations.de, {
 
 Object.assign(translations.en, {
   outputReadiness: "Output readiness",
-  outputReadinessHelp: "See which local outputs are connected. Tests stay local and never post to Discord.",
+  outputReadinessHelp: "See which local outputs are connected. Relay Visual covers medias, stickers, notifications and YouTube; Relay Audio covers Discord audio and TTS. Tests stay local and never post to Discord.",
   outputObs: "OBS", outputPreview: "Preview", outputWidget: "Widget",
   outputDisconnected: "Not connected", outputLastConnected: "Last connected", outputNeverConnected: "Never connected",
   testOutput: "Test output", outputTestSent: "Test sent", outputTestFailed: "Test failed",
@@ -599,7 +629,7 @@ Object.assign(translations.en, {
 });
 Object.assign(translations.fr, {
   outputReadiness: "État des sorties",
-  outputReadinessHelp: "Vérifiez les sorties locales connectées. Les tests restent locaux et ne publient jamais sur Discord.",
+  outputReadinessHelp: "Vérifiez les sorties locales. Relay Visual couvre médias, stickers, notifications et YouTube ; Relay Audio couvre l’audio Discord et le TTS. Les tests restent locaux et ne publient jamais sur Discord.",
   outputObs: "OBS", outputPreview: "Aperçu", outputWidget: "Widget",
   outputDisconnected: "Non connecté", outputLastConnected: "Dernière connexion", outputNeverConnected: "Jamais connecté",
   testOutput: "Tester la sortie", outputTestSent: "Test envoyé", outputTestFailed: "Test échoué",
@@ -683,13 +713,6 @@ Object.assign(translations.en, {
   manualModerationHelp: "Hold media for approval independently from automatic filtering.",
   privacyScanEnabled: "Enable local privacy scan",
   privacyScanEnabledHelp: "Inspect image metadata and local OCR before history or OBS.",
-  privacySuspiciousPolicy: "Suspicious media policy",
-  privacySuspiciousPolicyHelp: "Choose whether weak signals are allowed, reviewed, or blocked.",
-  privacyPolicyAllow: "Allow",
-  privacyPolicyReview: "Review",
-  privacyPolicyBlock: "Block",
-  privacySuspiciousThreshold: "Review threshold",
-  privacySensitiveThreshold: "Sensitive threshold",
   privacySimilarityBoost: "Similarity boost",
   privacyConcepts: "Filter words or phrases",
   privacyExemptRoles: "Exempt Discord roles",
@@ -732,13 +755,6 @@ Object.assign(translations.fr, {
   manualModerationHelp: "Place les médias en attente de validation indépendamment du filtrage automatique.",
   privacyScanEnabled: "Activer l’analyse locale de confidentialité",
   privacyScanEnabledHelp: "Analyse les métadonnées des images et exécute l’OCR local avant l’historique ou OBS.",
-  privacySuspiciousPolicy: "Politique des médias suspects",
-  privacySuspiciousPolicyHelp: "Choisissez si les signaux faibles sont autorisés, vérifiés ou bloqués.",
-  privacyPolicyAllow: "Autoriser",
-  privacyPolicyReview: "Vérifier",
-  privacyPolicyBlock: "Bloquer",
-  privacySuspiciousThreshold: "Seuil de vérification",
-  privacySensitiveThreshold: "Seuil sensible",
   privacySimilarityBoost: "Renforcement de similarité",
   privacyConcepts: "Mots ou phrases de filtrage",
   privacyExemptRoles: "Rôles Discord exemptés",
@@ -781,13 +797,6 @@ Object.assign(translations.es, {
   manualModerationHelp: "Retiene los medios para su aprobación independientemente del filtrado automático.",
   privacyScanEnabled: "Activar el análisis local de privacidad",
   privacyScanEnabledHelp: "Analiza los metadatos de las imágenes y ejecuta el OCR local antes del historial o de OBS.",
-  privacySuspiciousPolicy: "Política de medios sospechosos",
-  privacySuspiciousPolicyHelp: "Elige si las señales débiles se permiten, revisan o bloquean.",
-  privacyPolicyAllow: "Permitir",
-  privacyPolicyReview: "Revisar",
-  privacyPolicyBlock: "Bloquear",
-  privacySuspiciousThreshold: "Umbral de revisión",
-  privacySensitiveThreshold: "Umbral sensible",
   privacySimilarityBoost: "Refuerzo de similitud",
   privacyConcepts: "Palabras o frases filtradas",
   privacyConceptsHelp: "Introduce palabras o frases separadas por comas, por ejemplo: fdp, hitler. Relay gestiona mayúsculas y minúsculas, puntuación, separadores, leetspeak, homógrafos compatibles, letras repetidas y similitud prudente. Los alias y las expresiones regulares existentes se conservan mientras permanezca la misma forma canónica.",
@@ -829,13 +838,6 @@ Object.assign(translations.de, {
   manualModerationHelp: "Hält Medien unabhängig von der automatischen Filterung zur Freigabe zurück.",
   privacyScanEnabled: "Lokalen Datenschutzscan aktivieren",
   privacyScanEnabledHelp: "Prüft Bildmetadaten und führt lokale OCR aus, bevor Inhalte im Verlauf oder in OBS erscheinen.",
-  privacySuspiciousPolicy: "Richtlinie für verdächtige Medien",
-  privacySuspiciousPolicyHelp: "Lege fest, ob schwache Signale zugelassen, geprüft oder blockiert werden.",
-  privacyPolicyAllow: "Zulassen",
-  privacyPolicyReview: "Prüfen",
-  privacyPolicyBlock: "Blockieren",
-  privacySuspiciousThreshold: "Prüfschwelle",
-  privacySensitiveThreshold: "Schwelle für sensible Inhalte",
   privacySimilarityBoost: "Ähnlichkeitsverstärkung",
   privacyConcepts: "Zu filternde Wörter oder Ausdrücke",
   privacyConceptsHelp: "Gib durch Kommas getrennte Wörter oder Ausdrücke ein, zum Beispiel: fdp, hitler. Relay berücksichtigt Groß- und Kleinschreibung, Satzzeichen, Trennzeichen, Leetspeak, unterstützte Homoglyphen, wiederholte Buchstaben und vorsichtige Ähnlichkeit. Vorhandene Aliasse und reguläre Ausdrücke bleiben erhalten, solange dieselbe kanonische Form vorhanden ist.",
@@ -929,7 +931,7 @@ Object.assign(translations.ru, {
   routingTitle: "Маршрутизация входа", routingCopy: "Выберите один канал Discord для медиа и другой для озвучиваемых сообщений.", mediaChannel: "Канал медиа", ttsChannel: "Канал сообщений TTS", localPort: "Локальный порт", saveRouting: "Сохранить маршрутизацию", selectChannel: "Выберите доступный текстовый канал", ttsDisabled: "TTS отключён", unavailableChannel: "Канал недоступен", refreshChannels: "Обновить каналы", channelsRefreshed: "Список каналов обновлён",
   mediaKicker: "Очередь воспроизведения", mediaTitle: "Медиа на ваших условиях.", mediaCopy: "Изображения и GIF используют отдельные таймеры. Видео и аудио воспроизводятся до конца.", transportLabel: "Управление в реальном времени", transportReady: "Готово к следующему элементу", skip: "Пропустить текущий элемент",
   playbackTitle: "Настройки воспроизведения", imageDuration: "Длительность изображения", gifDuration: "Длительность GIF", imageDurationHelp: "Только для статических изображений.", gifDurationHelp: "Анимированные GIF повторяются указанное время.", seconds: "с", mediaVolume: "Громкость медиа", mediaVolumeHelp: "Применяется к видео, аудио и озвучиваемым сообщениям.", widgetSound: "Звук виджета", widgetSoundHelp: "Воспроизводит звук видео и аудио в виджете Windows. Источники OBS используют собственный звук.", ttsCharacterLimit: "Лимит символов TTS", ttsCharacterLimitHelp: "Используйте 0 для неограниченной длины сообщения.", characters: "симв.", ttsQueueLimit: "Размер очереди TTS", ttsQueueLimitHelp: "Максимум ожидающих сообщений: от 1 до 50.", items: "элементов",
-  ttsSpeech: "Голос TTS", ttsSpeechHelp: "При отключении сообщения TTS показываются как тихие уведомления.", obsNotifications: "Показывать уведомления TTS в OBS", obsNotificationsHelp: "Показывает автора и сообщение во время озвучивания.", obsNotificationOutput: "Оверлей уведомлений TTS для OBS", obsNotificationOutputHelp: "Независимый источник браузера, отображаемый только в OBS.", enableObsNotifications: "Включить оверлей OBS", enableObsNotificationsHelp: "Не изменяет виджет Windows.", windowsNotificationWidget: "Виджет уведомлений TTS Windows", windowsNotificationWidgetHelp: "Независимое окно рабочего стола, которое можно разместить на любом мониторе.", notificationSound: "Звук уведомления", notificationSoundHelp: "Воспроизводится виджетом Windows для каждого сообщения. Поддерживается аудиофайл до 10 секунд.", chooseNotificationSound: "Выбрать аудиофайл", resetNotificationSound: "Удалить звук", noNotificationSound: "Файл не выбран.", notificationSoundObs: "Звук уведомления в OBS", notificationSoundObsHelp: "Оверлей уведомлений OBS воспроизводит тот же выбранный звук, слышимый в трансляции.", showAuthor: "Показывать автора", showAuthorHelp: "Показывает имя Discord и аватар поверх медиа.", supportedFormats: "Поддерживаются изображения, GIF, MP4/WebM и распространённые аудиоформаты.", savePlayback: "Сохранить воспроизведение",
+  ttsSpeech: "Голос TTS", ttsSpeechHelp: "При отключении сообщения TTS показываются как тихие уведомления.", obsNotifications: "Показывать уведомления TTS в OBS", obsNotificationsHelp: "Показывает автора и сообщение во время озвучивания.", obsNotificationOutput: "Оверлей уведомлений TTS для OBS", obsNotificationOutputHelp: "Независимый источник браузера, отображаемый только в OBS.", enableObsNotifications: "Включить оверлей OBS", enableObsNotificationsHelp: "Не изменяет виджет Windows.", windowsNotificationWidget: "Виджет уведомлений Windows", windowsNotificationWidgetHelp: "Независимое окно рабочего стола, которое можно разместить на любом мониторе.", notificationSound: "Звук уведомления", notificationSoundHelp: "Воспроизводится виджетом Windows для каждого сообщения. Поддерживается аудиофайл до 10 секунд.", chooseNotificationSound: "Выбрать аудиофайл", resetNotificationSound: "Удалить звук", noNotificationSound: "Файл не выбран.", notificationSoundObs: "Звук уведомления в OBS", notificationSoundObsHelp: "Оверлей уведомлений OBS воспроизводит тот же выбранный звук, слышимый в трансляции.", showAuthor: "Показывать автора", showAuthorHelp: "Показывает имя Discord и аватар поверх медиа.", supportedFormats: "Поддерживаются изображения, GIF, MP4/WebM и распространённые аудиоформаты.", savePlayback: "Сохранить воспроизведение",
   overlayKicker: "Вывод программы", overlayTitle: "Что получает OBS.", overlayCopy: "Холст остаётся прозрачным, пока медиа не попадёт в очередь.", livePreview: "Предпросмотр", transparentCanvas: "Прозрачный холст", browserSource: "Источники браузера OBS", browserSourceHelp: "Добавьте каждый приватный URL как отдельный источник браузера OBS.", visualSource: "Визуальные медиа", ttsSource: "Аудио TTS", notificationSource: "Уведомления TTS", audioSource: "Аудио, музыка и голосовые сообщения", regenerateSecret: "Переподключить источники OBS", floatingWidget: "Плавающий медиа-виджет", widgetHelp: "Разблокируйте, разместите на любом мониторе, затем заблокируйте для пропуска кликов.", notificationWidget: "Виджет уведомлений TTS", notificationWidgetHelp: "Покажите его в Windows, переместите и заблокируйте для пропуска кликов.", showNotificationWidget: "Показать в Windows",
   historyKicker: "Последние 50 элементов", historyTitle: "История медиа", historyCopy: "Повторите предыдущий элемент или очистите все подключённые оверлеи.", clearOverlay: "Очистить оверлей", historyEmpty: "Ожидание первого медиа из Discord.", replay: "Повторить",
   moderationKicker: "Безопасность трансляции", moderationTitle: "Вы решаете, что попадёт в OBS.", moderationCopy: "При необходимости удерживайте входящие медиа до локального одобрения.", moderationSettings: "Настройки модерации", enableModeration: "Включить ручную модерацию", enableModerationHelp: "Если выключено, медиа сразу поступают в OBS.", allowImages: "Изображения и GIF", allowImagesHelp: "Разрешить этим элементам попасть в очередь одобрения.", allowVideos: "Видео", allowVideosHelp: "Разрешить видеофайлам попасть в очередь одобрения.", allowAudio: "Аудио", allowAudioHelp: "Разрешить аудиофайлам попасть в очередь одобрения.", moderationLocalOnly: "Решения остаются локальными и не уведомляют пользователей Discord.", saveModeration: "Сохранить модерацию", pendingMedia: "Ожидающие медиа", clearPending: "Отклонить все", moderationEmpty: "Нет медиа, ожидающих одобрения.", moderationDisabled: "Ручная модерация отключена.", approve: "Одобрить", reject: "Отклонить",
@@ -939,7 +941,7 @@ Object.assign(translations.ru, {
   privacyCardTitle: "Relay не собирает данные", privacyCardCopy: "Нет телеметрии, аналитики, рекламы или удалённого профиля пользователя. Настройки остаются на этом компьютере; Discord остаётся внешним сервисом.", privacyCardLink: "Конфиденциальность и региональные права", privacyDetailsTitle: "Конфиденциальность и региональные права", privacyDetailsSummary: "GDPR и аналогичные законы во всём мире",
   personalizationKicker: "Интерфейс", personalizationTitle: "Настройте Relay под себя.", personalizationCopy: "Изменения сразу применяются к Relay, виджетам Windows и выходам OBS.", themeLabel: "Тема", accentColor: "Цвет акцента", fontSize: "Размер текста", previewTitle: "Предпросмотр интерфейса Relay", previewCopy: "Читаемый текст с выбранным цветом.", previewButton: "Пример кнопки", resetDefaults: "Сбросить настройки", personalizationSaved: "Настройки применены",
   showMediaTextObs: "Показывать текст медиа в OBS", showMediaTextObsHelp: "Показывает до 180 символов сообщения Discord.", showMediaTextWidget: "Показывать текст медиа в виджете Windows", showMediaTextWidgetHelp: "Не зависит от текста, показанного в OBS.", stickerDuration: "Длительность стикеров", stickerDurationHelp: "Стикеры Discord остаются видимыми указанное время.", notificationDuration: "Длительность уведомлений", notificationDurationHelp: "Уведомления TTS без аудио остаются видимыми указанное время.", durationsGroup: "Длительность отображения", durationsGroupHelp: "Время видимости изображений, стикеров, уведомлений и GIF.", audioTtsGroup: "Аудио и TTS", audioTtsGroupHelp: "Громкость, длина сообщений, очередь и голос.", displayGroup: "Отображение", displayGroupHelp: "Что показывается поверх медиа.", stickerSource: "Стикеры Discord",
-  commandsKicker: "Управление Discord", commandsTitle: "Ваши команды, ваши правила.", commandsCopy: "Включите только те команды Relay, которые нужны в Discord.", commandsSettings: "Доступность команд", commandChannelHelp: "Выберите канал медиа Discord.", commandUrlHelp: "Кратко показывает локальные URL Relay и OBS.", commandShowHelp: "Показывает активную конфигурацию Relay.", commandStatusHelp: "Показывает состояние выходов, очередей и виджетов.", commandTestHelp: "Отправляет изолированный локальный тест на подключённый выход.", commandRegenerateHelp: "Переподключает локальные выходы без изменения URL.", commandClearHelp: "Удаляет указанное число сообщений из выбранного в команде канала Discord.", commandLockHelp: "Блокирует или разблокирует настроенный канал медиа.", commandChangelogHelp: "Публикует последние заметки о версии из GitHub в выбранный канал.", commandLockInactive: "Канал медиа сейчас разблокирован.", commandLockActive: "Канал медиа заблокирован. /relay lock доступна для разблокировки.", saveCommands: "Сохранить команды", commandsSaved: "Доступность команд сохранена", commandsPermission: "Блокировка требует права «Управление ролями», очистка — «Управление сообщениями». Команды доступны только администраторам Discord.",
+  commandsKicker: "Управление Discord", commandsTitle: "Ваши команды, ваши правила.", commandsCopy: "Включите только те команды Relay, которые нужны в Discord.", commandsSettings: "Доступность команд", commandChannelHelp: "Выберите канал медиа Discord.", commandUrlHelp: "Кратко показывает локальные URL Relay и OBS.", commandShowHelp: "Показывает активную конфигурацию Relay.", commandStatusHelp: "Показывает состояние выходов, очередей и виджетов.", commandTestHelp: "Отправляет изолированный локальный тест на подключённый выход.", commandRegenerateHelp: "Переподключает локальные выходы без изменения URL.", commandClearHelp: "Удаляет указанное число сообщений из выбранного в команде канала Discord.", commandLockHelp: "Блокирует или разблокирует настроенный канал медиа.", commandChangelogHelp: "Публикует последние заметки о версии с GitHub как Discord embeds в выбранный канал.", commandLockInactive: "Канал медиа сейчас разблокирован.", commandLockActive: "Канал медиа заблокирован. /relay lock доступна для разблокировки.", saveCommands: "Сохранить команды", commandsSaved: "Доступность команд сохранена", commandsPermission: "Блокировка требует права «Управление ролями», очистка — «Управление сообщениями». Команды доступны только администраторам Discord.",
   defaultCommands: "Стандартные команды", customCommands: "Пользовательские команды", customCommandsHelp: "Создавайте локальные подкоманды /relay на основе одного предопределённого действия Discord. Этот список используется на каждом сервере, где установлен бот.", customCommandsEmpty: "Пользовательские команды не настроены.", addCustomCommand: "Добавить команду", customCommandEditor: "Редактор команды", customCommandName: "Имя команды", customCommandAction: "Предопределённое действие", customCommandDescription: "Описание Discord", customCommandEnabled: "Зарегистрировать эту команду в Discord", customActionParameters: "Параметры действия", customAccessRestrictions: "Ограничения доступа", customAdminOnly: "Требовать администратора Discord помимо права действия", customExtraPermissions: "Дополнительные обязательные права", permissionManageGuild: "Управление сервером", permissionManageMessages: "Управление сообщениями", permissionManageRoles: "Управление ролями", permissionBanMembers: "Банить участников", permissionKickMembers: "Исключать участников", permissionModerateMembers: "Модерировать участников", customAllowedUsers: "Разрешённые ID пользователей", customAllowedRoles: "Разрешённые ID ролей", customAllowedChannels: "Разрешённые ID каналов вызова", discordIdsPlaceholder: "Один ID или упоминание Discord на строку", cancel: "Отмена", saveCommandDraft: "Сохранить команду", syncCustomCommands: "Сохранить и синхронизировать с Discord", edit: "Изменить", delete: "Удалить", active: "Активна", disabled: "Отключена",
   customActionBan: "Забанить участника или ID пользователя", customActionUnban: "Разбанить пользователя", customActionKick: "Исключить участника", customActionTimeout: "Ограничить участника", customActionRemoveTimeout: "Снять ограничение", customActionClearMessages: "Очистить сообщения", customActionAddRole: "Добавить роль", customActionRemoveRole: "Удалить роль", customActionReply: "Предопределённый ответ", customParameterMode: "Режим", customParameterValue: "Резервное или фиксированное значение", parameterRequired: "Обязательный", parameterOptional: "Необязательный", parameterFixed: "Фиксированный локально", customReason: "Причина для журнала аудита", customDeleteDays: "Удаление недавних сообщений (дни)", customDurationMinutes: "Длительность ограничения (минуты)", customChannelId: "ID канала Discord", customMessageCount: "Количество сообщений", customRoleId: "ID роли Discord", customReplyText: "Текст ответа", customReplyVisibility: "Видимость ответа", customReplyEphemeral: "Только для вызвавшего", customReplyPublic: "Публичный", customRequiredPermission: "Минимальное обязательное право: {permission}. Разрушающие действия всегда требуют однократного подтверждения.", customUnsaved: "Не сохранено", customValidating: "Проверка", customSyncing: "Синхронизация с Discord", customActive: "Активна в Discord", customMaxReached: "Relay поддерживает не более 16 пользовательских команд.", customDuplicateName: "Имена команд должны быть уникальными и не могут совпадать со стандартными командами Relay.", customInvalidIds: "Используйте один действительный ID или упоминание Discord на строку.", customDraftSaved: "Команда сохранена локально. Синхронизируйте её для активации.",
   sizeAndCrop: "Размер и обрезка", sizeAndCropHelp: "Настройте размер и обрезку локальных выходов.", mediaObsOutput: "Медиа в OBS", mediaWidgetOutput: "Медиа-виджет Windows", notificationObsOutput: "Уведомления в OBS", notificationWidgetOutput: "Виджет уведомлений Windows", contentScale: "Масштаб содержимого", cropTop: "Обрезать сверху", cropRight: "Обрезать справа", cropBottom: "Обрезать снизу", cropLeft: "Обрезать слева", outputWidth: "Ширина", outputHeight: "Высота", keepAspectRatio: "Сохранять формат 16:9", resetOutput: "Сбросить", geometrySaved: "Геометрия сохранена", geometryPreview: "Предпросмотр",
@@ -947,7 +949,7 @@ Object.assign(translations.ru, {
   outputReadiness: "Готовность выходов", outputReadinessHelp: "Проверьте, какие локальные выходы подключены. Тесты остаются локальными и не публикуются в Discord.", outputObs: "OBS", outputPreview: "Предпросмотр", outputWidget: "Виджет", outputDisconnected: "Не подключён", outputLastConnected: "Последнее подключение", outputNeverConnected: "Никогда не подключался", testOutput: "Тестировать выход", outputTestSent: "Тест отправлен", outputTestFailed: "Тест не удался", outputTestNeedsLiveOutput: "Подключите OBS или виджет перед тестом.",
   updatesTitle: "Обновления Relay", checkUpdates: "Проверить обновления", checkUpdatesPrompt: "Проверить на GitHub новую версию Relay.", checkingUpdates: "Проверка последней официальной версии…", updateAvailable: "Доступна Relay v{version}.", upToDate: "Relay v{version} актуальна.", downloadAndInstall: "Скачать и установить", downloadingUpdate: "Загрузка и проверка v{version}…", openReleases: "Посмотреть версии", closeUpdateMenu: "Закрыть меню обновлений", updateCheckFailed: "Не удалось проверить обновление:", updateInstallFailed: "Не удалось обновить:",
   designLabel: "Дизайн", openaiDesignCopy: "Точный, спокойный и практичный.", anthropicDesignCopy: "Тёплый, литературный и человечный.", neoDesignCopy: "Смелый, редакционный и игривый.",
-  automaticFilterWords: "Автоматическая фильтрация", automaticFilterWordsHelp: "Слова фильтра сохраняются автоматически после окончания ввода. Они работают даже при выключенных ручной модерации и локальном сканировании изображений. Точные совпадения и существующие регулярные выражения блокируются сразу и не попадают в очередь ручной модерации.", manualModeration: "Ручная модерация", manualModerationHelp: "Удерживайте медиа для одобрения независимо от автоматической фильтрации.", privacyScanEnabled: "Включить локальную проверку конфиденциальности", privacyScanEnabledHelp: "Проверяет метаданные изображений и локальный OCR перед историей или OBS.", privacySuspiciousPolicy: "Политика подозрительных медиа", privacySuspiciousPolicyHelp: "Выберите, разрешать, проверять или блокировать слабые сигналы.", privacyPolicyAllow: "Разрешить", privacyPolicyReview: "Проверить", privacyPolicyBlock: "Блокировать", privacySuspiciousThreshold: "Порог проверки", privacySensitiveThreshold: "Порог чувствительности", privacySimilarityBoost: "Усиление сходства", privacyConcepts: "Слова или фразы фильтра", privacyExemptRoles: "Исключённые роли Discord", privacyExemptRolesHelp: "Введите ID ролей или упоминания ролей Discord через запятую или с новой строки. Эти роли обходят только слова фильтра; локальные сигналы конфиденциальности и ручная модерация сохраняются.", unsaved: "Несохранённые изменения", privacyConceptsHelp: "Введите слова или фразы через запятую, например: fdp, hitler. Relay обрабатывает регистр, пунктуацию и разделители, leetspeak, поддерживаемые омоглифы, повторяющиеся буквы и осторожное сходство. Существующие псевдонимы и регулярные выражения сохраняются, пока остаётся та же каноническая форма.", privacyReviewQueueEmpty: "Совпадения фильтра, требующие проверки, появляются здесь даже при выключенной ручной модерации.", privacyPendingManual: "Ручная проверка", privacyProtection: "Защита от доксинга", privacyProtectionHelp: "Сканирует локально до того, как текст или медиа Discord попадут в историю, WebSocket, виджеты Windows или OBS. Обнаруженные значения никогда не копируются в журналы.", privacyProtectionLevel: "Уровень защиты", privacyProtectionLevelHelp: "Сбалансированный режим снижает ложные срабатывания. Строгий и параноидальный режимы быстрее повышают слабые сигналы.", privacyProfileBalanced: "Сбалансированный", privacyProfileStrict: "Строгий", privacyProfileParanoid: "Параноидальный", privacyBlockThreshold: "Порог автоматической блокировки", privacyBlockThresholdHelp: "HIGH блокирует по умолчанию. CRITICAL отправляет случаи HIGH на локальную проверку.", privacyReviewIntermediate: "Проверять случаи с риском MEDIUM", privacyReviewIntermediateHelp: "Помещает медиа со средним риском в существующую локальную очередь модерации.", privacyAutoDeleteBlockedMessages: "Удалять заблокированные сообщения Discord", privacyAutoDeleteBlockedMessagesHelp: "Удаляет сообщения, заблокированные порогом конфиденциальности или словом автоматического фильтра. Требуется право «Управление сообщениями».", privacyCategories: "Включённые категории обнаружения", privacyCategoryEmail: "Электронная почта", privacyCategoryPhone: "Телефон", privacyCategoryIp: "IP-адреса", privacyCategoryGps: "GPS и координаты", privacyCategoryAddress: "Почтовые адреса", privacyCategoryFinancial: "IBAN и платёжные карты", privacyCategoryPlate: "Номерные знаки", privacyCategoryUrl: "Чувствительные URL", privacyCategoryCustom: "Защищённые приватные строки", privacyCategoryMetadata: "Метаданные EXIF", privacyCategoryOcr: "Локальный OCR", privacyCategoryDocument: "Административные документы", privacyCustomPatterns: "Приватные данные для защиты", privacyCustomPatternsHelp: "Добавьте имена, старые имена пользователей, варианты адресов, улицы, города, электронную почту, номера телефонов или другие приватные строки. Значения остаются в локальной конфигурации Relay.", privacyCustomPatternsPlaceholder: "Одно значение на строку", privacyAllowlist: "Список разрешённых", privacyAllowlistHelp: "Точные публичные значения из этого списка маскируются перед автоматическим обнаружением.", privacyAllowlistPlaceholder: "Одно публичное значение на строку",
+  automaticFilterWords: "Автоматическая фильтрация", automaticFilterWordsHelp: "Слова фильтра сохраняются автоматически после окончания ввода. Они работают даже при выключенных ручной модерации и локальном сканировании изображений. Точные совпадения и существующие регулярные выражения блокируются сразу и не попадают в очередь ручной модерации.", manualModeration: "Ручная модерация", manualModerationHelp: "Удерживайте медиа для одобрения независимо от автоматической фильтрации.", privacyScanEnabled: "Включить локальную проверку конфиденциальности", privacyScanEnabledHelp: "Проверяет метаданные изображений и локальный OCR перед историей или OBS.", privacySimilarityBoost: "Усиление сходства", privacyConcepts: "Слова или фразы фильтра", privacyExemptRoles: "Исключённые роли Discord", privacyExemptRolesHelp: "Введите ID ролей или упоминания ролей Discord через запятую или с новой строки. Эти роли обходят только слова фильтра; локальные сигналы конфиденциальности и ручная модерация сохраняются.", unsaved: "Несохранённые изменения", privacyConceptsHelp: "Введите слова или фразы через запятую, например: fdp, hitler. Relay обрабатывает регистр, пунктуацию и разделители, leetspeak, поддерживаемые омоглифы, повторяющиеся буквы и осторожное сходство. Существующие псевдонимы и регулярные выражения сохраняются, пока остаётся та же каноническая форма.", privacyReviewQueueEmpty: "Совпадения фильтра, требующие проверки, появляются здесь даже при выключенной ручной модерации.", privacyPendingManual: "Ручная проверка", privacyProtection: "Защита от доксинга", privacyProtectionHelp: "Сканирует локально до того, как текст или медиа Discord попадут в историю, WebSocket, виджеты Windows или OBS. Обнаруженные значения никогда не копируются в журналы.", privacyProtectionLevel: "Уровень защиты", privacyProtectionLevelHelp: "Сбалансированный режим снижает ложные срабатывания. Строгий и параноидальный режимы быстрее повышают слабые сигналы.", privacyProfileBalanced: "Сбалансированный", privacyProfileStrict: "Строгий", privacyProfileParanoid: "Параноидальный", privacyBlockThreshold: "Порог автоматической блокировки", privacyBlockThresholdHelp: "HIGH блокирует по умолчанию. CRITICAL отправляет случаи HIGH на локальную проверку.", privacyReviewIntermediate: "Проверять случаи с риском MEDIUM", privacyReviewIntermediateHelp: "Помещает медиа со средним риском в существующую локальную очередь модерации.", privacyAutoDeleteBlockedMessages: "Удалять заблокированные сообщения Discord", privacyAutoDeleteBlockedMessagesHelp: "Удаляет сообщения, заблокированные порогом конфиденциальности или словом автоматического фильтра. Требуется право «Управление сообщениями».", privacyCategories: "Включённые категории обнаружения", privacyCategoryEmail: "Электронная почта", privacyCategoryPhone: "Телефон", privacyCategoryIp: "IP-адреса", privacyCategoryGps: "GPS и координаты", privacyCategoryAddress: "Почтовые адреса", privacyCategoryFinancial: "IBAN и платёжные карты", privacyCategoryPlate: "Номерные знаки", privacyCategoryUrl: "Чувствительные URL", privacyCategoryCustom: "Защищённые приватные строки", privacyCategoryMetadata: "Метаданные EXIF", privacyCategoryOcr: "Локальный OCR", privacyCategoryDocument: "Административные документы", privacyCustomPatterns: "Приватные данные для защиты", privacyCustomPatternsHelp: "Добавьте имена, старые имена пользователей, варианты адресов, улицы, города, электронную почту, номера телефонов или другие приватные строки. Значения остаются в локальной конфигурации Relay.", privacyCustomPatternsPlaceholder: "Одно значение на строку", privacyAllowlist: "Список разрешённых", privacyAllowlistHelp: "Точные публичные значения из этого списка маскируются перед автоматическим обнаружением.", privacyAllowlistPlaceholder: "Одно публичное значение на строку",
   navigationBack: "Назад", navigationForward: "Вперёд", searchLabel: "Поиск настроек Relay", searchPlaceholder: "Поиск настройки", searchNoResults: "Нет подходящей настройки", clearSearch: "Очистить поиск", fontFamily: "Шрифт интерфейса", fontDesignDefault: "Соответствовать выбранному дизайну", fontFamilyHelp: "Применяется к Relay и его меню в области уведомлений. Типографика выходов OBS не изменяется.",
 });
 Object.assign(translations.zh, {
@@ -957,7 +959,7 @@ Object.assign(translations.zh, {
   credentialsTitle: "连接 Discord", credentialsCopy: "凭据由 Windows 加密保存，且不再显示。", clientId: "Discord 客户端 ID", botToken: "Discord 机器人令牌", connectBot: "加密并启动机器人", inviteUrl: "机器人邀请链接", openInvite: "打开", copy: "复制", copied: "已复制",
   routingTitle: "输入路由", routingCopy: "选择一个 Discord 频道接收媒体，另一个频道接收 TTS 消息。", mediaChannel: "媒体频道", ttsChannel: "TTS 消息频道", localPort: "本地端口", saveRouting: "保存路由", selectChannel: "选择可用的文字频道", ttsDisabled: "已禁用 TTS", unavailableChannel: "频道不可用", refreshChannels: "刷新频道", channelsRefreshed: "频道列表已刷新",
   mediaKicker: "播放队列", mediaTitle: "媒体按你的规则播放。", mediaCopy: "图片和 GIF 使用独立计时器。视频和音频会播放至结束。", transportLabel: "实时控制", transportReady: "准备播放下一项", skip: "跳过当前项",
-  playbackTitle: "播放设置", imageDuration: "图片时长", gifDuration: "GIF 时长", imageDurationHelp: "仅适用于静态图片。", gifDurationHelp: "动画 GIF 将循环指定时间。", seconds: "秒", mediaVolume: "媒体音量", widgetSound: "小组件声音", ttsCharacterLimit: "TTS 字符限制", characters: "个字符", ttsQueueLimit: "TTS 队列大小", items: "项", ttsSpeech: "TTS 语音", obsNotifications: "在 OBS 中显示 TTS 通知", obsNotificationOutput: "OBS TTS 通知叠加层", enableObsNotifications: "启用 OBS 叠加层", windowsNotificationWidget: "Windows TTS 通知小组件", notificationSound: "通知声音", chooseNotificationSound: "选择音频文件", resetNotificationSound: "移除声音", noNotificationSound: "未选择文件。", notificationSoundObs: "OBS 中的通知声音", showAuthor: "显示作者", supportedFormats: "支持图片、GIF、MP4/WebM 和常用音频格式。", savePlayback: "保存播放设置",
+  playbackTitle: "播放设置", imageDuration: "图片时长", gifDuration: "GIF 时长", imageDurationHelp: "仅适用于静态图片。", gifDurationHelp: "动画 GIF 将循环指定时间。", seconds: "秒", mediaVolume: "媒体音量", widgetSound: "小组件声音", ttsCharacterLimit: "TTS 字符限制", characters: "个字符", ttsQueueLimit: "TTS 队列大小", items: "项", ttsSpeech: "TTS 语音", obsNotifications: "在 OBS 中显示 TTS 通知", obsNotificationOutput: "OBS TTS 通知叠加层", enableObsNotifications: "启用 OBS 叠加层", windowsNotificationWidget: "Windows 通知小组件", notificationSound: "通知声音", chooseNotificationSound: "选择音频文件", resetNotificationSound: "移除声音", noNotificationSound: "未选择文件。", notificationSoundObs: "OBS 中的通知声音", showAuthor: "显示作者", supportedFormats: "支持图片、GIF、MP4/WebM 和常用音频格式。", savePlayback: "保存播放设置",
   overlayKicker: "应用输出", overlayTitle: "OBS 会收到什么。", overlayCopy: "在媒体进入队列前，画布保持透明。", livePreview: "实时预览", transparentCanvas: "透明画布", browserSource: "OBS 浏览器来源", browserSourceHelp: "将每个私有 URL 添加为独立的 OBS 浏览器来源。", visualSource: "视觉媒体", ttsSource: "TTS 音频", notificationSource: "TTS 通知", audioSource: "音频、音乐和语音消息", regenerateSecret: "重新连接 OBS 来源", floatingWidget: "浮动媒体小组件", notificationWidget: "TTS 通知小组件", showNotificationWidget: "在 Windows 中显示",
   historyKicker: "最近 50 项", historyTitle: "媒体历史", historyCopy: "重播过去的项目，或清除所有已连接的叠加层。", clearOverlay: "清除叠加层", historyEmpty: "正在等待 Discord 中的第一条媒体。", replay: "重播",
   moderationKicker: "直播安全", moderationTitle: "由你决定哪些内容进入 OBS。", moderationCopy: "可在本地批准前暂时保留传入媒体。", moderationSettings: "审核设置", enableModeration: "启用手动审核", enableModerationHelp: "关闭后，媒体会直接发送到 OBS。", allowImages: "图片和 GIF", allowImagesHelp: "允许这些项目进入审批队列。", allowVideos: "视频", allowVideosHelp: "允许视频文件进入审批队列。", allowAudio: "音频", allowAudioHelp: "允许音频文件进入审批队列。", moderationLocalOnly: "决定仅保存在本地，不会通知 Discord 用户。", saveModeration: "保存审核设置", pendingMedia: "待处理媒体", clearPending: "全部拒绝", moderationEmpty: "没有待审批的媒体。", moderationDisabled: "手动审核已关闭。", approve: "批准", reject: "拒绝",
@@ -976,7 +978,7 @@ Object.assign(translations.ko, {
   credentialsTitle: "Discord 연결", credentialsCopy: "자격 증명은 Windows에서 암호화되며 다시 표시되지 않습니다.", clientId: "Discord 클라이언트 ID", botToken: "Discord 봇 토큰", connectBot: "암호화하고 봇 시작", inviteUrl: "봇 초대 URL", openInvite: "열기", copy: "복사", copied: "복사됨",
   routingTitle: "입력 라우팅", routingCopy: "미디어용 Discord 채널 하나와 TTS 메시지용 채널 하나를 선택하세요.", mediaChannel: "미디어 채널", ttsChannel: "TTS 메시지 채널", localPort: "로컬 포트", saveRouting: "라우팅 저장", selectChannel: "사용 가능한 텍스트 채널 선택", ttsDisabled: "TTS 사용 안 함", unavailableChannel: "채널을 사용할 수 없음", refreshChannels: "채널 새로 고침", channelsRefreshed: "채널 목록을 새로 고쳤습니다",
   mediaKicker: "재생 대기열", mediaTitle: "내 규칙대로 재생되는 미디어.", mediaCopy: "이미지와 GIF에는 개별 타이머가 사용됩니다. 동영상과 오디오는 끝까지 재생됩니다.", transportLabel: "실시간 제어", transportReady: "다음 항목 준비 완료", skip: "현재 항목 건너뛰기",
-  playbackTitle: "재생 설정", imageDuration: "이미지 표시 시간", gifDuration: "GIF 표시 시간", imageDurationHelp: "정지 이미지에만 적용됩니다.", gifDurationHelp: "애니메이션 GIF는 지정한 시간 동안 반복됩니다.", seconds: "초", mediaVolume: "미디어 볼륨", widgetSound: "위젯 사운드", ttsCharacterLimit: "TTS 글자 수 제한", characters: "자", ttsQueueLimit: "TTS 대기열 크기", items: "개", ttsSpeech: "TTS 음성", obsNotifications: "OBS에 TTS 알림 표시", obsNotificationOutput: "OBS TTS 알림 오버레이", enableObsNotifications: "OBS 오버레이 사용", windowsNotificationWidget: "Windows TTS 알림 위젯", notificationSound: "알림 소리", chooseNotificationSound: "오디오 파일 선택", resetNotificationSound: "소리 제거", noNotificationSound: "선택한 파일이 없습니다.", notificationSoundObs: "OBS 알림 소리", showAuthor: "작성자 표시", supportedFormats: "이미지, GIF, MP4/WebM 및 일반 오디오 형식을 지원합니다.", savePlayback: "재생 설정 저장",
+  playbackTitle: "재생 설정", imageDuration: "이미지 표시 시간", gifDuration: "GIF 표시 시간", imageDurationHelp: "정지 이미지에만 적용됩니다.", gifDurationHelp: "애니메이션 GIF는 지정한 시간 동안 반복됩니다.", seconds: "초", mediaVolume: "미디어 볼륨", widgetSound: "위젯 사운드", ttsCharacterLimit: "TTS 글자 수 제한", characters: "자", ttsQueueLimit: "TTS 대기열 크기", items: "개", ttsSpeech: "TTS 음성", obsNotifications: "OBS에 TTS 알림 표시", obsNotificationOutput: "OBS TTS 알림 오버레이", enableObsNotifications: "OBS 오버레이 사용", windowsNotificationWidget: "Windows 알림 위젯", notificationSound: "알림 소리", chooseNotificationSound: "오디오 파일 선택", resetNotificationSound: "소리 제거", noNotificationSound: "선택한 파일이 없습니다.", notificationSoundObs: "OBS 알림 소리", showAuthor: "작성자 표시", supportedFormats: "이미지, GIF, MP4/WebM 및 일반 오디오 형식을 지원합니다.", savePlayback: "재생 설정 저장",
   overlayKicker: "앱 출력", overlayTitle: "OBS에 전달되는 내용.", overlayCopy: "미디어가 대기열에 들어올 때까지 캔버스는 투명하게 유지됩니다.", livePreview: "실시간 미리 보기", transparentCanvas: "투명 캔버스", browserSource: "OBS 브라우저 소스", browserSourceHelp: "각 비공개 URL을 별도의 OBS 브라우저 소스로 추가하세요.", visualSource: "시각 미디어", ttsSource: "TTS 오디오", notificationSource: "TTS 알림", audioSource: "오디오, 음악 및 음성 메시지", regenerateSecret: "OBS 소스 다시 연결", floatingWidget: "플로팅 미디어 위젯", notificationWidget: "TTS 알림 위젯", showNotificationWidget: "Windows에 표시",
   historyKicker: "최근 50개 항목", historyTitle: "미디어 기록", historyCopy: "이전 항목을 다시 재생하거나 연결된 모든 오버레이를 지우세요.", clearOverlay: "오버레이 지우기", historyEmpty: "Discord의 첫 미디어를 기다리는 중입니다.", replay: "다시 재생",
   moderationKicker: "방송 안전", moderationTitle: "OBS에 도달하는 콘텐츠를 직접 결정하세요.", moderationCopy: "수신 미디어를 로컬 승인 전까지 선택적으로 보류합니다.", moderationSettings: "검토 설정", enableModeration: "수동 검토 사용", enableModerationHelp: "끄면 미디어가 OBS로 바로 전달됩니다.", allowImages: "이미지 및 GIF", allowImagesHelp: "이 항목을 승인 대기열에 넣습니다.", allowVideos: "동영상", allowVideosHelp: "동영상 파일을 승인 대기열에 넣습니다.", allowAudio: "오디오", allowAudioHelp: "오디오 파일을 승인 대기열에 넣습니다.", moderationLocalOnly: "결정은 로컬에만 유지되며 Discord 사용자에게 알리지 않습니다.", saveModeration: "검토 저장", pendingMedia: "대기 중인 미디어", clearPending: "모두 거부", moderationEmpty: "승인을 기다리는 미디어가 없습니다.", moderationDisabled: "수동 검토가 꺼져 있습니다.", approve: "승인", reject: "거부",
@@ -995,7 +997,7 @@ Object.assign(translations.ja, {
   credentialsTitle: "Discord を接続", credentialsCopy: "資格情報は Windows により暗号化され、再表示されません。", clientId: "Discord クライアント ID", botToken: "Discord ボットトークン", connectBot: "暗号化してボットを開始", inviteUrl: "ボット招待 URL", openInvite: "開く", copy: "コピー", copied: "コピーしました",
   routingTitle: "入力ルーティング", routingCopy: "メディア用の Discord チャンネルと、TTS メッセージ用の別チャンネルを選択します。", mediaChannel: "メディアチャンネル", ttsChannel: "TTS メッセージチャンネル", localPort: "ローカルポート", saveRouting: "ルーティングを保存", selectChannel: "利用できるテキストチャンネルを選択", ttsDisabled: "TTS は無効です", unavailableChannel: "チャンネルは利用できません", refreshChannels: "チャンネルを更新", channelsRefreshed: "チャンネルリストを更新しました",
   mediaKicker: "再生キュー", mediaTitle: "あなたのルールで再生されるメディア。", mediaCopy: "画像と GIF には個別のタイマーを使用します。動画と音声は最後まで再生されます。", transportLabel: "ライブ操作", transportReady: "次の項目を再生できます", skip: "現在の項目をスキップ",
-  playbackTitle: "再生設定", imageDuration: "画像の表示時間", gifDuration: "GIF の表示時間", imageDurationHelp: "静止画像にのみ適用されます。", gifDurationHelp: "アニメーション GIF は指定時間だけループします。", seconds: "秒", mediaVolume: "メディア音量", widgetSound: "ウィジェットの音声", ttsCharacterLimit: "TTS 文字数制限", characters: "文字", ttsQueueLimit: "TTS キューサイズ", items: "項目", ttsSpeech: "TTS 音声", obsNotifications: "OBS に TTS 通知を表示", obsNotificationOutput: "OBS TTS 通知オーバーレイ", enableObsNotifications: "OBS オーバーレイを有効化", windowsNotificationWidget: "Windows TTS 通知ウィジェット", notificationSound: "通知音", chooseNotificationSound: "音声ファイルを選択", resetNotificationSound: "音を削除", noNotificationSound: "ファイルが選択されていません。", notificationSoundObs: "OBS の通知音", showAuthor: "投稿者を表示", supportedFormats: "画像、GIF、MP4/WebM、および一般的な音声形式に対応しています。", savePlayback: "再生設定を保存",
+  playbackTitle: "再生設定", imageDuration: "画像の表示時間", gifDuration: "GIF の表示時間", imageDurationHelp: "静止画像にのみ適用されます。", gifDurationHelp: "アニメーション GIF は指定時間だけループします。", seconds: "秒", mediaVolume: "メディア音量", widgetSound: "ウィジェットの音声", ttsCharacterLimit: "TTS 文字数制限", characters: "文字", ttsQueueLimit: "TTS キューサイズ", items: "項目", ttsSpeech: "TTS 音声", obsNotifications: "OBS に TTS 通知を表示", obsNotificationOutput: "OBS TTS 通知オーバーレイ", enableObsNotifications: "OBS オーバーレイを有効化", windowsNotificationWidget: "Windows 通知ウィジェット", notificationSound: "通知音", chooseNotificationSound: "音声ファイルを選択", resetNotificationSound: "音を削除", noNotificationSound: "ファイルが選択されていません。", notificationSoundObs: "OBS の通知音", showAuthor: "投稿者を表示", supportedFormats: "画像、GIF、MP4/WebM、および一般的な音声形式に対応しています。", savePlayback: "再生設定を保存",
   overlayKicker: "アプリ出力", overlayTitle: "OBS に届くもの。", overlayCopy: "メディアがキューに入るまで、キャンバスは透明のままです。", livePreview: "ライブプレビュー", transparentCanvas: "透明なキャンバス", browserSource: "OBS ブラウザソース", browserSourceHelp: "各プライベート URL を個別の OBS ブラウザソースとして追加します。", visualSource: "ビジュアルメディア", ttsSource: "TTS 音声", notificationSource: "TTS 通知", audioSource: "音声、音楽、ボイスメッセージ", regenerateSecret: "OBS ソースを再接続", floatingWidget: "フローティングメディアウィジェット", notificationWidget: "TTS 通知ウィジェット", showNotificationWidget: "Windows に表示",
   historyKicker: "最近の 50 件", historyTitle: "メディア履歴", historyCopy: "過去の項目を再生するか、接続中のすべてのオーバーレイを消去します。", clearOverlay: "オーバーレイを消去", historyEmpty: "Discord から最初のメディアを待機しています。", replay: "再生",
   moderationKicker: "配信の安全性", moderationTitle: "OBS に届く内容を決めるのはあなたです。", moderationCopy: "ローカルで承認するまで受信メディアを保留できます。", moderationSettings: "モデレーション設定", enableModeration: "手動モデレーションを有効化", enableModerationHelp: "無効にするとメディアは直接 OBS に流れます。", allowImages: "画像と GIF", allowImagesHelp: "これらの項目を承認キューに入れます。", allowVideos: "動画", allowVideosHelp: "動画ファイルを承認キューに入れます。", allowAudio: "音声", allowAudioHelp: "音声ファイルを承認キューに入れます。", moderationLocalOnly: "判断はローカルにのみ保存され、Discord ユーザーには通知されません。", saveModeration: "モデレーションを保存", pendingMedia: "保留中のメディア", clearPending: "すべて拒否", moderationEmpty: "承認待ちのメディアはありません。", moderationDisabled: "手動モデレーションは無効です。", approve: "承認", reject: "拒否",
@@ -1014,7 +1016,7 @@ Object.assign(translations.id, {
   credentialsTitle: "Hubungkan Discord", credentialsCopy: "Kredensial dienkripsi oleh Windows dan tidak ditampilkan lagi.", clientId: "ID klien Discord", botToken: "Token bot Discord", connectBot: "Enkripsi dan mulai bot", inviteUrl: "URL undangan bot", openInvite: "Buka", copy: "Salin", copied: "Disalin",
   routingTitle: "Perutean masukan", routingCopy: "Pilih satu channel Discord untuk media dan channel lain untuk pesan TTS.", mediaChannel: "Channel media", ttsChannel: "Channel pesan TTS", localPort: "Port lokal", saveRouting: "Simpan perutean", selectChannel: "Pilih channel teks yang tersedia", ttsDisabled: "TTS dinonaktifkan", unavailableChannel: "Channel tidak tersedia", refreshChannels: "Muat ulang channel", channelsRefreshed: "Daftar channel diperbarui",
   mediaKicker: "Antrean pemutaran", mediaTitle: "Media, sesuai aturanmu.", mediaCopy: "Gambar dan GIF menggunakan pengatur waktu terpisah. Video dan audio diputar sampai selesai.", transportLabel: "Kontrol langsung", transportReady: "Siap untuk item berikutnya", skip: "Lewati item saat ini",
-  playbackTitle: "Pengaturan pemutaran", imageDuration: "Durasi gambar", gifDuration: "Durasi GIF", imageDurationHelp: "Hanya berlaku untuk gambar statis.", gifDurationHelp: "GIF animasi akan berulang selama waktu yang ditentukan.", seconds: "dtk", mediaVolume: "Volume media", widgetSound: "Suara widget", ttsCharacterLimit: "Batas karakter TTS", characters: "karakter", ttsQueueLimit: "Ukuran antrean TTS", items: "item", ttsSpeech: "Ucapan TTS", obsNotifications: "Tampilkan notifikasi TTS di OBS", obsNotificationOutput: "Overlay notifikasi TTS OBS", enableObsNotifications: "Aktifkan overlay OBS", windowsNotificationWidget: "Widget notifikasi TTS Windows", notificationSound: "Suara notifikasi", chooseNotificationSound: "Pilih file audio", resetNotificationSound: "Hapus suara", noNotificationSound: "Tidak ada file yang dipilih.", notificationSoundObs: "Suara notifikasi di OBS", showAuthor: "Tampilkan penulis", supportedFormats: "Mendukung gambar, GIF, MP4/WebM, dan format audio umum.", savePlayback: "Simpan pemutaran",
+  playbackTitle: "Pengaturan pemutaran", imageDuration: "Durasi gambar", gifDuration: "Durasi GIF", imageDurationHelp: "Hanya berlaku untuk gambar statis.", gifDurationHelp: "GIF animasi akan berulang selama waktu yang ditentukan.", seconds: "dtk", mediaVolume: "Volume media", widgetSound: "Suara widget", ttsCharacterLimit: "Batas karakter TTS", characters: "karakter", ttsQueueLimit: "Ukuran antrean TTS", items: "item", ttsSpeech: "Ucapan TTS", obsNotifications: "Tampilkan notifikasi TTS di OBS", obsNotificationOutput: "Overlay notifikasi TTS OBS", enableObsNotifications: "Aktifkan overlay OBS", windowsNotificationWidget: "Widget notifikasi Windows", notificationSound: "Suara notifikasi", chooseNotificationSound: "Pilih file audio", resetNotificationSound: "Hapus suara", noNotificationSound: "Tidak ada file yang dipilih.", notificationSoundObs: "Suara notifikasi di OBS", showAuthor: "Tampilkan penulis", supportedFormats: "Mendukung gambar, GIF, MP4/WebM, dan format audio umum.", savePlayback: "Simpan pemutaran",
   overlayKicker: "Keluaran aplikasi", overlayTitle: "Yang diterima OBS.", overlayCopy: "Kanvas tetap transparan hingga media masuk ke antrean.", livePreview: "Pratinjau langsung", transparentCanvas: "Kanvas transparan", browserSource: "Sumber browser OBS", browserSourceHelp: "Tambahkan setiap URL privat sebagai sumber browser OBS terpisah.", visualSource: "Media visual", ttsSource: "Audio TTS", notificationSource: "Notifikasi TTS", audioSource: "Audio, musik, dan pesan suara", regenerateSecret: "Sambungkan ulang sumber OBS", floatingWidget: "Widget media mengambang", notificationWidget: "Widget notifikasi TTS", showNotificationWidget: "Tampilkan di Windows",
   historyKicker: "50 item terakhir", historyTitle: "Riwayat media", historyCopy: "Putar ulang item sebelumnya atau hapus semua overlay yang terhubung.", clearOverlay: "Hapus overlay", historyEmpty: "Menunggu media pertama dari Discord.", replay: "Putar ulang",
   moderationKicker: "Keamanan siaran", moderationTitle: "Kamu menentukan apa yang mencapai OBS.", moderationCopy: "Tahan media masuk sampai kamu menyetujuinya secara lokal.", moderationSettings: "Pengaturan moderasi", enableModeration: "Aktifkan moderasi manual", enableModerationHelp: "Saat dinonaktifkan, media langsung mengalir ke OBS.", allowImages: "Gambar dan GIF", allowImagesHelp: "Izinkan item ini masuk ke antrean persetujuan.", allowVideos: "Video", allowVideosHelp: "Izinkan file video masuk ke antrean persetujuan.", allowAudio: "Audio", allowAudioHelp: "Izinkan file audio masuk ke antrean persetujuan.", moderationLocalOnly: "Keputusan tetap lokal dan tidak pernah memberi tahu pengguna Discord.", saveModeration: "Simpan moderasi", pendingMedia: "Media tertunda", clearPending: "Tolak semua", moderationEmpty: "Tidak ada media yang menunggu persetujuan.", moderationDisabled: "Moderasi manual dinonaktifkan.", approve: "Setujui", reject: "Tolak",
@@ -1055,6 +1057,97 @@ Object.assign(translations.id, {
   youtubeApiKeyHelp: "Disimpan di Windows Credential Manager dan tidak pernah ditampilkan lagi.",
   musicChannel: "Channel musik",
   musicDisabled: "Musik dinonaktifkan",
+});
+
+Object.assign(translations.en, {
+  navChangelog: "Changelog",
+  changelogKicker: "Release notes",
+  changelogTitle: "What changed in Relay.",
+  changelogCopy: "Notes for this installed version, read locally from the bundled changelog.",
+  changelogLatest: "Current",
+  changelogPrevious: "Previous",
+  changelogEmpty: "No release notes are available.",
+  changelogReleased: "Released {date}",
+});
+Object.assign(translations.fr, {
+  navChangelog: "Changelog",
+  changelogKicker: "Notes de version",
+  changelogTitle: "Ce qui change dans Relay.",
+  changelogCopy: "Notes de la version installée, lues localement depuis le journal de versions inclus.",
+  changelogLatest: "Actuelle",
+  changelogPrevious: "Précédentes",
+  changelogEmpty: "Aucune note de version n’est disponible.",
+  changelogReleased: "Publiée le {date}",
+});
+Object.assign(translations.es, {
+  navChangelog: "Changelog",
+  changelogKicker: "Notas de la versión",
+  changelogTitle: "Qué cambió en Relay.",
+  changelogCopy: "Notas de esta versión instalada, leídas localmente del changelog incluido.",
+  changelogLatest: "Actual",
+  changelogPrevious: "Anteriores",
+  changelogEmpty: "No hay notas de versión disponibles.",
+  changelogReleased: "Publicada el {date}",
+});
+Object.assign(translations.de, {
+  navChangelog: "Changelog",
+  changelogKicker: "Versionshinweise",
+  changelogTitle: "Was sich in Relay geändert hat.",
+  changelogCopy: "Hinweise zu dieser installierten Version, lokal aus dem mitgelieferten Changelog gelesen.",
+  changelogLatest: "Aktuell",
+  changelogPrevious: "Frühere",
+  changelogEmpty: "Keine Versionshinweise verfügbar.",
+  changelogReleased: "Veröffentlicht am {date}",
+});
+Object.assign(translations.ru, {
+  navChangelog: "Changelog",
+  changelogKicker: "Заметки о версии",
+  changelogTitle: "Что изменилось в Relay.",
+  changelogCopy: "Заметки установленной версии, прочитанные локально из встроенного changelog.",
+  changelogLatest: "Текущая",
+  changelogPrevious: "Предыдущие",
+  changelogEmpty: "Заметки о версии недоступны.",
+  changelogReleased: "Выпущено {date}",
+});
+Object.assign(translations.zh, {
+  navChangelog: "更新日志",
+  changelogKicker: "版本说明",
+  changelogTitle: "Relay 有哪些变化。",
+  changelogCopy: "当前安装版本的说明，从本地内置更新日志读取。",
+  changelogLatest: "当前",
+  changelogPrevious: "以往版本",
+  changelogEmpty: "暂无版本说明。",
+  changelogReleased: "发布于 {date}",
+});
+Object.assign(translations.ko, {
+  navChangelog: "변경 로그",
+  changelogKicker: "릴리스 노트",
+  changelogTitle: "Relay에서 달라진 점.",
+  changelogCopy: "설치된 버전의 노트이며, 포함된 변경 로그에서 로컬로 읽습니다.",
+  changelogLatest: "현재",
+  changelogPrevious: "이전",
+  changelogEmpty: "릴리스 노트가 없습니다.",
+  changelogReleased: "{date} 출시",
+});
+Object.assign(translations.ja, {
+  navChangelog: "変更履歴",
+  changelogKicker: "リリースノート",
+  changelogTitle: "Relay の変更点。",
+  changelogCopy: "このインストール版のメモを、同梱の変更履歴からローカルに読み込みます。",
+  changelogLatest: "現在",
+  changelogPrevious: "以前",
+  changelogEmpty: "リリースノートはありません。",
+  changelogReleased: "{date} リリース",
+});
+Object.assign(translations.id, {
+  navChangelog: "Changelog",
+  changelogKicker: "Catatan rilis",
+  changelogTitle: "Yang berubah di Relay.",
+  changelogCopy: "Catatan versi terpasang ini, dibaca secara lokal dari changelog yang dibundel.",
+  changelogLatest: "Saat ini",
+  changelogPrevious: "Sebelumnya",
+  changelogEmpty: "Tidak ada catatan rilis.",
+  changelogReleased: "Dirilis {date}",
 });
 
 for (const dictionary of Object.values(translations)) {
@@ -1109,15 +1202,117 @@ for (const [languageCode, extension] of Object.entries(personalizationExtensionT
   Object.assign(translations[languageCode], extension);
 }
 
+const musicExtensionTranslations = {
+  en: {},
+  fr: {},
+  es: {
+    navMusic: "Música", jukebox: "Jukebox",
+    musicKicker: "Jukebox de Discord", musicTitle: "Busca en YouTube. Reproduce en local.",
+    musicCopy: "Guarda una clave de YouTube Data API, elige un canal de música y escribe una búsqueda en Discord.",
+    musicSettingsTitle: "Ajustes de música", musicSettingsCopy: "La clave permanece en el Administrador de credenciales de Windows. Las respuestas de Discord siguen el idioma de la interfaz de Relay.",
+    saveMusic: "Guardar música", youtubeKeyConfigured: "Clave API de YouTube guardada.", youtubeKeyMissing: "Aún no hay clave API de YouTube.",
+    openGoogleCloud: "Abrir Google Cloud Console",
+    youtubeSource: "Fuente YouTube", youtubeSourceHelp: "Pégala en OBS como fuente de navegador (tamaño sugerido 1280×720).",
+    musicOverlayTitle: "Overlay OBS / Windows", musicOverlayCopy: "Windows Now Playing usa el widget flotante multimedia 16:9. TTS usa el widget compacto de notificaciones independiente.",
+    musicWidgetWidth: "Ancho del widget multimedia", musicWidgetHeight: "Alto del widget multimedia", saveMusicOverlay: "Guardar tamaño del widget multimedia",
+    audioSource: "Audio y mensajes de voz",
+    routingCopy: "Elige canales de Discord para medios y TTS. La música está en la sección Música.",
+  },
+  de: {
+    navMusic: "Musik", jukebox: "Jukebox",
+    musicKicker: "Discord-Jukebox", musicTitle: "YouTube suchen. Lokal abspielen.",
+    musicCopy: "Speichere einen YouTube-Data-API-Schlüssel, wähle einen Musikkanal und tippe eine Suche in Discord.",
+    musicSettingsTitle: "Musikeinstellungen", musicSettingsCopy: "Der Schlüssel bleibt im Windows-Anmeldeinformations-Manager. Discord-Antworten folgen der Relay-Oberflächensprache.",
+    saveMusic: "Musik speichern", youtubeKeyConfigured: "YouTube-API-Schlüssel gespeichert.", youtubeKeyMissing: "Noch kein YouTube-API-Schlüssel gespeichert.",
+    openGoogleCloud: "Google Cloud Console öffnen",
+    youtubeSource: "YouTube-Quelle", youtubeSourceHelp: "In OBS als Browserquelle einfügen (empfohlen 1280×720).",
+    musicOverlayTitle: "Overlay OBS / Windows", musicOverlayCopy: "Windows Now Playing verwendet das schwebende 16:9-Medienwidget. TTS verwendet das separate kompakte Benachrichtigungswidget.",
+    musicWidgetWidth: "Breite des Medienwidgets", musicWidgetHeight: "Höhe des Medienwidgets", saveMusicOverlay: "Medienwidget-Größe speichern",
+    audioSource: "Audio und Sprachnachrichten",
+    routingCopy: "Wähle Discord-Kanäle für Medien und TTS. Musik liegt im Bereich Musik.",
+  },
+  ru: {
+    navMusic: "Музыка", jukebox: "Джукбокс",
+    musicKicker: "Discord-джукбокс", musicTitle: "Ищите на YouTube. Слушайте локально.",
+    musicCopy: "Сохраните ключ YouTube Data API, выберите музыкальный канал и введите поиск в Discord.",
+    musicSettingsTitle: "Настройки музыки", musicSettingsCopy: "Ключ хранится в диспетчере учётных данных Windows. Ответы Discord следуют языку интерфейса Relay.",
+    saveMusic: "Сохранить музыку", youtubeKeyConfigured: "Ключ YouTube API сохранён.", youtubeKeyMissing: "Ключ YouTube API ещё не сохранён.",
+    openGoogleCloud: "Открыть Google Cloud Console",
+    youtubeSource: "Источник YouTube", youtubeSourceHelp: "Вставьте в OBS как источник браузера (рекомендуется 1280×720).",
+    musicOverlayTitle: "Оверлей OBS / Windows", musicOverlayCopy: "Windows Now Playing использует плавающий медиавиджет 16:9. TTS использует отдельный компактный виджет уведомлений.",
+    musicWidgetWidth: "Ширина медиавиджета", musicWidgetHeight: "Высота медиавиджета", saveMusicOverlay: "Сохранить размер медиавиджета",
+    audioSource: "Аудио и голосовые сообщения",
+    routingCopy: "Выберите каналы Discord для медиа и TTS. Музыка — в разделе Музыка.",
+  },
+  zh: {
+    navMusic: "音乐", jukebox: "点唱机",
+    musicKicker: "Discord 点唱机", musicTitle: "搜索 YouTube，本地播放。",
+    musicCopy: "保存 YouTube Data API 密钥，选择音乐频道，然后在 Discord 中输入搜索。",
+    musicSettingsTitle: "音乐设置", musicSettingsCopy: "密钥保存在 Windows 凭据管理器中。Discord 回复跟随 Relay 界面语言。",
+    saveMusic: "保存音乐设置", youtubeKeyConfigured: "已保存 YouTube API 密钥。", youtubeKeyMissing: "尚未保存 YouTube API 密钥。",
+    openGoogleCloud: "打开 Google Cloud 控制台",
+    youtubeSource: "YouTube 源", youtubeSourceHelp: "作为 OBS 浏览器源粘贴（建议尺寸 1280×720）。",
+    musicOverlayTitle: "OBS / Windows 叠加层", musicOverlayCopy: "Windows Now Playing 使用 16:9 媒体浮动小组件。TTS 使用独立的紧凑通知小组件。",
+    musicWidgetWidth: "媒体小组件宽度", musicWidgetHeight: "媒体小组件高度", saveMusicOverlay: "保存媒体小组件尺寸",
+    audioSource: "音频与语音消息",
+    routingCopy: "为媒体和 TTS 选择 Discord 频道。音乐在“音乐”分区。",
+  },
+  ko: {
+    navMusic: "음악", jukebox: "주크박스",
+    musicKicker: "Discord 주크박스", musicTitle: "YouTube 검색. 로컬 재생.",
+    musicCopy: "YouTube Data API 키를 저장하고 음악 채널을 선택한 뒤 Discord에서 검색하세요.",
+    musicSettingsTitle: "음악 설정", musicSettingsCopy: "키는 Windows 자격 증명 관리자에 보관됩니다. Discord 응답은 Relay 인터페이스 언어를 따릅니다.",
+    saveMusic: "음악 설정 저장", youtubeKeyConfigured: "YouTube API 키가 저장되었습니다.", youtubeKeyMissing: "아직 저장된 YouTube API 키가 없습니다.",
+    openGoogleCloud: "Google Cloud 콘솔 열기",
+    youtubeSource: "YouTube 소스", youtubeSourceHelp: "OBS 브라우저 소스로 붙여넣으세요(권장 1280×720).",
+    musicOverlayTitle: "OBS / Windows 오버레이", musicOverlayCopy: "Windows Now Playing은 16:9 미디어 플로팅 위젯을 사용합니다. TTS는 별도의 소형 알림 위젯을 사용합니다.",
+    musicWidgetWidth: "미디어 위젯 너비", musicWidgetHeight: "미디어 위젯 높이", saveMusicOverlay: "미디어 위젯 크기 저장",
+    audioSource: "오디오 및 음성 메시지",
+    routingCopy: "미디어와 TTS용 Discord 채널을 선택하세요. 음악은 음악 섹션에 있습니다.",
+  },
+  ja: {
+    navMusic: "ミュージック", jukebox: "ジュークボックス",
+    musicKicker: "Discord ジュークボックス", musicTitle: "YouTube を検索。ローカルで再生。",
+    musicCopy: "YouTube Data API キーを保存し、ミュージックチャンネルを選んで Discord で検索します。",
+    musicSettingsTitle: "ミュージック設定", musicSettingsCopy: "キーは Windows 資格情報マネージャーに保存されます。Discord の返信は Relay の表示言語に従います。",
+    saveMusic: "ミュージック設定を保存", youtubeKeyConfigured: "YouTube API キーを保存済みです。", youtubeKeyMissing: "YouTube API キーはまだありません。",
+    openGoogleCloud: "Google Cloud コンソールを開く",
+    youtubeSource: "YouTube ソース", youtubeSourceHelp: "OBS のブラウザソースとして貼り付けます（推奨 1280×720）。",
+    musicOverlayTitle: "OBS / Windows オーバーレイ", musicOverlayCopy: "Windows Now Playing は 16:9 のメディアフローティングウィジェットを使用します。TTS は別のコンパクトな通知ウィジェットを使用します。",
+    musicWidgetWidth: "メディアウィジェットの幅", musicWidgetHeight: "メディアウィジェットの高さ", saveMusicOverlay: "メディアウィジェットのサイズを保存",
+    audioSource: "音声とボイスメッセージ",
+    routingCopy: "メディアと TTS 用の Discord チャンネルを選びます。ミュージックはミュージック欄にあります。",
+  },
+  id: {
+    navMusic: "Musik", jukebox: "Jukebox",
+    musicKicker: "Jukebox Discord", musicTitle: "Cari YouTube. Putar lokal.",
+    musicCopy: "Simpan kunci YouTube Data API, pilih channel musik, lalu ketik pencarian di Discord.",
+    musicSettingsTitle: "Pengaturan musik", musicSettingsCopy: "Kunci disimpan di Windows Credential Manager. Balasan Discord mengikuti bahasa antarmuka Relay.",
+    saveMusic: "Simpan pengaturan musik", youtubeKeyConfigured: "Kunci API YouTube tersimpan.", youtubeKeyMissing: "Belum ada kunci API YouTube.",
+    openGoogleCloud: "Buka Google Cloud Console",
+    youtubeSource: "Sumber YouTube", youtubeSourceHelp: "Tempel di OBS sebagai Browser Source (disarankan 1280×720).",
+    musicOverlayTitle: "Overlay OBS / Windows", musicOverlayCopy: "Windows Now Playing menggunakan widget mengambang media 16:9. TTS menggunakan widget notifikasi ringkas yang terpisah.",
+    musicWidgetWidth: "Lebar widget media", musicWidgetHeight: "Tinggi widget media", saveMusicOverlay: "Simpan ukuran widget media",
+    audioSource: "Audio dan pesan suara",
+    routingCopy: "Pilih channel Discord untuk media dan TTS. Musik ada di bagian Musik.",
+  },
+};
+
+for (const [languageCode, extension] of Object.entries(musicExtensionTranslations)) {
+  if (translations[languageCode]) Object.assign(translations[languageCode], extension);
+}
+
 const pageMetadata = {
   overview: { title: "navOverview", kicker: "system" },
   media: { title: "navMedia", kicker: "playback" },
+  music: { title: "navMusic", kicker: "jukebox" },
   overlay: { title: "navOverlay", kicker: "output" },
   moderation: { title: "navModeration", kicker: "safety" },
   commands: { title: "navCommands", kicker: "commandsKicker" },
   history: { title: "navHistory", kicker: "archive" },
   help: { title: "navHelp", kicker: "guide" },
   personalization: { title: "navPersonalization", kicker: "personalizationKicker" },
+  changelog: { title: "navChangelog", kicker: "changelogKicker" },
   about: { title: "navAbout", kicker: "about" },
 };
 
@@ -1133,11 +1328,12 @@ const clientCountElement = $("#client-count");
 const credentialForm = $("#credential-form");
 const botPresenceForm = $("#bot-presence-form");
 const routingForm = $("#routing-form");
+const musicForm = $("#music-form");
 const mediaForm = $("#media-form");
 const moderationForm = $("#moderation-form");
 const commandsForm = $("#commands-form");
 const dirtyForms = new Set();
-for (const form of [botPresenceForm, routingForm, mediaForm, moderationForm, commandsForm]) {
+for (const form of [botPresenceForm, routingForm, musicForm, mediaForm, moderationForm, commandsForm]) {
   form.addEventListener("input", () => dirtyForms.add(form));
 }
 moderationForm.addEventListener("input", () => {
@@ -1180,6 +1376,8 @@ let editingCustomCommandIndex = null;
 const clientIdElement = $("#client-id");
 const tokenElement = $("#discord-token");
 const youtubeApiKeyElement = $("#youtube-api-key");
+const youtubeKeyStatusElement = $("#youtube-key-status");
+const musicSaveStateElement = $("#music-save-state");
 const credentialStateElement = $("#credential-state");
 const botOnlineStatusElement = $("#bot-online-status");
 const botActivityTypeElement = $("#bot-activity-type");
@@ -1234,6 +1432,13 @@ const overlayUrlElement = $("#overlay-url");
 const copyUrlButton = $("#copy-url");
 const audioUrlElement = $("#audio-url");
 const copyAudioUrlButton = $("#copy-audio-url");
+const youtubeUrlElement = $("#youtube-url");
+const copyYoutubeUrlButton = $("#copy-youtube-url");
+const musicWidgetWidthElement = $("#music-widget-width");
+const musicWidgetHeightElement = $("#music-widget-height");
+const saveMusicOverlayButton = $("#save-music-overlay");
+const musicOverlaySaveStateElement = $("#music-overlay-save-state");
+if (musicWidgetHeightElement) musicWidgetHeightElement.min = "90";
 const ttsUrlElement = $("#tts-url");
 const copyTtsUrlButton = $("#copy-tts-url");
 const notificationUrlElement = $("#notification-url");
@@ -1290,6 +1495,8 @@ const personalizationStateElement = $("#personalization-state");
 const resetPersonalizationButton = $("#reset-personalization");
 const historyListElement = $("#history-list");
 const historyEmptyElement = $("#history-empty");
+const changelogReleasesElement = $("#changelog-releases");
+const changelogEmptyElement = $("#changelog-empty");
 const historyItemTemplate = $("#history-item-template");
 const clearOverlayButton = $("#clear-overlay");
 const skipMediaButton = $("#skip-media");
@@ -1387,7 +1594,8 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.2.7";
+let currentAppVersion = "1.3.0";
+let bundledChangelogMarkdown = "";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
 
@@ -1417,6 +1625,154 @@ function setAppVersion(version) {
   currentAppVersion = normalized;
   for (const element of $$("[data-app-version]")) element.textContent = normalized;
   updateCheckButton.setAttribute("aria-label", `${t("checkUpdates")}. Relay v${normalized}`);
+  renderChangelog();
+}
+
+function parseChangelogReleases(markdown) {
+  const releases = [];
+  let current;
+  const flush = () => {
+    if (!current) return;
+    const body = current.lines.join("\n").trim();
+    if (body) {
+      releases.push({ version: current.version, date: current.date, body });
+    }
+    current = undefined;
+  };
+  for (const line of String(markdown).split(/\r?\n/)) {
+    if (line.startsWith("## [")) {
+      flush();
+      const match = line.match(/^## \[([^\]]+)\](?:\s*-\s*(.+))?$/);
+      if (!match || match[1].trim().toLowerCase() === "unreleased") continue;
+      current = {
+        version: match[1].trim(),
+        date: match[2]?.trim() || null,
+        lines: [],
+      };
+      continue;
+    }
+    if (line.startsWith("[") && line.includes("]: http")) continue;
+    current?.lines.push(line);
+  }
+  flush();
+  return releases;
+}
+
+function changelogBodyForLanguage(body, languageCode) {
+  const buckets = { default: [] };
+  let current = "default";
+  for (const line of String(body).split(/\r?\n/)) {
+    const heading = line.match(/^###\s+(.+)$/);
+    if (heading) {
+      current = heading[1].trim().toLowerCase();
+      buckets[current] ??= [];
+      continue;
+    }
+    buckets[current].push(line);
+  }
+  const aliases = {
+    en: ["english"],
+    fr: ["français", "francais"],
+    es: ["español", "espanol", "spanish"],
+    de: ["deutsch", "german"],
+    ru: ["русский", "russian"],
+    zh: ["简体中文", "chinese"],
+    ko: ["한국어", "korean"],
+    ja: ["日本語", "japanese"],
+    id: ["bahasa indonesia", "indonesian"],
+  };
+  const preferred = [...(aliases[languageCode] || aliases.en)];
+  if (languageCode !== "en") preferred.push("english");
+  for (const key of preferred) {
+    const text = (buckets[key] || []).join("\n").trim();
+    if (text) return text;
+  }
+  return String(body).trim();
+}
+
+function appendInlineChangelogText(parent, text) {
+  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
+  for (const part of parts) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      const strong = document.createElement("strong");
+      strong.textContent = part.slice(2, -2);
+      parent.append(strong);
+      continue;
+    }
+    parent.append(document.createTextNode(part));
+  }
+}
+
+function appendChangelogMarkdown(parent, markdown) {
+  let list;
+  const closeList = () => {
+    list = undefined;
+  };
+  for (const line of String(markdown).split(/\r?\n/)) {
+    if (line.startsWith("#### ")) {
+      closeList();
+      const heading = document.createElement("h4");
+      heading.textContent = line.slice(5).trim();
+      parent.append(heading);
+      continue;
+    }
+    if (line.startsWith("### ")) {
+      closeList();
+      const heading = document.createElement("h3");
+      heading.textContent = line.slice(4).trim();
+      parent.append(heading);
+      continue;
+    }
+    if (line.startsWith("- ")) {
+      if (!list) {
+        list = document.createElement("ul");
+        parent.append(list);
+      }
+      const item = document.createElement("li");
+      appendInlineChangelogText(item, line.slice(2));
+      list.append(item);
+      continue;
+    }
+    if (!line.trim()) {
+      closeList();
+      continue;
+    }
+    closeList();
+    const paragraph = document.createElement("p");
+    appendInlineChangelogText(paragraph, line);
+    parent.append(paragraph);
+  }
+}
+
+function renderChangelog() {
+  if (!changelogReleasesElement || !changelogEmptyElement) return;
+  const releases = parseChangelogReleases(bundledChangelogMarkdown);
+  changelogReleasesElement.replaceChildren();
+  changelogEmptyElement.hidden = releases.length > 0;
+  if (!releases.length) return;
+
+  const currentIndex = Math.max(0, releases.findIndex((release) => release.version === currentAppVersion));
+  for (const [index, release] of releases.entries()) {
+    const details = document.createElement("details");
+    details.className = "changelog-release";
+    details.open = index === currentIndex;
+    const summary = document.createElement("summary");
+    const title = document.createElement("strong");
+    title.className = "changelog-release__version";
+    const badge = index === currentIndex ? `${t("changelogLatest")} · ` : "";
+    title.textContent = `${badge}Relay ${release.version}`;
+    const date = document.createElement("span");
+    date.className = "changelog-release__date";
+    date.textContent = release.date
+      ? formatTranslation("changelogReleased", { date: release.date })
+      : t("changelogPrevious");
+    summary.append(title, date);
+    const body = document.createElement("div");
+    body.className = "changelog-release__body";
+    appendChangelogMarkdown(body, changelogBodyForLanguage(release.body, language));
+    details.append(summary, body);
+    changelogReleasesElement.append(details);
+  }
 }
 
 function renderUpdateStatus() {
@@ -1520,6 +1876,7 @@ function applyLanguage() {
   renderUpdateStatus();
   updatePageHeading();
   renderNowPlaying();
+  renderChangelog();
   renderCustomCommands();
   if (!customCommandForm.hidden) {
     let action;
@@ -1742,6 +2099,19 @@ function initializeOutputGeometryControls() {
   }
 }
 
+function applyMusicOverlaySize(config, force = false) {
+  if (!musicWidgetWidthElement || !musicWidgetHeightElement) return;
+  if (
+    !force
+    && (document.activeElement === musicWidgetWidthElement
+      || document.activeElement === musicWidgetHeightElement)
+  ) {
+    return;
+  }
+  musicWidgetWidthElement.value = String(Math.round(config.widgetWidth ?? 640));
+  musicWidgetHeightElement.value = String(Math.round(config.widgetHeight ?? 360));
+}
+
 function applyOutputGeometryTarget(config, target, force = false) {
   const card = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"]`);
   if (!card || (!force && card.contains(document.activeElement))) return;
@@ -1761,9 +2131,10 @@ function applyOutputGeometryTarget(config, target, force = false) {
     card.querySelector('[data-size-field="height"]').value = String(Math.round(config.widgetHeight ?? 360));
     card.querySelector("[data-keep-aspect-ratio]").checked = config.widgetKeepAspectRatio !== false;
   } else if (target === "notificationWidget") {
-    card.querySelector('[data-size-field="width"]').value = String(Math.round(config.notificationWidgetWidth ?? 510));
-    card.querySelector('[data-size-field="height"]').value = String(Math.round(config.notificationWidgetHeight ?? 130));
+    card.querySelector('[data-size-field="width"]').value = String(Math.round(config.notificationWidgetWidth ?? 400));
+    card.querySelector('[data-size-field="height"]').value = String(Math.round(config.notificationWidgetHeight ?? 104));
   }
+  applyMusicOverlaySize(config, force);
 }
 
 function applyOutputGeometryConfig(config, force = false) {
@@ -1818,7 +2189,7 @@ async function persistOutputGeometry(target) {
   try {
     const config = await invoke("set_output_geometry", outputGeometryPayload(target));
     bootstrap.config = config;
-    applyOutputGeometryTarget(config, target);
+    applyOutputGeometryTarget(config, target, true);
     state.textContent = t("geometrySaved");
   } catch (error) {
     state.textContent = String(error);
@@ -1835,15 +2206,19 @@ function setOutputGeometryDefaults(target) {
     card.querySelector('[data-size-field="height"]').value = "360";
     card.querySelector("[data-keep-aspect-ratio]").checked = true;
   } else if (target === "notificationWidget") {
-    card.querySelector('[data-size-field="width"]').value = "510";
-    card.querySelector('[data-size-field="height"]').value = "130";
+    card.querySelector('[data-size-field="width"]').value = "400";
+    card.querySelector('[data-size-field="height"]').value = "104";
   }
 }
 
 function setOutputGeometryPreviewUrls() {
+  const port = bootstrap.config.port;
   for (const [target, metadata] of Object.entries(outputGeometryTargets)) {
     const iframe = outputGeometryGridElement.querySelector(`[data-geometry-target="${target}"] [data-geometry-preview]`);
-    const url = new URL(bootstrap[metadata.previewKey]);
+    // Use 127.0.0.1 short pages (not /obs/visual) so panel CSP + preview=1 work without
+    // nested iframes or localhost frame-src blocks ("This content is blocked").
+    const path = metadata.previewKey === "notificationUrl" ? "/notifications" : "/medias";
+    const url = new URL(`http://127.0.0.1:${port}${path}`);
     url.searchParams.set("preview", "1");
     if (metadata.widget === "media") {
       url.searchParams.set("widget", "1");
@@ -2616,6 +2991,14 @@ function setCredentials(status) {
   clientIdElement.value = status.clientId || "";
   tokenElement.value = "";
   youtubeApiKeyElement.value = "";
+  updateYoutubeKeyStatus(status);
+}
+
+function updateYoutubeKeyStatus(status = bootstrap?.credentials) {
+  if (!youtubeKeyStatusElement) return;
+  youtubeKeyStatusElement.textContent = status?.youtubeConfigured
+    ? t("youtubeKeyConfigured")
+    : t("youtubeKeyMissing");
 }
 
 function formatShortcutLabel(shortcut) {
@@ -2809,7 +3192,16 @@ function replaceHistory(mediaEvents) {
   renderHistory();
 }
 
+function sameHistoryMedia(left, right) {
+  return left?.messageId === right?.messageId && left?.url === right?.url;
+}
+
 function rememberMedia(mediaEvent) {
+  // Replay rebroadcasts the same media over WS without updating server history.
+  // Skip local duplicates so Replay does not create a second row.
+  if (history.some((item) => sameHistoryMedia(item, mediaEvent))) {
+    return;
+  }
   history.unshift(mediaEvent);
   history.length = Math.min(history.length, 50);
   renderHistory();
@@ -2984,12 +3376,15 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   renderModeration();
   overlayUrlElement.value = bootstrap.overlayUrl;
   audioUrlElement.value = bootstrap.audioUrl;
-  ttsUrlElement.value = bootstrap.ttsUrl;
-  notificationUrlElement.value = bootstrap.notificationUrl;
-  stickerUrlElement.value = bootstrap.stickerUrl;
+  if (youtubeUrlElement) youtubeUrlElement.value = bootstrap.youtubeUrl || bootstrap.overlayUrl || "";
+  if (ttsUrlElement) ttsUrlElement.value = bootstrap.ttsUrl;
+  if (notificationUrlElement) notificationUrlElement.value = bootstrap.notificationUrl || bootstrap.overlayUrl || "";
+  if (stickerUrlElement) stickerUrlElement.value = bootstrap.stickerUrl;
+  applyMusicOverlaySize(bootstrap.config, true);
   inviteRowElement.hidden = !bootstrap.inviteUrl;
   inviteUrlElement.value = bootstrap.inviteUrl || "";
-  const previewUrl = new URL(bootstrap.overlayUrl);
+  // Live preview stays on /medias (not the OBS composite) so preview=1 works.
+  const previewUrl = new URL(`http://127.0.0.1:${bootstrap.config.port}/medias`);
   previewUrl.searchParams.set("preview", "1");
   if (previewElement.src !== previewUrl.href) {
     previewElement.src = previewUrl.href;
@@ -3036,9 +3431,6 @@ async function saveConfig(stateElement) {
         moderationAllowVideos: moderationAllowVideosElement.checked,
         moderationAllowAudio: moderationAllowAudioElement.checked,
         privacyScanEnabled: privacyScanEnabledElement.checked,
-        privacySuspiciousPolicy: bootstrap.config.privacySuspiciousPolicy || "review",
-        privacySuspiciousThreshold: Number(bootstrap.config.privacySuspiciousThreshold ?? 2),
-        privacySensitiveThreshold: Number(bootstrap.config.privacySensitiveThreshold ?? 4),
         privacySimilarityBoost: Number(bootstrap.config.privacySimilarityBoost ?? 4),
         privacyConcepts,
         privacyFilterExemptRoleIds,
@@ -3389,14 +3781,12 @@ credentialForm.addEventListener("submit", async (event) => {
     applyBootstrap(await invoke("save_credentials", {
       clientId: clientIdElement.value.trim(),
       token: tokenElement.value.trim(),
-      youtubeApiKey: youtubeApiKeyElement.value.trim(),
     }));
     credentialStateElement.textContent = t("encryptedStarting");
   } catch (error) {
     credentialStateElement.textContent = String(error);
   } finally {
     tokenElement.value = "";
-    youtubeApiKeyElement.value = "";
   }
 });
 
@@ -3412,6 +3802,28 @@ botPresenceForm.addEventListener("submit", async (event) => {
 routingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveConfig(saveStateElement);
+});
+
+musicForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  musicSaveStateElement.textContent = t("saving");
+  try {
+    const youtubeApiKey = youtubeApiKeyElement.value.trim();
+    if (youtubeApiKey) {
+      const credentials = await invoke("store_youtube_api_key", { youtubeApiKey });
+      if (bootstrap) bootstrap.credentials = credentials;
+      updateYoutubeKeyStatus(credentials);
+    }
+    const saved = await saveConfig(musicSaveStateElement);
+    if (saved) {
+      musicSaveStateElement.textContent = t("saved");
+      dirtyForms.delete(musicForm);
+    }
+  } catch (error) {
+    musicSaveStateElement.textContent = String(error);
+  } finally {
+    youtubeApiKeyElement.value = "";
+  }
 });
 
 refreshChannelsButton.addEventListener("click", async () => {
@@ -3569,14 +3981,24 @@ clearPendingMediaButton.addEventListener("click", async () => {
 
 ttsNotificationsObsElement.addEventListener("change", async () => {
   const requestedState = ttsNotificationsObsElement.checked;
-  // saveConfig commits routing and media fields too; refuse invalid ones
-  // instead of bypassing the forms' HTML validation.
-  if (!routingForm.reportValidity() || !mediaForm.reportValidity()) {
+  try {
+    const config = await invoke("set_tts_notifications_obs_enabled", {
+      enabled: requestedState,
+    });
+    bootstrap.config = config;
+    if (obsNotificationSaveStateElement) {
+      obsNotificationSaveStateElement.textContent = t("saved");
+      window.setTimeout(() => {
+        if (obsNotificationSaveStateElement.textContent === t("saved")) {
+          obsNotificationSaveStateElement.textContent = "";
+        }
+      }, 1500);
+    }
+  } catch (error) {
     ttsNotificationsObsElement.checked = !requestedState;
-    return;
-  }
-  if (!await saveConfig(obsNotificationSaveStateElement)) {
-    ttsNotificationsObsElement.checked = !requestedState;
+    if (obsNotificationSaveStateElement) {
+      obsNotificationSaveStateElement.textContent = String(error);
+    }
   }
 });
 
@@ -3590,10 +4012,36 @@ async function copyValue(button, value) {
 
 copyUrlButton.addEventListener("click", () => copyValue(copyUrlButton, overlayUrlElement.value));
 copyAudioUrlButton.addEventListener("click", () => copyValue(copyAudioUrlButton, audioUrlElement.value));
-copyTtsUrlButton.addEventListener("click", () => copyValue(copyTtsUrlButton, ttsUrlElement.value));
-copyNotificationUrlButton.addEventListener("click", () => copyValue(copyNotificationUrlButton, notificationUrlElement.value));
-copyStickerUrlButton.addEventListener("click", () => copyValue(copyStickerUrlButton, stickerUrlElement.value));
+if (copyYoutubeUrlButton && youtubeUrlElement) {
+  copyYoutubeUrlButton.addEventListener("click", () => copyValue(copyYoutubeUrlButton, youtubeUrlElement.value));
+}
+if (copyTtsUrlButton && ttsUrlElement) {
+  copyTtsUrlButton.addEventListener("click", () => copyValue(copyTtsUrlButton, ttsUrlElement.value));
+}
+if (copyNotificationUrlButton && notificationUrlElement) {
+  copyNotificationUrlButton.addEventListener("click", () => copyValue(copyNotificationUrlButton, notificationUrlElement.value));
+}
+if (copyStickerUrlButton && stickerUrlElement) {
+  copyStickerUrlButton.addEventListener("click", () => copyValue(copyStickerUrlButton, stickerUrlElement.value));
+}
 openInviteButton.addEventListener("click", () => invoke("open_help_link", { link: inviteUrlElement.value }));
+
+if (saveMusicOverlayButton) {
+  saveMusicOverlayButton.addEventListener("click", async () => {
+    if (musicOverlaySaveStateElement) musicOverlaySaveStateElement.textContent = t("saving");
+    try {
+      const config = await invoke("set_music_widget_size", {
+        width: clamp(musicWidgetWidthElement.value, 160, 16384),
+        height: clamp(musicWidgetHeightElement.value, 90, 16384),
+      });
+      bootstrap.config = config;
+      applyOutputGeometryTarget(config, "mediaWidget", true);
+      if (musicOverlaySaveStateElement) musicOverlaySaveStateElement.textContent = t("saved");
+    } catch (error) {
+      if (musicOverlaySaveStateElement) musicOverlaySaveStateElement.textContent = String(error);
+    }
+  });
+}
 
 for (const [target, button] of outputTestButtons) {
   button.addEventListener("click", async () => {
@@ -3758,6 +4206,12 @@ window.addEventListener("beforeunload", () => {
   isUnloading = true;
   window.clearTimeout(reconnectTimer);
   window.clearInterval(statusTimer);
+  const pendingGeometry = [...outputGeometryTimers.keys()];
+  for (const target of pendingGeometry) {
+    window.clearTimeout(outputGeometryTimers.get(target));
+    outputGeometryTimers.delete(target);
+    void persistOutputGeometry(target);
+  }
   socket?.close();
   releaseNowPlayingArtwork();
 });
@@ -3772,6 +4226,10 @@ showPage(currentPage);
 
 try {
   invoke("get_app_version").then(setAppVersion).catch(() => {});
+  invoke("get_changelog_markdown").then((markdown) => {
+    bundledChangelogMarkdown = String(markdown || "");
+    renderChangelog();
+  }).catch(() => renderChangelog());
   applyBootstrap(await invoke("get_bootstrap"));
   connectPanelSocket();
   statusTimer = window.setInterval(refreshRuntimeStatus, 1500);

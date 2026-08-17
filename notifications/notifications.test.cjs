@@ -20,12 +20,15 @@ function classList() {
   };
 }
 
-function createHarness(target = "obs", language = "en", preview = false) {
+function createHarness(target = "obs", language = "en", preview = false, autoGrantStage = true) {
   const sockets = [];
   const timers = new Map();
   const timerDelays = [];
+  const windowListeners = new Map();
   let nextTimerId = 1;
   const cssProperties = {};
+  const youtubePlayers = [];
+  let youtubeHostReplacementCount = 0;
   const elements = {
     "#notification": {
       classList: classList(),
@@ -55,10 +58,30 @@ function createHarness(target = "obs", language = "en", preview = false) {
       attributes: new Map(),
       setAttribute(name, value) { this.attributes.set(name, value); },
     },
-    "#music-artwork": { src: "", alt: "" },
+    "#music-youtube-player": {
+      id: "music-youtube-player",
+      className: "music-card__player",
+      style: { display: "" },
+      attributes: new Map([["aria-hidden", "true"]]),
+      setAttribute(name, value) { this.attributes.set(name, value); },
+      replaceChildren() {},
+      innerHTML: "",
+    },
+    "#music-artwork": { src: "", alt: "", onerror: null, removeAttribute(name) {
+      if (name === "src") this.src = "";
+    } },
     "#music-label": { textContent: "" },
     "#music-title": { textContent: "" },
     "#music-artist": { textContent: "" },
+    "#music-meta": { textContent: "", hidden: true },
+    "#music-time": { textContent: "", hidden: true },
+    "#music-progress": {
+      hidden: true,
+      attributes: {},
+      setAttribute(name, value) { this.attributes[name] = value; },
+      style: {},
+    },
+    "#music-progress-fill": { style: { width: "0%" } },
     "#notification-move-label": { textContent: "" },
     "#notification-clock": {
       src: "",
@@ -73,10 +96,29 @@ function createHarness(target = "obs", language = "en", preview = false) {
       },
     },
   };
+  const youtubeHostParent = {
+    replaceChild(next) {
+      youtubeHostReplacementCount += 1;
+      const prepared = {
+        id: next.id || "music-youtube-player",
+        className: next.className || "music-card__player",
+        style: next.style || { display: "" },
+        attributes: next.attributes || new Map(),
+        setAttribute(name, value) { this.attributes.set(name, value); },
+        replaceChildren() {},
+        innerHTML: "",
+        parentNode: youtubeHostParent,
+      };
+      elements["#music-youtube-player"] = prepared;
+    },
+  };
+  elements["#music-youtube-player"].parentNode = youtubeHostParent;
 
   class MockWebSocket {
     constructor(url) {
       this.url = url;
+      this.readyState = 1;
+      this.sent = [];
       this.listeners = new Map();
       sockets.push(this);
     }
@@ -89,28 +131,82 @@ function createHarness(target = "obs", language = "en", preview = false) {
       this.listeners.get(type)?.({ data });
     }
 
+    send(data) {
+      const message = JSON.parse(data);
+      this.sent.push(message);
+      if (
+        autoGrantStage
+        && message.type === "stageClock"
+        && message.payload?.lane === "tts"
+        && message.payload?.busy === true
+      ) {
+        this.emit("message", JSON.stringify({
+          type: "stageClock",
+          payload: { mediaBusy: false, musicBusy: false, ttsBusy: true },
+        }));
+      }
+    }
+
     close() {}
   }
 
   const search = `?secret=private&target=${target}&locked=0&lang=${language}${preview ? "&preview=1" : ""}`;
   const location = {
     protocol: "http:",
-    host: "127.0.0.1:4590",
-    href: `http://127.0.0.1:4590/notifications${search}`,
+    host: "localhost:4590",
+    hostname: "localhost",
+    port: "4590",
+    origin: "http://localhost:4590",
+    href: `http://localhost:4590/notifications${search}`,
     search,
     replace() {},
   };
-  const window = {
-    location,
-    addEventListener() {},
-    clearTimeout(id) { timers.delete(id); },
-    setTimeout(callback, delay) {
-      const id = nextTimerId++;
-      timers.set(id, callback);
-      timerDelays.push(delay);
-      return id;
-    },
-  };
+
+  class FakeYoutubePlayer {
+    constructor(id, options) {
+      this.id = id;
+      this.options = options;
+      this.loaded = null;
+      this.volume = null;
+      this.currentTime = 0;
+      this.muteCalls = 0;
+      this.unMuteCalls = 0;
+      this.stopCalls = 0;
+      this.destroyCalls = 0;
+      this.unloadModuleCalls = [];
+      this.setOptionCalls = [];
+      this.iframeAttributes = {};
+      this.iframe = {
+        style: { display: "" },
+        src: "https://www.youtube.com/embed/test",
+        setAttribute: (name, value) => {
+          this.iframeAttributes[name] = value;
+        },
+        getAttribute: (name) => this.iframeAttributes[name],
+        removeAttribute(name) {
+          delete this.iframeAttributes[name];
+          if (name === "src") this.src = "";
+        },
+      };
+      youtubePlayers.push(this);
+    }
+
+    ready() { this.options.events.onReady({ target: this }); }
+    loadVideoById(options) { this.loaded = options; }
+    playVideo() {}
+    stopVideo() { this.stopCalls += 1; }
+    destroy() { this.destroyCalls += 1; }
+    mute() { this.muteCalls += 1; }
+    unMute() { this.unMuteCalls += 1; }
+    setVolume(value) { this.volume = value; }
+    getCurrentTime() { return this.currentTime; }
+    unloadModule(name) { this.unloadModuleCalls.push(name); }
+    setOption(module, option, value) { this.setOptionCalls.push([module, option, value]); }
+    getIframe() { return this.iframe; }
+    emitState(data) { this.options.events.onStateChange({ data }); }
+    emitError() { this.options.events.onError({ data: 150 }); }
+  }
+
   const pings = [];
   class MockAudio {
     constructor() {
@@ -126,6 +222,18 @@ function createHarness(target = "obs", language = "en", preview = false) {
     }
   }
 
+  const window = {
+    location,
+    addEventListener(type, listener) { windowListeners.set(type, listener); },
+    clearTimeout(id) { timers.delete(id); },
+    setTimeout(callback, delay) {
+      const id = nextTimerId++;
+      timers.set(id, { callback, delay });
+      timerDelays.push(delay);
+      return id;
+    },
+    YT: { Player: FakeYoutubePlayer, PlayerState: { ENDED: 0, PLAYING: 1 } },
+  };
   const context = vm.createContext({
     URL,
     URLSearchParams,
@@ -138,14 +246,25 @@ function createHarness(target = "obs", language = "en", preview = false) {
         lang: "en",
         style: { setProperty(name, value) { cssProperties[name] = value; } },
       },
+      head: {
+        appendChild() {},
+      },
       querySelector: (selector) => elements[selector],
       createElement: (tagName) => ({
         tagName,
+        id: "",
         className: "",
         src: "",
         alt: "",
+        async: false,
+        style: { display: "" },
+        attributes: new Map(),
         onerror: null,
+        setAttribute(name, value) { this.attributes.set(name, value); },
+        addEventListener() {},
         replaceWith() {},
+        replaceChildren() {},
+        innerHTML: "",
       }),
       createTextNode: (textContent) => ({ textContent }),
     },
@@ -155,7 +274,35 @@ function createHarness(target = "obs", language = "en", preview = false) {
   const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
   vm.runInContext(source, context);
 
-  return { cssProperties, elements, pings, socket: sockets[0], timers, timerDelays };
+  return {
+    context,
+    cssProperties,
+    elements,
+    pings,
+    socket: sockets[0],
+    timers,
+    timerDelays,
+    youtubePlayers,
+    youtubeHostReplacementCount: () => youtubeHostReplacementCount,
+    emitWindow: (type) => windowListeners.get(type)?.({ type }),
+    runNextTimer() {
+      const [id] = timers.keys();
+      if (id == null) return false;
+      const entry = timers.get(id);
+      timers.delete(id);
+      entry?.callback?.();
+      return true;
+    },
+    runTimerByDelay(delay) {
+      for (const [id, entry] of timers.entries()) {
+        if (entry.delay !== delay) continue;
+        timers.delete(id);
+        entry.callback?.();
+        return true;
+      }
+      return false;
+    },
+  };
 }
 
 test("notification geometry previews stay visible without consuming live TTS or playing sound", () => {
@@ -186,7 +333,8 @@ test("notification geometry previews stay visible without consuming live TTS or 
   assert.equal(preview.pings.length, 0);
 
   const panelSource = fs.readFileSync(__dirname + "/../gui/panel.js", "utf8");
-  assert.match(panelSource, /notificationUrl[\s\S]*searchParams\.set\("preview", "1"\)/);
+  assert.match(panelSource, /path = metadata\.previewKey === "notificationUrl" \? "\/notifications" : "\/medias"/);
+  assert.match(panelSource, /url\.searchParams\.set\("preview", "1"\)/);
 });
 
 test("notification output applies live crop and scale for OBS and widgets", () => {
@@ -217,44 +365,225 @@ test("notification output applies live crop and scale for OBS and widgets", () =
 
   const css = fs.readFileSync(__dirname + "/notifications.css", "utf8");
   assert.match(css, /clip-path: inset\(var\(--crop-top\)/);
-  assert.match(css, /\.notification-card[\s\S]*var\(--content-scale\)/);
-  assert.match(css, /grid-template-columns: calc\(58px \* var\(--content-scale\)\)/);
+  assert.match(css, /\.notification-card[\s\S]*var\(--notification-scale\)/);
+  assert.match(css, /grid-template-columns: calc\(58px \* var\(--notification-scale\)\)/);
   assert.doesNotMatch(css, /\.notification-card\.is-visible\s*\{[^}]*scale\(/);
+  // Idle cards must not paint — opacity:0 + inset:4px left a large black WebView2 hole.
+  assert.match(css, /\.notification-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /\.music-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
+  // Music cards still fill the configured window; TTS toasts stay compact.
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card\s*\{[^}]*inset:\s*4px[^}]*height:\s*auto[^}]*min-height:\s*0/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.notification-card\s*\{[^}]*width:\s*min\(390px,\s*calc\(100%\s*-\s*8px\)\)/s,
+  );
+  // Message height-fit stays independent; both toasts are capped so legacy
+  // tall / wide windows cannot inflate them.
+  assert.match(
+    css,
+    /html\.notification-widget \.notification-card\s*\{[^}]*--notification-scale:\s*calc\([\s\S]*1\.15/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card\s*\{[^}]*container-type:\s*size[^}]*--music-scale:\s*calc\([\s\S]*100cqh\s*\/\s*94px[\s\S]*100cqw\s*\/\s*520px[\s\S]*1\.15/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card\s*\{[^}]*grid-template-columns:\s*calc\(104px \* var\(--music-scale\)\)/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card__stage\s*\{[^}]*width:\s*calc\(104px \* var\(--music-scale\)\)[^}]*height:\s*calc\(58px \* var\(--music-scale\)\)/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card__details\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/s,
+  );
+  assert.match(
+    css,
+    /html\.notification-widget \.music-card__time\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s,
+  );
+  assert.match(css, /\.music-card[\s\S]*--music-scale:\s*var\(--content-scale\)/);
+  assert.doesNotMatch(css, /html\.notification-widget \.music-card\s*\{[^}]*--notification-scale/s);
+  assert.doesNotMatch(css, /100cqh\s*\/\s*84px/);
+  // Message + music chrome accents follow personalization --accent (not hard-coded blue).
+  assert.match(css, /\.notification-card::before\s*\{[^}]*background:\s*var\(--accent\)/s);
+  assert.match(css, /\.music-card::before\s*\{[^}]*background:\s*var\(--accent\)/s);
+  assert.match(css, /\.notification-card__signal\s*\{[^}]*var\(--accent\)/s);
+  assert.match(
+    css,
+    /html\.notification-widget \.notification-card__signal\s*\{[^}]*width:\s*calc\(2px[^}]*height:\s*calc\(26px/s,
+  );
+  assert.doesNotMatch(css, /#9fc9ff/);
+  assert.doesNotMatch(css, /159 201 255/);
+  const source = fs.readFileSync(__dirname + "/notifications.js", "utf8");
+  assert.match(source, /probeWatchdog[\s\S]*probe\.close\(\)/);
+  // No outer glow on transparent OBS / widget chrome (opaque cards, no blur halo).
+  assert.match(css, /\.notification-card\s*\{[^}]*box-shadow:\s*none[^}]*filter:\s*none/s);
+  assert.match(css, /\.music-card\s*\{[^}]*box-shadow:\s*none[^}]*filter:\s*none/s);
+  assert.match(css, /\.notification-card\s*\{[^}]*border:\s*1px\s+solid\s+#2a2e36/s);
+  assert.match(css, /\.music-card\s*\{[^}]*border:\s*1px\s+solid\s+#2a2e36/s);
+  assert.doesNotMatch(css, /color-scheme:\s*(dark|only\s+light)/);
+  assert.doesNotMatch(css, /backdrop-filter/);
+  assert.doesNotMatch(css, /drop-shadow/);
+  assert.doesNotMatch(css, /box-shadow:\s*0\s/);
+  assert.doesNotMatch(css, /border:\s*1px\s+solid\s+rgb\(255\s+255\s+255\s*\/\s*18%\)/);
+  // Compact horizontal Now Playing: fixed thumb left, copy+progress right.
+  assert.match(css, /\.music-card\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*calc\(72px/s);
+  assert.match(css, /\.music-card__stage\s*\{[^}]*width:\s*calc\(72px \* var\(--music-scale\)\)/s);
+  assert.doesNotMatch(css, /\.music-card\s*\{[^}]*flex-direction:\s*column/s);
+  assert.doesNotMatch(css, /\.music-card__stage\s*\{[^}]*flex:\s*1\s+1\s+auto/s);
+  assert.doesNotMatch(css, /min-height:\s*calc\(160px/);
+  assert.match(css, /\.music-card\s*\{[^}]*min-height:\s*calc\(94px/s);
+  assert.match(css, /\.music-card__progress\s*\{[^}]*height:\s*3px/s);
+  assert.match(css, /\.music-card__details\s*\{[^}]*display:\s*flex/s);
 });
 
-test("Windows widget shows YouTube music as a Now Playing card", () => {
-  const widget = createHarness("widget");
-  const music = widget.elements["#music"];
+test("musicPlay only marks stage occupancy for every notification target", async () => {
+  for (const target of ["widget", "obs"]) {
+    const harness = createHarness(target);
+    if (target === "obs") {
+      harness.socket.emit("message", JSON.stringify({
+        type: "config",
+        payload: { ttsNotificationsObsEnabled: true },
+      }));
+    }
+    harness.socket.emit("message", JSON.stringify({
+      type: "musicPlay",
+      payload: {
+        playbackId: `${target}-music`,
+        videoId: "dQw4w9WgXcQ",
+        title: "Stage-owned track",
+      },
+    }));
+    await Promise.resolve();
 
+    harness.socket.emit("message", JSON.stringify({
+      type: "tts",
+      payload: notification(`${target}-blocked`),
+    }));
+    assert.equal(harness.elements["#notification-clock"].src, "");
+    assert.equal(harness.elements["#music"].classList.contains("is-visible"), false);
+    assert.notEqual(harness.elements["#music"].attributes.get("aria-hidden"), "false");
+    assert.equal(harness.youtubePlayers.length, 0);
+    for (const name of [
+      "requestMusicNowPlaying",
+      "showMusicNowPlaying",
+      "beginMusicYoutube",
+      "createMusicYoutubePlayer",
+    ]) {
+      assert.equal(vm.runInContext(`globalThis.${name}`, harness.context), undefined);
+      assert.equal(vm.runInContext(`window.${name}`, harness.context), undefined);
+    }
+    assert.equal(
+      harness.socket.sent.some((message) => (
+        message.type === "stageClock" && message.payload?.lane === "media"
+      )),
+      false,
+    );
+  }
+});
+
+test("ordinary TTS cleanup leaves the legacy YouTube host untouched", () => {
+  const harness = createHarness("widget");
+  harness.socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("host-stable"),
+  }));
+
+  assert.equal(harness.youtubeHostReplacementCount(), 0);
+  assert.equal(harness.youtubePlayers.length, 0);
+  assert.equal(harness.elements["#music"].classList.contains("is-visible"), false);
+});
+
+test("beforeunload leaves an inactive legacy YouTube host untouched", () => {
+  const harness = createHarness("widget");
+  harness.emitWindow("beforeunload");
+
+  assert.equal(harness.youtubeHostReplacementCount(), 0);
+  assert.equal(harness.youtubePlayers.length, 0);
+});
+
+test("music occupancy does not replace TTS and queued TTS resumes on musicIdle", async () => {
+  const { elements, socket, youtubePlayers } = createHarness("widget");
+  const audio = elements["#notification-clock"];
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("live-tts") }));
+  socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "wait-1", videoId: "dQw4w9WgXcQ", title: "Track" },
+  }));
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("queued-tts", "Next") }));
+
+  assert.match(audio.src, /\/tts-audio\/live-tts\?secret=private$/);
+  assert.equal(elements["#music"].classList.contains("is-visible"), false);
+  assert.equal(youtubePlayers.length, 0);
+
+  audio.onended();
+  await nextMicrotask();
+  assert.equal(audio.src, "");
+
+  socket.emit("message", JSON.stringify({ type: "musicIdle" }));
+  assert.match(audio.src, /\/tts-audio\/queued-tts\?secret=private$/);
+  assert.equal(elements["#notification-author"].textContent, "Next");
+});
+
+test("musicStop keeps music occupancy until authoritative idle", async () => {
+  const widget = createHarness("widget");
   widget.socket.emit("message", JSON.stringify({
     type: "musicPlay",
     payload: {
-      playbackId: "music-1",
-      title: "JENNIE - Mantra (Official Video)",
-      channelTitle: "JennieRubyJaneVEVO",
-      durationSeconds: 148,
+      playbackId: "stop-1",
+      videoId: "dQw4w9WgXcQ",
+      title: "Track",
     },
   }));
-
-  assert.equal(music.classList.contains("is-visible"), true);
-  assert.equal(music.attributes.get("aria-hidden"), "false");
-  assert.equal(widget.elements["#music-label"].textContent, "NOW PLAYING");
-  assert.equal(widget.elements["#music-title"].textContent, "JENNIE - Mantra (Official Video)");
-  assert.equal(widget.elements["#music-artist"].textContent, "JennieRubyJaneVEVO");
+  await Promise.resolve();
+  widget.socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("wait-after-stop"),
+  }));
 
   widget.socket.emit("message", JSON.stringify({
     type: "musicStop",
-    payload: { playbackId: "music-1" },
+    payload: { playbackId: "stop-1" },
   }));
-  assert.equal(music.classList.contains("is-visible"), false);
-  assert.equal(music.attributes.get("aria-hidden"), "true");
+  widget.socket.emit("message", JSON.stringify({
+    type: "musicStop",
+    payload: { playbackId: "stop-1" },
+  }));
+  assert.equal(widget.elements["#music"].classList.contains("is-visible"), false);
+  assert.equal(widget.youtubePlayers.length, 0);
+  assert.equal(widget.elements["#notification-clock"].src, "");
 
-  const obs = createHarness("obs");
-  obs.socket.emit("message", JSON.stringify({
+  widget.socket.emit("message", JSON.stringify({ type: "musicIdle" }));
+  assert.match(
+    widget.elements["#notification-clock"].src,
+    /\/tts-audio\/wait-after-stop\?secret=private$/,
+  );
+});
+
+test("transient WebSocket close retains music stage occupancy without local playback", async () => {
+  const widget = createHarness("widget");
+  widget.socket.emit("message", JSON.stringify({
     type: "musicPlay",
-    payload: { playbackId: "obs-music", title: "Hidden", durationSeconds: 30 },
+    payload: { playbackId: "ws-1", videoId: "dQw4w9WgXcQ", title: "Stay" },
   }));
-  assert.equal(obs.elements["#music"].classList.contains("is-visible"), false);
+  await Promise.resolve();
+  assert.equal(widget.elements["#music"].classList.contains("is-visible"), false);
+  assert.equal(widget.youtubePlayers.length, 0);
+
+  widget.socket.emit("close");
+  assert.equal(widget.elements["#music"].classList.contains("is-visible"), false);
+  assert.equal(widget.youtubePlayers.length, 0);
+  widget.socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("blocked-after-close"),
+  }));
+  assert.equal(widget.elements["#notification-clock"].src, "");
 });
 
 test("Windows widget plays the configured notification sound per message", () => {
@@ -520,7 +849,7 @@ test("a spoken notification stays visible even when audio playback fails", async
   assert.equal(elements["#notification-author"].textContent, "Muted");
   assert.equal(elements["#notification-message"].textContent, "Message silent");
 
-  for (const fire of [...timers.values()]) fire();
+  for (const entry of [...timers.values()]) entry.callback();
   assert.equal(card.classList.contains("is-visible"), false);
 
   audio.play = () => Promise.resolve();
@@ -612,4 +941,149 @@ test("a visual emoji notification never blocks the next spoken message", async (
   assert.match(elements["#notification-clock"].src, /\/tts-audio\/after-emoji\?secret=private$/);
   assert.equal(elements["#notification-author"].textContent, "Friend");
   assert.equal(elements["#notification-message"].textContent, "Message after-emoji");
+});
+
+test("TTS waits for media stage and YouTube before playing", () => {
+  const { elements, socket } = createHarness("widget");
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: true, ttsBusy: false },
+  }));
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("queued-media") }));
+  assert.equal(elements["#notification-clock"].src, "");
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, ttsBusy: false },
+  }));
+  assert.match(elements["#notification-clock"].src, /\/tts-audio\/queued-media\?secret=private$/);
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: true },
+  });
+
+  const music = createHarness("widget");
+  music.socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "yt-1", title: "Track", durationSeconds: 30 },
+  }));
+  music.socket.emit("message", JSON.stringify({ type: "tts", payload: notification("queued-yt") }));
+  assert.equal(music.elements["#notification-clock"].src, "");
+
+  music.socket.emit("message", JSON.stringify({ type: "musicIdle" }));
+  assert.match(music.elements["#notification-clock"].src, /\/tts-audio\/queued-yt\?secret=private$/);
+});
+
+test("TTS waits for the server stage grant before becoming visible", () => {
+  const { elements, socket } = createHarness("widget", "en", false, false);
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("race"),
+  }));
+
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
+  assert.equal(elements["#notification-clock"].src, "");
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: true },
+  });
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: true },
+  }));
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+  assert.match(elements["#notification-clock"].src, /\/tts-audio\/race\?secret=private$/);
+});
+
+test("OBS hides the completed TTS card while the next message waits for media", () => {
+  const { elements, socket } = createHarness("obs", "en", false, false);
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { ttsNotificationsObsEnabled: true },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("first"),
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: true },
+  }));
+  socket.emit("message", JSON.stringify({
+    type: "tts",
+    payload: notification("second"),
+  }));
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+
+  elements["#notification-clock"].onended();
+
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
+  assert.match(elements["#notification-clock"].src, /^$/);
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: true },
+  });
+
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: {
+      mediaBusy: true,
+      musicBusy: false,
+      ttsBusy: false,
+      granted: false,
+      lane: "tts",
+    },
+  }));
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
+});
+
+test("OBS notifications recover when stageClock clears a missed musicIdle", () => {
+  const { elements, socket } = createHarness("obs");
+  socket.emit("message", JSON.stringify({
+    type: "config",
+    payload: { ttsNotificationsObsEnabled: true },
+  }));
+  // Simulate a lagged client that still thinks YouTube is active.
+  socket.emit("message", JSON.stringify({
+    type: "musicPlay",
+    payload: { playbackId: "stuck", title: "Track", durationSeconds: 30 },
+  }));
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("blocked") }));
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
+  assert.equal(elements["#notification-clock"].src, "");
+
+  // Server watch clock recovers without a musicIdle relay event.
+  socket.emit("message", JSON.stringify({
+    type: "stageClock",
+    payload: { mediaBusy: false, musicBusy: false, ttsBusy: false },
+  }));
+  assert.equal(elements["#notification"].classList.contains("is-visible"), true);
+  assert.match(elements["#notification-clock"].src, /\/tts-audio\/blocked\?secret=private$/);
+});
+
+test("skip and clear release the TTS stage without leaving it stuck", () => {
+  const { elements, socket } = createHarness("widget");
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("live") }));
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: true },
+  });
+
+  socket.emit("message", JSON.stringify({ type: "skip" }));
+  assert.equal(elements["#notification-clock"].src, "");
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: false },
+  });
+
+  socket.emit("message", JSON.stringify({ type: "tts", payload: notification("again") }));
+  socket.emit("message", JSON.stringify({ type: "clear" }));
+  assert.deepEqual(socket.sent.at(-1), {
+    type: "stageClock",
+    payload: { lane: "tts", busy: false },
+  });
+  assert.equal(elements["#notification"].classList.contains("is-visible"), false);
 });

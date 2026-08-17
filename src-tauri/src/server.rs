@@ -89,6 +89,10 @@ const HOST: &str = "127.0.0.1";
 const OVERLAY_HTML: &str = include_str!("../../overlay/index.html");
 const OVERLAY_CSS: &str = include_str!("../../overlay/overlay.css");
 const OVERLAY_JS: &str = include_str!("../../overlay/overlay.js");
+const OBS_VISUAL_HTML: &str = include_str!("../../overlay/obs-visual.html");
+const OBS_VISUAL_CSS: &str = include_str!("../../overlay/obs-visual.css");
+const OBS_AUDIO_HTML: &str = include_str!("../../overlay/obs-audio.html");
+const OBS_AUDIO_CSS: &str = include_str!("../../overlay/obs-audio.css");
 const RADAR_PNG: &[u8] = include_bytes!("../../gui/assets/relay-radar.png");
 const TTS_HTML: &str = include_str!("../../tts/index.html");
 const TTS_CSS: &str = include_str!("../../tts/tts.css");
@@ -107,6 +111,8 @@ struct RelayServerState {
     client_shutdown: tokio::sync::broadcast::Sender<()>,
     media_clock_tx: tokio::sync::watch::Sender<MediaClockState>,
     media_clock_counts: Arc<Mutex<MediaClockCounts>>,
+    stage_clock_tx: tokio::sync::watch::Sender<StageClockState>,
+    stage_clock_counts: Arc<Mutex<StageClockCounts>>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
@@ -120,6 +126,32 @@ struct MediaClockState {
 struct MediaClockCounts {
     video_busy: usize,
     audio_busy: usize,
+}
+
+/// Cross-output stage lock so media / YouTube and TTS never overlap.
+#[derive(Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StageClockState {
+    media_busy: bool,
+    /// Authoritative YouTube/jukebox occupancy from the server music queue.
+    /// Clients must prefer this over local musicPlay/musicIdle flags so a
+    /// lagged WebSocket cannot leave TTS/notifications blocked forever.
+    music_busy: bool,
+    tts_busy: bool,
+}
+
+#[derive(Default)]
+struct StageClockCounts {
+    media_busy: usize,
+    tts_busy: usize,
+    music_busy: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum StageLane {
+    Media,
+    Tts,
 }
 
 #[derive(Debug, Deserialize)]
@@ -167,10 +199,17 @@ enum OutputClientMessage {
     AudioPlayback(Box<AudioPlaybackState>),
     MusicEnded(MusicEndedEvent),
     MediaClock(MediaClockReport),
+    StageClock(StageClockReport),
 }
 
 #[derive(Deserialize)]
 struct MediaClockReport {
+    busy: bool,
+}
+
+#[derive(Deserialize)]
+struct StageClockReport {
+    lane: StageLane,
     busy: bool,
 }
 
@@ -198,19 +237,55 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
     };
     let (client_shutdown, _) = tokio::sync::broadcast::channel(1);
     let (media_clock_tx, _) = tokio::sync::watch::channel(MediaClockState::default());
+    let (stage_clock_tx, _) = tokio::sync::watch::channel(StageClockState::default());
     let state = RelayServerState {
         core: core.clone(),
         relay_secret: Arc::new(load_or_create_relay_secret()?),
         client_shutdown: client_shutdown.clone(),
         media_clock_tx,
         media_clock_counts: Arc::new(Mutex::new(MediaClockCounts::default())),
+        stage_clock_tx,
+        stage_clock_counts: Arc::new(Mutex::new(StageClockCounts::default())),
     };
+    // Keep musicBusy on the stage clock in sync with the server jukebox so
+    // lagged overlay/TTS/notification sockets cannot strand musicActive=true.
+    let music_clock_state = state.clone();
+    let mut music_events = core.relay_tx.subscribe();
+    tokio::spawn(async move {
+        loop {
+            match music_events.recv().await {
+                Ok(RelayEvent::MusicPlay(_)) => {
+                    set_stage_music_busy(&music_clock_state, true);
+                    sync_stage_scheduler(&music_clock_state).await;
+                }
+                Ok(RelayEvent::MusicIdle) | Ok(RelayEvent::Clear) => {
+                    set_stage_music_busy(&music_clock_state, false);
+                    sync_stage_scheduler(&music_clock_state).await;
+                }
+                Ok(RelayEvent::MusicStop(_)) => {
+                    // Next event is MusicPlay (still busy) or MusicIdle/Clear.
+                }
+                Ok(_) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                    let busy = music_clock_state.core.current_music().await.is_some();
+                    set_stage_music_busy(&music_clock_state, busy);
+                    sync_stage_scheduler(&music_clock_state).await;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
     let router = Router::new()
         .route("/", get(root))
         .route("/health", get(health))
         .route("/overlay", get(overlay))
         .route("/medias", get(visual_overlay))
         .route("/audios", get(audio_overlay))
+        .route("/youtube", get(youtube_overlay))
+        .route("/obs/visual", get(obs_visual_page))
+        .route("/obs/audio", get(obs_audio_page))
+        .route("/obs-assets/obs-visual.css", get(obs_visual_css))
+        .route("/obs-assets/obs-audio.css", get(obs_audio_css))
         .route("/overlay-assets/overlay.css", get(overlay_css))
         .route("/overlay-assets/overlay.js", get(overlay_js))
         .route("/overlay-assets/relay-radar.png", get(radar_png))
@@ -240,13 +315,15 @@ pub async fn start_server(core: Arc<AppCore>) -> Result<()> {
             HeaderValue::from_static("nosniff"),
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
+            // YouTube IFrame embeds require a referrer (error 150/153 if stripped).
             header::REFERRER_POLICY,
-            HeaderValue::from_static("no-referrer"),
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
+            // frame-src 'self' allows /obs/* composites to embed legacy short pages.
             HeaderValue::from_static(
-                "default-src 'none'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com https://i.ytimg.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:* https://www.youtube.com https://www.youtube-nocookie.com https://*.googlevideo.com https://youtubei.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
+                "default-src 'none'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self'; img-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com https://i.ytimg.com data:; media-src 'self' https://cdn.discordapp.com https://media.discordapp.net https://*.discordapp.net https://*.klipy.com; connect-src 'self' ws://127.0.0.1:* ws://localhost:* https://www.youtube.com https://www.youtube-nocookie.com https://*.googlevideo.com https://youtubei.googleapis.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' tauri://localhost http://tauri.localhost",
             ),
         ))
         .with_state(state);
@@ -321,6 +398,65 @@ async fn audio_overlay(State(state): State<RelayServerState>) -> Response {
     short_overlay(&state, "audio")
 }
 
+async fn youtube_overlay(State(state): State<RelayServerState>, headers: HeaderMap) -> Response {
+    // Existing OBS sources may still point at 127.0.0.1; YouTube rejects that Referer.
+    if let Some(response) = redirect_path_off_loopback_ip(&headers, "/youtube") {
+        return response;
+    }
+    short_overlay(&state, "youtube")
+}
+
+async fn obs_visual_page(State(state): State<RelayServerState>, headers: HeaderMap) -> Response {
+    // Composite embeds /youtube; parent must also be localhost for a valid Referer chain.
+    if let Some(response) = redirect_path_off_loopback_ip(&headers, "/obs/visual") {
+        return response;
+    }
+    short_page(&state, OBS_VISUAL_HTML)
+}
+
+async fn obs_audio_page(State(state): State<RelayServerState>) -> Response {
+    short_page(&state, OBS_AUDIO_HTML)
+}
+
+async fn obs_visual_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        OBS_VISUAL_CSS,
+    )
+}
+
+async fn obs_audio_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        OBS_AUDIO_CSS,
+    )
+}
+
+/// YouTube error 150 rejects embeds whose page Referer is `http://127.0.0.1`.
+/// Serve YouTube-bearing pages only via `http://localhost` (same loopback, accepted Referer).
+fn redirect_path_off_loopback_ip(headers: &HeaderMap, path: &str) -> Option<Response> {
+    let host = headers.get(header::HOST)?.to_str().ok()?;
+    let (hostname, port) = match host.split_once(':') {
+        Some((hostname, port)) => (hostname, Some(port)),
+        None => (host, None),
+    };
+    if !hostname.eq_ignore_ascii_case("127.0.0.1") {
+        return None;
+    }
+    let embed_host = crate::widget::youtube_embed_host();
+    let location = match port.filter(|value| !value.is_empty()) {
+        Some(port) => format!("http://{embed_host}:{port}{path}"),
+        None => format!("http://{embed_host}{path}"),
+    };
+    Some(
+        (
+            StatusCode::TEMPORARY_REDIRECT,
+            [(header::LOCATION, location)],
+        )
+            .into_response(),
+    )
+}
+
 fn short_overlay(state: &RelayServerState, mode: &str) -> Response {
     let html = OVERLAY_HTML.replace(
         "<meta name=\"relay-mode\" content=\"all\">",
@@ -329,24 +465,37 @@ fn short_overlay(state: &RelayServerState, mode: &str) -> Response {
     short_page(state, html)
 }
 
-/// Deliberate trade-off: the short URLs (/medias, /audios, /tts, ...) are
-/// meant to be pasted into OBS without any secret, so this response hands the
-/// relay secret to any local caller via Set-Cookie. The server only binds
-/// 127.0.0.1, so the boundary is "this machine", not "this user": any local
-/// process can obtain the secret. Requiring the secret here would break the
-/// paste-and-go OBS setup.
-fn short_page(state: &RelayServerState, html: impl Into<Body>) -> Response {
+/// Short OBS URLs have no query secret. The page embeds the secret in a meta
+/// tag so overlay JS can authenticate WS/media requests without a host-wide
+/// cookie (cookies on 127.0.0.1 are not port-scoped). A Max-Age=0 Set-Cookie
+/// expires any leftover `relay_secret` cookie from earlier builds.
+fn short_page(state: &RelayServerState, html: impl AsRef<str>) -> Response {
     Response::builder()
         .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
         .header(
             header::SET_COOKIE,
-            format!(
-                "relay_secret={}; Path=/; HttpOnly; SameSite=Strict",
-                state.relay_secret
-            ),
+            "relay_secret=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
         )
-        .body(html.into())
+        .body(inject_relay_secret(html.as_ref(), &state.relay_secret).into())
         .expect("valid short overlay response")
+}
+
+fn inject_relay_secret(html: &str, secret: &str) -> String {
+    if !secret.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || html.contains("name=\"relay-secret\"")
+    {
+        return html.to_owned();
+    }
+    let meta = format!("<meta name=\"relay-secret\" content=\"{secret}\">");
+    if let Some(index) = html.find("</head>") {
+        let mut injected = String::with_capacity(html.len() + meta.len());
+        injected.push_str(&html[..index]);
+        injected.push_str(&meta);
+        injected.push_str(&html[index..]);
+        injected
+    } else {
+        format!("{meta}{html}")
+    }
 }
 
 async fn notification_sound(
@@ -706,9 +855,13 @@ async fn handle_socket(
     };
     let receives_music = output_receives_music(output);
     let receives_media_clock = tracked_clock_source.is_some();
+    let receives_stage_clock = output_receives_stage_clock(output);
+    let reports_stage_clock = output_reports_stage_clock(output);
     let mut reported_busy = false;
+    let mut reported_stage_lane: Option<StageLane> = None;
     let mut relay_rx = state.core.relay_tx.subscribe();
     let mut media_clock_rx = state.media_clock_tx.subscribe();
+    let mut stage_clock_rx = state.stage_clock_tx.subscribe();
     if let Some(output) = output {
         update_output_connection(&state, output, 1).await;
     }
@@ -765,6 +918,20 @@ async fn handle_socket(
         return;
     }
 
+    if receives_stage_clock
+        && send_json(
+            &mut sender,
+            &json!({ "type": "stageClock", "payload": *stage_clock_rx.borrow_and_update() }),
+        )
+        .await
+        .is_err()
+    {
+        if let Some(output) = output {
+            update_output_connection(&state, output, -1).await;
+        }
+        return;
+    }
+
     if receives_music {
         if let Some(playback) = state.core.current_music().await
             && send_json(&mut sender, &json!(RelayEvent::MusicPlay(playback)))
@@ -804,6 +971,11 @@ async fn handle_socket(
                 if changed.is_err() { break; }
                 let clock = *media_clock_rx.borrow_and_update();
                 if send_json(&mut sender, &json!({ "type": "mediaClock", "payload": clock })).await.is_err() { break; }
+            }
+            changed = stage_clock_rx.changed(), if receives_stage_clock => {
+                if changed.is_err() { break; }
+                let clock = *stage_clock_rx.borrow_and_update();
+                if send_json(&mut sender, &json!({ "type": "stageClock", "payload": clock })).await.is_err() { break; }
             }
             incoming = receiver.next() => {
                 match incoming {
@@ -854,6 +1026,41 @@ async fn handle_socket(
                                     release_output_lease(&state, source, &mut reported_busy);
                                 }
                             }
+                            OutputClientMessage::StageClock(report) if reports_stage_clock => {
+                                let granted = apply_stage_clock_report(
+                                    &state,
+                                    report.lane,
+                                    report.busy,
+                                    &mut reported_stage_lane,
+                                );
+                                sync_stage_scheduler(&state).await;
+                                // Rejected busy claims do not change the watch value, so echo
+                                // the clock to this claimant so pending UI can clear/retry.
+                                if report.busy && !granted {
+                                    let clock = stage_clock_state(&state);
+                                    if send_json(
+                                        &mut sender,
+                                        &json!({
+                                            "type": "stageClock",
+                                            "payload": {
+                                                "mediaBusy": clock.media_busy,
+                                                "musicBusy": clock.music_busy,
+                                                "ttsBusy": clock.tts_busy,
+                                                "granted": false,
+                                                "lane": match report.lane {
+                                                    StageLane::Media => "media",
+                                                    StageLane::Tts => "tts",
+                                                },
+                                            }
+                                        }),
+                                    )
+                                    .await
+                                    .is_err()
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
                             _ => {
                                 let _ = sender.send(Message::Close(None)).await;
                                 break;
@@ -870,6 +1077,10 @@ async fn handle_socket(
     }
     if let Some(source) = tracked_clock_source {
         release_output_lease(&state, source, &mut reported_busy);
+    }
+    if let Some(lane) = reported_stage_lane {
+        apply_stage_clock_report(&state, lane, false, &mut reported_stage_lane);
+        sync_stage_scheduler(&state).await;
     }
     if let Some(output) = output {
         update_output_connection(&state, output, -1).await;
@@ -888,7 +1099,7 @@ fn output_connection(role: &str, query: &AccessQuery) -> Option<OutputConnection
     let source = match (role, query.source.as_deref()) {
         ("overlay", None | Some("all")) => OutputSource::All,
         ("overlay", Some("visual")) => OutputSource::Visual,
-        ("overlay", Some("audio")) => OutputSource::Audio,
+        ("overlay", Some("audio") | Some("youtube")) => OutputSource::Audio,
         ("tts", None | Some("tts")) => OutputSource::Tts,
         ("notification", None | Some("notification")) => OutputSource::Notification,
         ("sticker", None | Some("sticker")) => OutputSource::Sticker,
@@ -916,10 +1127,35 @@ fn output_receives_music(output: Option<OutputConnection>) -> bool {
     matches!(
         output,
         Some(OutputConnection {
-            source: OutputSource::Audio | OutputSource::All,
+            // Visual OBS (/medias) needs MusicPlay/Idle hints so GIFs wait for
+            // the jukebox even before the stageClock watch updates arrive.
+            source: OutputSource::Audio
+                | OutputSource::Visual
+                | OutputSource::All
+                | OutputSource::Notification
+                | OutputSource::Tts,
             client: OutputClient::Obs | OutputClient::Widget,
         })
     )
+}
+
+fn output_receives_stage_clock(output: Option<OutputConnection>) -> bool {
+    matches!(
+        output,
+        Some(OutputConnection {
+            source: OutputSource::Visual
+                | OutputSource::Audio
+                | OutputSource::All
+                | OutputSource::Tts
+                | OutputSource::Notification
+                | OutputSource::Sticker,
+            client: OutputClient::Obs | OutputClient::Widget,
+        })
+    )
+}
+
+fn output_reports_stage_clock(output: Option<OutputConnection>) -> bool {
+    output_receives_stage_clock(output)
 }
 
 async fn update_output_connection(
@@ -1018,6 +1254,103 @@ fn broadcast_media_clock(state: &RelayServerState) {
     });
 }
 
+fn stage_clock_state(state: &RelayServerState) -> StageClockState {
+    let counts = state
+        .stage_clock_counts
+        .lock()
+        .expect("stage clock mutex poisoned");
+    StageClockState {
+        media_busy: counts.media_busy > 0,
+        music_busy: counts.music_busy,
+        tts_busy: counts.tts_busy > 0,
+    }
+}
+
+async fn sync_stage_scheduler(state: &RelayServerState) {
+    let clock = stage_clock_state(state);
+    state
+        .core
+        .stage_scheduler
+        .stage_state(clock.media_busy, clock.music_busy, clock.tts_busy)
+        .await;
+}
+
+fn broadcast_stage_clock(state: &RelayServerState) {
+    let next = stage_clock_state(state);
+    // Every ownership change must wake claimants. The public booleans can stay
+    // identical when OBS and the Windows widget overlap on the same media lane.
+    state.stage_clock_tx.send_replace(next);
+}
+
+fn set_stage_music_busy(state: &RelayServerState, busy: bool) {
+    let changed = {
+        let mut counts = state
+            .stage_clock_counts
+            .lock()
+            .expect("stage clock mutex poisoned");
+        if counts.music_busy == busy {
+            false
+        } else {
+            counts.music_busy = busy;
+            true
+        }
+    };
+    if changed {
+        broadcast_stage_clock(state);
+    }
+}
+
+fn apply_stage_clock_report(
+    state: &RelayServerState,
+    lane: StageLane,
+    busy: bool,
+    reported_lane: &mut Option<StageLane>,
+) -> bool {
+    let mut counts = state
+        .stage_clock_counts
+        .lock()
+        .expect("stage clock mutex poisoned");
+    if busy {
+        if *reported_lane == Some(lane) {
+            return true;
+        }
+        // Exclusive stage: media, YouTube, and TTS must never overlap.
+        let blocked = match lane {
+            StageLane::Media => counts.tts_busy > 0 || counts.music_busy,
+            StageLane::Tts => counts.media_busy > 0 || counts.music_busy,
+        };
+        if blocked {
+            return false;
+        }
+        if let Some(previous) = reported_lane.take() {
+            match previous {
+                StageLane::Media => adjust_count(&mut counts.media_busy, -1),
+                StageLane::Tts => adjust_count(&mut counts.tts_busy, -1),
+            }
+        }
+        match lane {
+            StageLane::Media => counts.media_busy = counts.media_busy.saturating_add(1),
+            StageLane::Tts => counts.tts_busy = counts.tts_busy.saturating_add(1),
+        }
+        *reported_lane = Some(lane);
+    } else {
+        let Some(previous) = *reported_lane else {
+            return true;
+        };
+        if previous != lane {
+            return true;
+        }
+        match previous {
+            StageLane::Media => adjust_count(&mut counts.media_busy, -1),
+            StageLane::Tts => adjust_count(&mut counts.tts_busy, -1),
+        }
+        *reported_lane = None;
+    }
+    drop(counts);
+    broadcast_stage_clock(state);
+    true
+}
+
 fn output_sources(source: OutputSource) -> &'static [OutputSource] {
     match source {
         OutputSource::All => &[OutputSource::Visual, OutputSource::Audio],
@@ -1085,6 +1418,7 @@ fn origin_allowed(origin: Option<&HeaderValue>) -> bool {
         return true;
     };
     origin.starts_with("http://127.0.0.1:")
+        || origin.starts_with("http://localhost:")
         || origin == "tauri://localhost"
         || origin == "http://tauri.localhost"
 }
@@ -1098,9 +1432,21 @@ mod tests {
     use crate::{
         config::AppConfig,
         credentials::load_or_create_relay_secret,
-        model::{AuthorIdentity, MediaEvent, MediaKind},
+        model::{AuthorIdentity, MediaEvent, MediaKind, RelayEvent},
         state::{CachedMedia, MediaArtwork, MediaAudio, TtsAudio},
     };
+
+    #[test]
+    fn injects_hex_secret_into_html_head() {
+        let html = "<html><head></head><body></body></html>";
+        assert_eq!(
+            inject_relay_secret(html, "abc123"),
+            "<html><head><meta name=\"relay-secret\" content=\"abc123\"></head><body></body></html>"
+        );
+        assert_eq!(inject_relay_secret(html, "not hex!"), html);
+        let already = "<html><head><meta name=\"relay-secret\" content=\"abc123\"></head></html>";
+        assert_eq!(inject_relay_secret(already, "abc123"), already);
+    }
 
     #[test]
     fn compares_secrets_without_prefix_matches() {
@@ -1123,11 +1469,49 @@ mod tests {
             "http://127.0.0.1:4590"
         ))));
         assert!(origin_allowed(Some(&HeaderValue::from_static(
+            "http://localhost:4590"
+        ))));
+        assert!(origin_allowed(Some(&HeaderValue::from_static(
             "http://tauri.localhost"
         ))));
         assert!(!origin_allowed(Some(&HeaderValue::from_static(
             "https://example.com"
         ))));
+    }
+
+    #[test]
+    fn youtube_widget_pages_use_localhost_referrer_host() {
+        // YouTube rejects embeds whose Referer is http://127.0.0.1 (error 150)
+        // but accepts http://localhost on the same loopback interface.
+        assert!(crate::widget::youtube_embed_host().starts_with("localhost"));
+        assert_ne!(crate::widget::youtube_embed_host(), "127.0.0.1");
+    }
+
+    #[test]
+    fn youtube_loopback_ip_redirects_to_localhost() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:4590"));
+        let response = redirect_path_off_loopback_ip(&headers, "/youtube").expect("redirect");
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            response.headers().get(header::LOCATION).unwrap(),
+            "http://localhost:4590/youtube"
+        );
+
+        let mut localhost = HeaderMap::new();
+        localhost.insert(header::HOST, HeaderValue::from_static("localhost:4590"));
+        assert!(redirect_path_off_loopback_ip(&localhost, "/youtube").is_none());
+    }
+
+    #[test]
+    fn obs_visual_loopback_ip_redirects_to_localhost() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("127.0.0.1:4590"));
+        let response = redirect_path_off_loopback_ip(&headers, "/obs/visual").expect("redirect");
+        assert_eq!(
+            response.headers().get(header::LOCATION).unwrap(),
+            "http://localhost:4590/obs/visual"
+        );
     }
 
     #[test]
@@ -1185,14 +1569,49 @@ mod tests {
         );
         let visual_response = http_response(port, "/medias");
         assert!(visual_response.starts_with("HTTP/1.1 200"));
-        assert!(visual_response.contains("relay_secret="));
+        assert!(visual_response.contains(&format!(
+            "<meta name=\"relay-secret\" content=\"{secret}\">"
+        )));
+        assert!(!visual_response.contains(&format!("relay_secret={secret}")));
+        assert!(
+            visual_response.to_ascii_lowercase().contains(
+                "set-cookie: relay_secret=; path=/; httponly; samesite=strict; max-age=0"
+            )
+        );
         assert!(visual_response.contains("content=\"visual\""));
         assert!(visual_response.contains("https://*.discordapp.net"));
         assert!(visual_response.contains("https://*.klipy.com"));
         assert!(visual_response.contains("https://i.ytimg.com"));
+        let visual_headers = visual_response.to_ascii_lowercase();
+        assert!(visual_headers.contains("referrer-policy: strict-origin-when-cross-origin"));
+        assert!(!visual_headers.contains("referrer-policy: no-referrer"));
         let audio_response = http_response(port, "/audios");
         assert!(audio_response.starts_with("HTTP/1.1 200"));
         assert!(audio_response.contains("content=\"audio\""));
+        // /youtube on 127.0.0.1 must redirect: YouTube rejects that Referer (error 150).
+        let youtube_redirect = http_response(port, "/youtube");
+        assert!(youtube_redirect.starts_with("HTTP/1.1 307"));
+        assert!(youtube_redirect.contains(&format!("location: http://localhost:{port}/youtube")));
+        let youtube_response = http_response_with_host(port, "/youtube", "localhost");
+        assert!(youtube_response.starts_with("HTTP/1.1 200"));
+        assert!(youtube_response.contains("content=\"youtube\""));
+        let obs_visual_redirect = http_response(port, "/obs/visual");
+        assert!(obs_visual_redirect.starts_with("HTTP/1.1 307"));
+        assert!(
+            obs_visual_redirect.contains(&format!("location: http://localhost:{port}/obs/visual"))
+        );
+        let obs_visual = http_response_with_host(port, "/obs/visual", "localhost");
+        assert!(obs_visual.starts_with("HTTP/1.1 200"));
+        assert!(obs_visual.contains("src=\"/medias\""));
+        assert!(obs_visual.contains("src=\"/stickers\""));
+        assert!(obs_visual.contains("src=\"/notifications\""));
+        assert!(obs_visual.contains("src=\"/youtube\""));
+        assert!(obs_visual.contains("allowtransparency=\"true\""));
+        assert!(!obs_visual.contains("color-scheme\" content=\"light only\""));
+        let obs_audio = http_response(port, "/obs/audio");
+        assert!(obs_audio.starts_with("HTTP/1.1 200"));
+        assert!(obs_audio.contains("src=\"/audios\""));
+        assert!(obs_audio.contains("src=\"/tts\""));
         assert!(http_status(port, "/tts").starts_with("HTTP/1.1 200"));
         assert!(http_status(port, "/tts?secret=wrong").starts_with("HTTP/1.1 401"));
         assert!(http_status(port, &format!("/tts?secret={secret}")).starts_with("HTTP/1.1 200"));
@@ -1276,6 +1695,8 @@ mod tests {
             );
             let clock = client.next().await.unwrap().unwrap();
             assert!(clock.to_text().unwrap().contains("\"type\":\"mediaClock\""));
+            let stage = client.next().await.unwrap().unwrap();
+            assert!(stage.to_text().unwrap().contains("\"type\":\"stageClock\""));
             clients.push(client);
         }
         let (mut preview_client, _) = tokio_tungstenite::connect_async(format!(
@@ -1307,6 +1728,8 @@ mod tests {
                 .unwrap()
                 .contains("\"type\":\"appearance\"")
         );
+        let stage = widget_client.next().await.unwrap().unwrap();
+        assert!(stage.to_text().unwrap().contains("\"type\":\"stageClock\""));
         clients.push(widget_client);
         let (mut tts_client, _) = tokio_tungstenite::connect_async(format!(
             "ws://127.0.0.1:{port}/ws?role=tts&source=tts&client=obs&secret={secret}"
@@ -1322,6 +1745,8 @@ mod tests {
                 .unwrap()
                 .contains("\"type\":\"appearance\"")
         );
+        let stage = tts_client.next().await.unwrap().unwrap();
+        assert!(stage.to_text().unwrap().contains("\"type\":\"stageClock\""));
         clients.push(tts_client);
         let (mut notification_client, _) = tokio_tungstenite::connect_async(format!(
             "ws://127.0.0.1:{port}/ws?role=notification&source=notification&client=obs&secret={secret}"
@@ -1337,10 +1762,12 @@ mod tests {
                 .unwrap()
                 .contains("\"type\":\"appearance\"")
         );
+        let stage = notification_client.next().await.unwrap().unwrap();
+        assert!(stage.to_text().unwrap().contains("\"type\":\"stageClock\""));
         clients.push(notification_client);
 
         for index in 0..300 {
-            core.publish_media(MediaEvent {
+            let event = MediaEvent {
                 kind: MediaKind::Image,
                 url: format!("https://cdn.discordapp.com/test/{index}.png"),
                 proxy_url: format!("https://media.discordapp.net/test/{index}.png"),
@@ -1358,8 +1785,13 @@ mod tests {
                 },
                 timestamp: index,
                 message_id: format!("10000000000000{index:04}"),
-            })
-            .await;
+            };
+            {
+                let mut history = core.history.write().await;
+                history.push_front(event.clone());
+                history.truncate(crate::state::HISTORY_LIMIT);
+            }
+            let _ = core.relay_tx.send(RelayEvent::Media(event));
         }
 
         for client in &mut clients {
@@ -1459,6 +1891,120 @@ mod tests {
         send_test_clock(&mut audio, false).await;
         let audio_idle = next_test_event(&mut audio, "mediaClock").await;
         assert_eq!(audio_idle["payload"]["audioBusy"], false);
+
+        stop_server(&core).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn coordinates_media_and_tts_stage_clock() {
+        let port = free_local_port();
+        let directory = tempfile::tempdir().unwrap();
+        let core = AppCore::load(directory.path().join("config.json")).unwrap();
+        core.set_config(AppConfig {
+            port,
+            ..AppConfig::default()
+        })
+        .await
+        .unwrap();
+        start_server(core.clone()).await.unwrap();
+        let secret = load_or_create_relay_secret().unwrap();
+
+        let mut overlay = connect_test_output(port, &secret, "all").await;
+        let overlay_stage = next_test_event(&mut overlay, "stageClock").await;
+        assert_eq!(overlay_stage["payload"]["mediaBusy"], false);
+        assert_eq!(overlay_stage["payload"]["musicBusy"], false);
+        assert_eq!(overlay_stage["payload"]["ttsBusy"], false);
+
+        let (mut notification, _) = tokio_tungstenite::connect_async(format!(
+            "ws://127.0.0.1:{port}/ws?role=notification&source=notification&client=widget&secret={secret}"
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            next_test_event(&mut notification, "config").await["type"],
+            "config"
+        );
+        assert_eq!(
+            next_test_event(&mut notification, "appearance").await["type"],
+            "appearance"
+        );
+        let notification_stage = next_test_event(&mut notification, "stageClock").await;
+        assert_eq!(notification_stage["payload"]["mediaBusy"], false);
+        assert_eq!(notification_stage["payload"]["musicBusy"], false);
+        assert_eq!(notification_stage["payload"]["ttsBusy"], false);
+
+        notification
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "stageClock", "payload": { "lane": "tts", "busy": true } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        let busy = next_test_event(&mut overlay, "stageClock").await;
+        assert_eq!(busy["payload"]["ttsBusy"], true);
+        assert_eq!(busy["payload"]["mediaBusy"], false);
+        let busy = next_test_event(&mut notification, "stageClock").await;
+        assert_eq!(busy["payload"]["ttsBusy"], true);
+
+        overlay
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "stageClock", "payload": { "lane": "media", "busy": true } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        // Media claim is rejected while TTS holds the exclusive stage.
+        let rejected = next_test_event(&mut overlay, "stageClock").await;
+        assert_eq!(rejected["payload"]["mediaBusy"], false);
+        assert_eq!(rejected["payload"]["ttsBusy"], true);
+        assert_eq!(rejected["payload"]["granted"], false);
+
+        notification
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "stageClock", "payload": { "lane": "tts", "busy": false } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        let idle = next_test_event(&mut overlay, "stageClock").await;
+        assert_eq!(idle["payload"]["ttsBusy"], false);
+        let idle = next_test_event(&mut notification, "stageClock").await;
+        assert_eq!(idle["payload"]["ttsBusy"], false);
+
+        overlay
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "stageClock", "payload": { "lane": "media", "busy": true } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        let media_only = next_test_event(&mut overlay, "stageClock").await;
+        assert_eq!(media_only["payload"]["mediaBusy"], true);
+        assert_eq!(media_only["payload"]["ttsBusy"], false);
+        let media_only = next_test_event(&mut notification, "stageClock").await;
+        assert_eq!(media_only["payload"]["mediaBusy"], true);
+        assert_eq!(media_only["payload"]["ttsBusy"], false);
+
+        let mut peer_overlay = connect_test_output(port, &secret, "all").await;
+        let peer_initial = next_test_event(&mut peer_overlay, "stageClock").await;
+        assert_eq!(peer_initial["payload"]["mediaBusy"], true);
+        peer_overlay
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "stageClock", "payload": { "lane": "media", "busy": true } })
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        // A same-lane grant must wake the claimant even though the global
+        // mediaBusy boolean was already true because another output owns it.
+        let peer_grant = next_test_event(&mut peer_overlay, "stageClock").await;
+        assert_eq!(peer_grant["payload"]["mediaBusy"], true);
+        assert_eq!(peer_grant["payload"]["ttsBusy"], false);
 
         stop_server(&core).await;
     }
@@ -1580,10 +2126,14 @@ mod tests {
     }
 
     fn http_response(port: u16, path: &str) -> String {
+        http_response_with_host(port, path, HOST)
+    }
+
+    fn http_response_with_host(port: u16, path: &str, hostname: &str) -> String {
         let mut stream = std::net::TcpStream::connect((HOST, port)).unwrap();
         write!(
             stream,
-            "GET {path} HTTP/1.1\r\nHost: {HOST}:{port}\r\nConnection: close\r\n\r\n"
+            "GET {path} HTTP/1.1\r\nHost: {hostname}:{port}\r\nConnection: close\r\n\r\n"
         )
         .unwrap();
         let mut response = String::new();

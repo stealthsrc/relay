@@ -15,7 +15,46 @@ use crate::{
 
 const WIDGET_LABEL: &str = "widget";
 const ASPECT_RATIO: f64 = 16.0 / 9.0;
+/// Host used by Windows widgets so YouTube IFrame embeds receive an accepted Referer.
+/// YouTube error 150 rejects `http://127.0.0.1` even on loopback; `http://localhost` works.
+pub(crate) const YOUTUBE_EMBED_HOST: &str = "localhost";
 static WIDGET_TRANSITION: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+fn establish_ephemeral_ownership(marker: &std::sync::atomic::AtomicBool, persistent: bool) -> bool {
+    let owns_cleanup = !persistent;
+    marker.store(owns_cleanup, Ordering::Relaxed);
+    owns_cleanup
+}
+
+fn clear_ephemeral_ownership(marker: &std::sync::atomic::AtomicBool) {
+    marker.store(false, Ordering::Relaxed);
+}
+
+fn complete_persistent_takeover(marker: &std::sync::atomic::AtomicBool) {
+    clear_ephemeral_ownership(marker);
+}
+
+fn claim_ephemeral_ownership(marker: &std::sync::atomic::AtomicBool) -> bool {
+    marker.swap(false, Ordering::Relaxed)
+}
+
+fn restore_ephemeral_ownership(marker: &std::sync::atomic::AtomicBool) {
+    marker.store(true, Ordering::Relaxed);
+}
+
+fn rollback_ephemeral_ownership(
+    marker: &std::sync::atomic::AtomicBool,
+    owns_cleanup: bool,
+    window_may_be_visible: bool,
+) {
+    if owns_cleanup && !window_may_be_visible {
+        clear_ephemeral_ownership(marker);
+    }
+}
+
+pub(crate) fn youtube_embed_host() -> &'static str {
+    YOUTUBE_EMBED_HOST
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,12 +91,16 @@ pub async fn toggle(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> 
         .unwrap_or(false);
 
     if is_visible {
-        update_visibility(&core, false).await?;
         if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+            flush_live_position(&window, &core).await?;
+            update_visibility(&core, false).await?;
             window.eval("window.setWidgetVisible?.(false);")?;
             window.hide()?;
+        } else {
+            update_visibility(&core, false).await?;
         }
         wait_for_widget_disconnect(&core).await;
+        complete_persistent_takeover(&core.widget_ephemeral_wake);
     } else {
         return show_unlocked(app, core, true).await;
     }
@@ -69,6 +112,65 @@ pub async fn show(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Result<Wi
     show_unlocked(app, core, focus).await
 }
 
+/// Show the native media widget without persisting its visibility preference.
+pub async fn wake_ephemeral(app: &AppHandle, core: Arc<AppCore>) -> Result<WidgetState> {
+    let _transition = WIDGET_TRANSITION.lock().await;
+    let persistently_visible = core.config.read().await.widget_visible;
+    let owns_cleanup =
+        establish_ephemeral_ownership(&core.widget_ephemeral_wake, persistently_visible);
+    let window = match ensure_window(app, core.clone()).await {
+        Ok(window) => window,
+        Err(error) => {
+            rollback_ephemeral_ownership(&core.widget_ephemeral_wake, owns_cleanup, false);
+            return Err(error);
+        }
+    };
+    if let Err(error) = window.show() {
+        let window_may_be_visible = window.hide().is_err() || window.is_visible().unwrap_or(true);
+        rollback_ephemeral_ownership(
+            &core.widget_ephemeral_wake,
+            owns_cleanup,
+            window_may_be_visible,
+        );
+        return Err(error.into());
+    }
+    if let Err(error) = window.eval("window.setWidgetVisible?.(true);") {
+        let window_may_be_visible = window.hide().is_err() || window.is_visible().unwrap_or(true);
+        rollback_ephemeral_ownership(
+            &core.widget_ephemeral_wake,
+            owns_cleanup,
+            window_may_be_visible,
+        );
+        return Err(error.into());
+    }
+    Ok(state(app, &core).await)
+}
+
+/// Hide only a media widget that music playback woke ephemerally.
+pub async fn dismiss_ephemeral_if_idle(
+    app: &AppHandle,
+    core: Arc<AppCore>,
+) -> Result<Option<WidgetState>> {
+    let _transition = WIDGET_TRANSITION.lock().await;
+    if !claim_ephemeral_ownership(&core.widget_ephemeral_wake) {
+        return Ok(None);
+    }
+    if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+        if let Err(error) = flush_live_position(&window, &core).await {
+            restore_ephemeral_ownership(&core.widget_ephemeral_wake);
+            return Err(error);
+        }
+        let visibility_result = window.eval("window.setWidgetVisible?.(false);");
+        let hide_result = window.hide();
+        if visibility_result.is_err() || hide_result.is_err() {
+            restore_ephemeral_ownership(&core.widget_ephemeral_wake);
+        }
+        visibility_result?;
+        hide_result?;
+    }
+    Ok(Some(state(app, &core).await))
+}
+
 async fn show_unlocked(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Result<WidgetState> {
     let window = ensure_window(app, core.clone()).await?;
     window.show()?;
@@ -77,6 +179,7 @@ async fn show_unlocked(app: &AppHandle, core: Arc<AppCore>, focus: bool) -> Resu
         let _ = window.set_focus();
     }
     update_visibility(&core, true).await?;
+    complete_persistent_takeover(&core.widget_ephemeral_wake);
     Ok(state(app, &core).await)
 }
 
@@ -92,6 +195,9 @@ async fn wait_for_widget_disconnect(core: &Arc<AppCore>) {
 }
 
 pub async fn set_locked(app: &AppHandle, core: Arc<AppCore>, locked: bool) -> Result<WidgetState> {
+    if locked && let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+        flush_live_position(&window, &core).await?;
+    }
     core.update_config(|config| config.widget_locked = locked)
         .await?;
     if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
@@ -261,6 +367,11 @@ fn watch_geometry(window: &WebviewWindow, core: Arc<AppCore>) {
     });
 }
 
+fn write_position(config: &mut crate::config::AppConfig, position: PhysicalPosition<i32>) {
+    config.widget_x = Some(position.x);
+    config.widget_y = Some(position.y);
+}
+
 fn persist_position(core: Arc<AppCore>, position: PhysicalPosition<i32>) {
     let generation = core.widget_move_generation.fetch_add(1, Ordering::Relaxed) + 1;
     tauri::async_runtime::spawn(async move {
@@ -269,12 +380,19 @@ fn persist_position(core: Arc<AppCore>, position: PhysicalPosition<i32>) {
             return;
         }
         let _ = core
-            .update_config(|config| {
-                config.widget_x = Some(position.x);
-                config.widget_y = Some(position.y);
-            })
+            .update_config(|config| write_position(config, position))
             .await;
     });
+}
+
+async fn flush_live_position(window: &WebviewWindow, core: &Arc<AppCore>) -> Result<()> {
+    let Ok(position) = window.outer_position() else {
+        return Ok(());
+    };
+    core.widget_move_generation.fetch_add(1, Ordering::Relaxed);
+    core.update_config(|config| write_position(config, position))
+        .await?;
+    Ok(())
 }
 
 fn persist_size(core: Arc<AppCore>, window: &WebviewWindow, size: PhysicalSize<u32>) {
@@ -410,7 +528,8 @@ async fn widget_url(core: &Arc<AppCore>) -> Result<String> {
     let secret = load_or_create_relay_secret()?;
     let preferences = core.interface_preferences.read().await;
     Ok(format!(
-        "http://127.0.0.1:{}/overlay?secret={secret}&widget=1&locked={}&lang={}",
+        "http://{}:{}/overlay?secret={secret}&widget=1&locked={}&lang={}",
+        youtube_embed_host(),
         config.port,
         if config.widget_locked { 1 } else { 0 },
         preferences.language,
@@ -420,6 +539,12 @@ async fn widget_url(core: &Arc<AppCore>) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn youtube_embed_host_avoids_loopback_ip_referrer() {
+        assert_eq!(youtube_embed_host(), "localhost");
+    }
 
     #[test]
     fn clamps_media_widget_size_to_the_screen_and_ratio() {
@@ -431,5 +556,65 @@ mod tests {
             clamp_logical_size(900.0, 400.0, 1_920.0, 1_080.0, false),
             (900.0, 400.0)
         );
+    }
+
+    #[test]
+    fn media_widget_position_flush_writes_the_live_physical_coordinates() {
+        let mut config = crate::config::AppConfig::default();
+        write_position(&mut config, PhysicalPosition::new(2140, 72));
+        assert_eq!(config.widget_x, Some(2140));
+        assert_eq!(config.widget_y, Some(72));
+    }
+
+    #[test]
+    fn hidden_wake_claims_ownership_but_persistent_visibility_does_not() {
+        let marker = AtomicBool::new(false);
+
+        assert!(establish_ephemeral_ownership(&marker, false));
+        assert!(marker.load(Ordering::Relaxed));
+        assert!(!establish_ephemeral_ownership(&marker, true));
+        assert!(!marker.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn ownership_is_retained_until_persistent_takeover_completes() {
+        let marker = AtomicBool::new(true);
+
+        assert!(marker.load(Ordering::Relaxed));
+        complete_persistent_takeover(&marker);
+
+        assert!(!marker.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn idle_claim_consumes_ephemeral_ownership() {
+        let marker = AtomicBool::new(true);
+
+        assert!(claim_ephemeral_ownership(&marker));
+        assert!(!marker.load(Ordering::Relaxed));
+        assert!(!claim_ephemeral_ownership(&marker));
+    }
+
+    #[test]
+    fn failed_transition_restores_ephemeral_ownership() {
+        let marker = AtomicBool::new(true);
+        assert!(claim_ephemeral_ownership(&marker));
+
+        restore_ephemeral_ownership(&marker);
+
+        assert!(marker.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn failed_wake_rolls_back_only_before_the_window_can_be_visible() {
+        let marker = AtomicBool::new(false);
+        assert!(establish_ephemeral_ownership(&marker, false));
+
+        rollback_ephemeral_ownership(&marker, true, false);
+        assert!(!marker.load(Ordering::Relaxed));
+
+        assert!(establish_ephemeral_ownership(&marker, false));
+        rollback_ephemeral_ownership(&marker, true, true);
+        assert!(marker.load(Ordering::Relaxed));
     }
 }

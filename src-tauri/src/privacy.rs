@@ -33,15 +33,6 @@ const REGEX_DFA_SIZE_LIMIT: usize = 256 * 1024;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum SuspiciousPolicy {
-    Allow,
-    #[default]
-    Review,
-    Block,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub enum ProtectionLevel {
     #[default]
     Balanced,
@@ -1608,114 +1599,6 @@ fn coordinate_signal(text: &str) -> Option<PrivacyClassification> {
     })
 }
 
-#[allow(dead_code)]
-fn partial_address_signal(text: &str) -> bool {
-    static HOUSE_NUMBER: OnceLock<Regex> = OnceLock::new();
-    let house_number =
-        HOUSE_NUMBER.get_or_init(|| Regex::new(r"\d{1,6}").expect("valid house number matcher"));
-    const STREET_PREFIXES: &[&str] = &[
-        "street",
-        "rue",
-        "road",
-        "avenue",
-        "boulevard",
-        "drive",
-        "lane",
-        "route",
-        "way",
-        "place",
-        "chemin",
-        "allee",
-    ];
-    for number in house_number.find_iter(text) {
-        let before = text[..number.start()].chars().next_back();
-        let after = text[number.end()..].chars().next();
-        if before.is_some_and(char::is_alphanumeric) || after.is_some_and(char::is_numeric) {
-            continue;
-        }
-        let component = address_component(&text[number.end()..]);
-        if component
-            .chars()
-            .filter(|character| character.is_alphabetic())
-            .count()
-            < 3
-        {
-            continue;
-        }
-        if STREET_PREFIXES
-            .iter()
-            .any(|prefix| component.starts_with(prefix))
-        {
-            return true;
-        }
-        let prefix = &text[..number.start()];
-        if (is_leading_address_fragment(prefix) && !is_obvious_non_address_component(&component))
-            || has_address_prefix(prefix)
-        {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_leading_address_fragment(prefix: &str) -> bool {
-    normalize_rule_words(prefix).is_empty()
-}
-
-fn is_obvious_non_address_component(component: &str) -> bool {
-    matches!(
-        component,
-        "minute"
-            | "minutes"
-            | "seconde"
-            | "secondes"
-            | "second"
-            | "seconds"
-            | "heure"
-            | "heures"
-            | "hour"
-            | "hours"
-            | "jour"
-            | "jours"
-            | "day"
-            | "days"
-            | "semaine"
-            | "semaines"
-            | "week"
-            | "weeks"
-            | "mois"
-            | "month"
-            | "months"
-            | "an"
-            | "ans"
-            | "year"
-            | "years"
-            | "euro"
-            | "euros"
-            | "dollar"
-            | "dollars"
-            | "kilometre"
-            | "kilometres"
-            | "kilometer"
-            | "kilometers"
-    )
-}
-
-fn address_component(value: &str) -> String {
-    let mut compact = String::new();
-    for token in value.split_whitespace().take(8) {
-        let normalized = normalize_compact(token);
-        if normalized.is_empty() {
-            continue;
-        }
-        compact.push_str(&normalized);
-        if normalized.chars().count() >= 3 {
-            break;
-        }
-    }
-    compact
-}
-
 fn has_address_prefix(value: &str) -> bool {
     normalize_rule_words(value)
         .iter()
@@ -2182,9 +2065,6 @@ pub fn scoped_config_for_roles(config: &AppConfig, message_role_ids: &[String]) 
 pub fn config_signature(config: &AppConfig) -> u64 {
     let mut hasher = DefaultHasher::new();
     config.privacy_scan_enabled.hash(&mut hasher);
-    (config.privacy_suspicious_policy as u8).hash(&mut hasher);
-    config.privacy_suspicious_threshold.hash(&mut hasher);
-    config.privacy_sensitive_threshold.hash(&mut hasher);
     config.privacy_similarity_boost.hash(&mut hasher);
     config.privacy_protection_level.hash(&mut hasher);
     config.privacy_block_threshold.hash(&mut hasher);

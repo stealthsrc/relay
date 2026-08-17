@@ -91,6 +91,7 @@ pub struct AudioControlEvent {
 pub enum MusicPlaybackMode {
     Preview,
     Full,
+    Custom,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -106,6 +107,7 @@ pub struct MusicPlaybackEvent {
     pub start_seconds: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_seconds: Option<u64>,
+    pub requested_by: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -249,7 +251,7 @@ pub struct ServerStatus {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InterfacePreferences {
     pub language: String,
@@ -277,6 +279,8 @@ pub enum RelayEvent {
     AudioControl(AudioControlEvent),
     MusicPlay(MusicPlaybackEvent),
     MusicStop(MusicStopEvent),
+    /// Nothing left in the music queue; overlays may resume media.
+    MusicIdle,
     Sticker(StickerEvent),
     Tts(TtsEvent),
     TestOutput(Box<OutputTestEvent>),
