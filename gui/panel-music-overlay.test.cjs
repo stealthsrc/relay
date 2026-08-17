@@ -3,9 +3,9 @@ const fs = require("node:fs");
 const test = require("node:test");
 const vm = require("node:vm");
 
-const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8");
+const panelSource = fs.readFileSync(__dirname + "/panel.js", "utf8").replace(/\r\n/g, "\n");
 const panelHtml = fs.readFileSync(__dirname + "/panel.html", "utf8");
-const commandsSource = fs.readFileSync(__dirname + "/../src-tauri/src/commands.rs", "utf8");
+const commandsSource = fs.readFileSync(__dirname + "/../src-tauri/src/commands.rs", "utf8").replace(/\r\n/g, "\n");
 
 function sourceBetween(source, start, end) {
   const startIndex = source.indexOf(start);
