@@ -53,6 +53,7 @@ jobs:
 
       - name: Test interface and browser sources
         shell: pwsh
-        run: >
-          node --test gui/*.test.cjs overlay/*.test.cjs
-          notifications/*.test.cjs stickers/*.test.cjs tts/*.test.cjs
+        run: |
+          $testFiles = Get-ChildItem -Path gui, overlay, notifications, stickers, tts -Filter *.test.cjs -File |
+            ForEach-Object { $_.FullName }
+          node --test $testFiles
