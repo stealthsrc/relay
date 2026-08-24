@@ -610,6 +610,14 @@ mod external_link_tests {
     }
 
     #[test]
+    fn opens_the_creator_profile_on_github() {
+        assert_eq!(
+            resolve_external_link("github"),
+            Ok("https://github.com/stealthsrc".to_owned())
+        );
+    }
+
+    #[test]
     fn rejects_untrusted_or_modified_discord_invite_urls() {
         for link in [
             "https://discord.com.evil.example/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands",
