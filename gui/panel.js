@@ -1622,7 +1622,7 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.3.1";
+let currentAppVersion = "1.3.2";
 let bundledChangelogMarkdown = "";
 let latestUpdate;
 let updateUiState = { kind: "idle" };

@@ -513,7 +513,7 @@ fn resolve_external_link(link: &str) -> Result<String, String> {
     let url = match link {
         "discord" => "https://discord.com/developers/applications",
         "obs" => "https://obsproject.com/kb/browser-source",
-        "github" => "https://github.com/imnotStealthy",
+        "github" => "https://github.com/stealthsrc",
         "relay-releases" => "https://github.com/imnotStealthy/relay/releases/latest",
         "relay-changelog" => "https://github.com/imnotStealthy/relay/blob/main/CHANGELOG.md",
         "google-cloud" => "https://console.cloud.google.com/",
@@ -606,6 +606,14 @@ mod external_link_tests {
         assert_eq!(
             resolve_external_link("relay-changelog"),
             Ok("https://github.com/imnotStealthy/relay/blob/main/CHANGELOG.md".to_owned())
+        );
+    }
+
+    #[test]
+    fn opens_the_creator_profile_on_github() {
+        assert_eq!(
+            resolve_external_link("github"),
+            Ok("https://github.com/stealthsrc".to_owned())
         );
     }
 
