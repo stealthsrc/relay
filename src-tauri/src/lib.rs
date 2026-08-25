@@ -644,15 +644,25 @@ mod external_link_tests {
 
 #[cfg(target_os = "windows")]
 fn remove_titlebar_identity(window: &WebviewWindow) -> windows::core::Result<()> {
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-        SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WS_EX_DLGMODALFRAME,
+        GWL_EXSTYLE, GetWindowLongPtrW, ICON_BIG, ICON_SMALL, ICON_SMALL2, SWP_FRAMECHANGED,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetWindowLongPtrW,
+        SetWindowPos, WM_SETICON, WS_EX_DLGMODALFRAME,
     };
 
     let hwnd = main_window_handle(window)?;
     unsafe {
         let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | WS_EX_DLGMODALFRAME.0 as isize);
+        for icon_type in [ICON_SMALL, ICON_BIG, ICON_SMALL2] {
+            SendMessageW(
+                hwnd,
+                WM_SETICON,
+                Some(WPARAM(icon_type as usize)),
+                Some(LPARAM(0)),
+            );
+        }
         SetWindowPos(
             hwnd,
             None,
