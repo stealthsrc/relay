@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Relay",
+        "title": "",
         "url": "panel.html",
         "width": 1120,
         "height": 760,

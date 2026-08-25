@@ -1626,6 +1626,7 @@ let currentAppVersion = "1.3.2";
 let bundledChangelogMarkdown = "";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
+let titlebarThemeFrame;
 
 function t(key) {
   return regionalTranslations[locale]?.[key] || translations[language][key] || translations.en[key] || key;
@@ -1929,11 +1930,38 @@ function applyLanguage() {
   }
 }
 
+function resolveTitlebarColor(property) {
+  const probe = document.createElement("span");
+  probe.style.color = `var(${property})`;
+  probe.hidden = true;
+  document.body.append(probe);
+  const resolved = window.getComputedStyle(probe).color;
+  probe.remove();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.fillStyle = resolved;
+  context.fillRect(0, 0, 1, 1);
+  return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+
+function syncWindowTheme() {
+  window.cancelAnimationFrame(titlebarThemeFrame);
+  titlebarThemeFrame = window.requestAnimationFrame(() => {
+    const caption = resolveTitlebarColor("--titlebar-bg");
+    const text = resolveTitlebarColor("--titlebar-ink");
+    const border = resolveTitlebarColor("--titlebar-border");
+    invoke("set_window_theme", { theme, caption, text, border }).catch(() => {});
+  });
+}
+
 function applyTheme() {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("relay-theme", theme);
   themeValueElement.textContent = t(theme);
-  invoke("set_window_theme", { theme }).catch(() => {});
+  syncWindowTheme();
 }
 
 function applyDesign() {
@@ -1949,6 +1977,7 @@ function applyDesign() {
     element.style.removeProperty("font-size");
     delete element.dataset.relayBaseFontSize;
   }
+  syncWindowTheme();
 }
 
 function applySidebarLayout() {
@@ -2315,6 +2344,7 @@ function applyPersonalization(sync = true) {
   const color = `rgb(${accentRgb.join(" ")})`;
   document.documentElement.style.setProperty("--accent", color);
   document.documentElement.style.setProperty("--accent-ink", accentInk(accentRgb));
+  syncWindowTheme();
   localStorage.setItem("relay-accent-rgb", JSON.stringify(accentRgb));
   localStorage.setItem("relay-font-scale", String(fontScale));
   renderLanguagePicker();

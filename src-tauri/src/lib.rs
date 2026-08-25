@@ -100,6 +100,8 @@ pub fn run() {
                 .build(app)?;
 
             if let Some(window) = app.get_webview_window("main") {
+                window.set_title("")?;
+                remove_titlebar_identity(&window)?;
                 let window_to_hide = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -486,7 +488,13 @@ fn set_start_with_windows(enabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> {
+fn set_window_theme(
+    window: WebviewWindow,
+    theme: String,
+    caption: [u8; 3],
+    text: [u8; 3],
+    border: [u8; 3],
+) -> Result<(), String> {
     let dark = match theme.as_str() {
         "dark" => true,
         "light" => false,
@@ -495,7 +503,7 @@ fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> 
     window
         .set_theme(Some(if dark { Theme::Dark } else { Theme::Light }))
         .map_err(|error| error.to_string())?;
-    apply_titlebar_theme(&window, dark).map_err(|error| error.to_string())
+    apply_titlebar_theme(&window, caption, text, border).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -635,35 +643,58 @@ mod external_link_tests {
 }
 
 #[cfg(target_os = "windows")]
-fn apply_titlebar_theme(window: &WebviewWindow, dark: bool) -> windows::core::Result<()> {
+fn remove_titlebar_identity(window: &WebviewWindow) -> windows::core::Result<()> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GWL_EXSTYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WS_EX_DLGMODALFRAME,
+    };
+
+    let hwnd = main_window_handle(window)?;
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | WS_EX_DLGMODALFRAME.0 as isize);
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+        )?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn main_window_handle(
+    window: &WebviewWindow,
+) -> windows::core::Result<windows::Win32::Foundation::HWND> {
+    window.hwnd().map_err(|error| {
+        windows::core::Error::new(
+            windows::core::HRESULT(0x80004005_u32 as i32),
+            error.to_string(),
+        )
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn apply_titlebar_theme(
+    window: &WebviewWindow,
+    caption: [u8; 3],
+    text: [u8; 3],
+    border: [u8; 3],
+) -> windows::core::Result<()> {
     use std::{ffi::c_void, mem::size_of};
     use windows::Win32::Graphics::Dwm::{
         DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DwmSetWindowAttribute,
     };
 
-    let hwnd = window.hwnd().map_err(|error| {
-        windows::core::Error::new(
-            windows::core::HRESULT(0x80004005_u32 as i32),
-            error.to_string(),
-        )
-    })?;
-    let (caption, text, border) = if dark {
-        (
-            colorref(0, 0, 0),
-            colorref(245, 245, 241),
-            colorref(0, 0, 0),
-        )
-    } else {
-        (
-            colorref(244, 244, 241),
-            colorref(17, 17, 16),
-            colorref(222, 222, 216),
-        )
-    };
+    let hwnd = main_window_handle(window)?;
     for (attribute, color) in [
-        (DWMWA_CAPTION_COLOR, caption),
-        (DWMWA_TEXT_COLOR, text),
-        (DWMWA_BORDER_COLOR, border),
+        (DWMWA_CAPTION_COLOR, colorref(caption)),
+        (DWMWA_TEXT_COLOR, colorref(text)),
+        (DWMWA_BORDER_COLOR, colorref(border)),
     ] {
         unsafe {
             DwmSetWindowAttribute(
@@ -678,8 +709,8 @@ fn apply_titlebar_theme(window: &WebviewWindow, dark: bool) -> windows::core::Re
 }
 
 #[cfg(target_os = "windows")]
-const fn colorref(red: u32, green: u32, blue: u32) -> u32 {
-    red | (green << 8) | (blue << 16)
+const fn colorref([red, green, blue]: [u8; 3]) -> u32 {
+    red as u32 | ((green as u32) << 8) | ((blue as u32) << 16)
 }
 
 #[tauri::command]
