@@ -79,6 +79,9 @@
   --focus: #807f79;
   --accent: rgb(88 185 137);
   --accent-ink: #07130d;
+  --titlebar-bg: var(--canvas);
+  --titlebar-ink: var(--ink);
+  --titlebar-border: var(--line);
   --sidebar-width: 208px;
   font-family: Bahnschrift, "Segoe UI Variable Text", sans-serif;
   background: var(--canvas);
@@ -3124,6 +3127,8 @@ input[type="range"] {
   --anthropic-orange: #d97757;
   --anthropic-blue: #6a9bcc;
   --anthropic-green: #788c5d;
+  --titlebar-bg: var(--surface);
+  --titlebar-border: var(--line-strong);
   --sidebar-width: 224px;
   font-family: Lora, Georgia, serif;
 }
@@ -3293,6 +3298,9 @@ input[type="range"] {
   --neo-pink: #ff4fb3;
   --neo-blue: #78b9ff;
   --hard-shadow: 7px 7px 0 #15110f;
+  --titlebar-bg: var(--neo-coral);
+  --titlebar-ink: #15110f;
+  --titlebar-border: var(--line);
   --sidebar-width: 196px;
   font-family: Manrope, "Aptos Display", Bahnschrift, sans-serif;
 }
@@ -3557,6 +3565,8 @@ input[type="range"] {
   --success: #247a62;
   --danger: #bf4d4b;
   --focus: var(--accent);
+  --titlebar-bg: color-mix(in srgb, var(--surface) 92%, var(--accent));
+  --titlebar-border: var(--line-strong);
   --sidebar-width: 212px;
   font-family: "Relay Inter", "Segoe UI", sans-serif;
 }
@@ -3677,6 +3687,8 @@ input[type="range"] {
   --success: #23826b;
   --danger: #c65465;
   --focus: var(--accent);
+  --titlebar-bg: color-mix(in srgb, var(--surface) 88%, var(--accent));
+  --titlebar-border: color-mix(in srgb, var(--line) 86%, var(--accent));
   --sidebar-width: 224px;
   --lumen-shadow: 0 18px 48px rgb(25 47 78 / 12%);
   font-family: "Relay DM Sans", "Segoe UI", sans-serif;
