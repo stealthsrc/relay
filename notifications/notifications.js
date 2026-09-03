@@ -546,7 +546,7 @@ function loadMusicYoutubePendingPlayback() {
   startMusicTimePoll();
 }
 
-function finishMusicYoutubePlayback(playbackId, generation, notifyServer = true) {
+function finishMusicYoutubePlayback(playbackId, generation, notifyServer = true, completed = true) {
   if (!playbackId || playbackId !== musicPlaybackId || generation !== musicYoutubeGeneration) {
     return false;
   }
@@ -559,7 +559,7 @@ function finishMusicYoutubePlayback(playbackId, generation, notifyServer = true)
     && target === "widget"
     && socket?.readyState === 1
   ) {
-    socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId } }));
+    socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId, completed } }));
   }
   hideMusicNowPlaying(playbackId);
   return true;
@@ -699,7 +699,7 @@ function showMusicNowPlaying(playback = {}) {
     const visiblePlaybackId = musicPlaybackId;
     const hideGeneration = musicYoutubeGeneration;
     musicHideTimer = window.setTimeout(
-      () => finishMusicYoutubePlayback(visiblePlaybackId, hideGeneration, true),
+      () => finishMusicYoutubePlayback(visiblePlaybackId, hideGeneration, true, false),
       Math.min(600000, Math.max(1000, (durationSeconds + 1) * 1000)),
     );
   }

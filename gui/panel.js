@@ -1225,6 +1225,148 @@ for (const [languageCode, extension] of Object.entries(honeypotExtensionTranslat
   Object.assign(translations[languageCode], extension);
 }
 
+const musicCleanupTranslationKeys = ["musicWelcome", "musicWelcomePlaceholder", "musicWelcomeHelp", "musicCleanupEnabled", "musicCleanupHelp", "musicCleanupPreview", "musicCleanupConfirm", "musicCleanupCancel", "musicCleanupCount", "musicCleanupLimit", "musicCleanupDone", "musicCleanupSaveFirst", "mediaVolumeHelp"];
+const musicCleanupTranslations = {
+  "en": [
+    "Protected welcome message",
+    "Discord message link or ID",
+    "This message is never deleted. Save its link or ID before enabling cleanup.",
+    "Automatically clean music messages",
+    "Requires Manage Messages. Requests disappear after processing; unused results expire after 120 seconds.",
+    "Preview channel cleanup",
+    "Delete these messages",
+    "Cancel",
+    "{count} messages will be deleted. The welcome message and active interactions are preserved.",
+    "Only the latest 1,000 messages were scanned. Run another preview to continue.",
+    "Deleted: {deleted}. Failed: {failed}. Skipped: {skipped}.",
+    "Save the music settings before previewing cleanup.",
+    "Applied to YouTube, video, audio and spoken messages."
+  ],
+  "fr": [
+    "Message d’accueil protégé",
+    "Lien ou identifiant du message Discord",
+    "Ce message ne sera jamais supprimé. Enregistrez son lien ou identifiant avant d’activer le nettoyage.",
+    "Nettoyer automatiquement les messages musicaux",
+    "Nécessite Gérer les messages. Les demandes disparaissent après traitement ; les résultats inutilisés expirent après 120 secondes.",
+    "Prévisualiser le nettoyage du salon",
+    "Supprimer ces messages",
+    "Annuler",
+    "{count} messages seront supprimés. Le message d’accueil et les interactions actives sont conservés.",
+    "Seuls les 1 000 derniers messages ont été examinés. Relancez un aperçu pour continuer.",
+    "Supprimés : {deleted}. Échecs : {failed}. Ignorés : {skipped}.",
+    "Enregistrez les paramètres musique avant de prévisualiser le nettoyage.",
+    "Appliqué à YouTube, aux vidéos, aux audios et aux messages lus."
+  ],
+  "es": [
+    "Mensaje de bienvenida protegido",
+    "Enlace o ID del mensaje de Discord",
+    "Este mensaje nunca se elimina. Guarda su enlace o ID antes de activar la limpieza.",
+    "Limpiar mensajes de música automáticamente",
+    "Requiere Gestionar mensajes. Las solicitudes se eliminan tras procesarse; los resultados sin usar caducan a los 120 segundos.",
+    "Vista previa de la limpieza",
+    "Eliminar estos mensajes",
+    "Cancelar",
+    "Se eliminarán {count} mensajes. Se conservan la bienvenida y las interacciones activas.",
+    "Solo se revisaron los últimos 1.000 mensajes. Repite la vista previa para continuar.",
+    "Eliminados: {deleted}. Fallidos: {failed}. Omitidos: {skipped}.",
+    "Guarda los ajustes de música antes de revisar la limpieza.",
+    "Se aplica a YouTube, vídeos, audio y mensajes hablados."
+  ],
+  "de": [
+    "Geschützte Willkommensnachricht",
+    "Discord-Nachrichtenlink oder ID",
+    "Diese Nachricht wird nie gelöscht. Speichere ihren Link oder ihre ID vor dem Aktivieren.",
+    "Musiknachrichten automatisch bereinigen",
+    "Erfordert Nachrichten verwalten. Anfragen werden nach Verarbeitung gelöscht; ungenutzte Ergebnisse verfallen nach 120 Sekunden.",
+    "Kanalbereinigung prüfen",
+    "Diese Nachrichten löschen",
+    "Abbrechen",
+    "{count} Nachrichten werden gelöscht. Willkommen und aktive Interaktionen bleiben erhalten.",
+    "Nur die letzten 1.000 Nachrichten wurden geprüft. Starte eine weitere Vorschau.",
+    "Gelöscht: {deleted}. Fehler: {failed}. Übersprungen: {skipped}.",
+    "Speichere zuerst die Musikeinstellungen.",
+    "Gilt für YouTube, Video, Audio und gesprochene Nachrichten."
+  ],
+  "ru": [
+    "Защищённое приветственное сообщение",
+    "Ссылка или ID сообщения Discord",
+    "Это сообщение никогда не удаляется. Сохраните ссылку или ID перед включением очистки.",
+    "Автоматически очищать музыкальные сообщения",
+    "Нужно право управления сообщениями. Запросы удаляются после обработки; неиспользованные результаты — через 120 секунд.",
+    "Предпросмотр очистки канала",
+    "Удалить эти сообщения",
+    "Отмена",
+    "Будет удалено сообщений: {count}. Приветствие и активные взаимодействия сохранятся.",
+    "Проверены только последние 1000 сообщений. Повторите предпросмотр для продолжения.",
+    "Удалено: {deleted}. Ошибок: {failed}. Пропущено: {skipped}.",
+    "Сначала сохраните настройки музыки.",
+    "Применяется к YouTube, видео, аудио и озвучиваемым сообщениям."
+  ],
+  "zh": [
+    "受保护的欢迎消息",
+    "Discord 消息链接或 ID",
+    "此消息永不删除。启用清理前请保存其链接或 ID。",
+    "自动清理音乐消息",
+    "需要管理消息权限。请求处理后删除，未使用的搜索结果在 120 秒后过期。",
+    "预览频道清理",
+    "删除这些消息",
+    "取消",
+    "将删除 {count} 条消息。欢迎消息和正在使用的交互会保留。",
+    "仅检查了最近 1000 条消息。再次预览以继续。",
+    "已删除：{deleted}。失败：{failed}。跳过：{skipped}。",
+    "请先保存音乐设置再预览清理。",
+    "应用于 YouTube、视频、音频和语音消息。"
+  ],
+  "ko": [
+    "보호할 환영 메시지",
+    "Discord 메시지 링크 또는 ID",
+    "이 메시지는 삭제하지 않습니다. 정리를 켜기 전에 링크나 ID를 저장하세요.",
+    "음악 메시지 자동 정리",
+    "메시지 관리 권한이 필요합니다. 요청은 처리 후 삭제하며 사용하지 않은 결과는 120초 후 만료됩니다.",
+    "채널 정리 미리 보기",
+    "이 메시지 삭제",
+    "취소",
+    "메시지 {count}개를 삭제합니다. 환영 메시지와 진행 중인 상호작용은 유지합니다.",
+    "최근 메시지 1,000개만 확인했습니다. 계속하려면 다시 미리 보세요.",
+    "삭제: {deleted}. 실패: {failed}. 건너뜀: {skipped}.",
+    "정리를 미리 보기 전에 음악 설정을 저장하세요.",
+    "YouTube, 동영상, 오디오 및 음성 메시지에 적용됩니다."
+  ],
+  "ja": [
+    "保護する案内メッセージ",
+    "Discord メッセージのリンクまたは ID",
+    "このメッセージは削除されません。有効化の前にリンクまたは ID を保存してください。",
+    "音楽メッセージを自動整理",
+    "メッセージ管理権限が必要です。リクエストは処理後、未使用の結果は120秒後に削除されます。",
+    "チャンネル整理をプレビュー",
+    "これらのメッセージを削除",
+    "キャンセル",
+    "{count} 件を削除します。案内と使用中の操作は保持されます。",
+    "最新1,000件のみ確認しました。続けるには再度プレビューしてください。",
+    "削除：{deleted}。失敗：{failed}。スキップ：{skipped}。",
+    "プレビュー前に音楽設定を保存してください。",
+    "YouTube、動画、音声、読み上げメッセージに適用されます。"
+  ],
+  "id": [
+    "Pesan sambutan yang dilindungi",
+    "Tautan atau ID pesan Discord",
+    "Pesan ini tidak pernah dihapus. Simpan tautan atau ID sebelum mengaktifkan pembersihan.",
+    "Bersihkan pesan musik otomatis",
+    "Memerlukan Kelola Pesan. Permintaan dihapus setelah diproses; hasil yang tidak digunakan kedaluwarsa setelah 120 detik.",
+    "Pratinjau pembersihan channel",
+    "Hapus pesan ini",
+    "Batal",
+    "{count} pesan akan dihapus. Pesan sambutan dan interaksi aktif tetap disimpan.",
+    "Hanya 1.000 pesan terbaru yang diperiksa. Ulangi pratinjau untuk melanjutkan.",
+    "Dihapus: {deleted}. Gagal: {failed}. Dilewati: {skipped}.",
+    "Simpan pengaturan musik sebelum melihat pratinjau.",
+    "Berlaku untuk YouTube, video, audio, dan pesan suara."
+  ]
+};
+for (const [language, values] of Object.entries(musicCleanupTranslations)) {
+  Object.assign(translations[language], Object.fromEntries(musicCleanupTranslationKeys.map((key, index) => [key, values[index]])));
+}
+
 const musicExtensionTranslations = {
   en: {},
   fr: {},
@@ -1434,6 +1576,8 @@ const channelElement = $("#channel");
 const refreshChannelsButton = $("#refresh-channels");
 const ttsChannelElement = $("#tts-channel");
 const musicChannelElement = $("#music-channel");
+const musicWelcomeElement = $("#music-welcome-message");
+const musicCleanupEnabledElement = $("#music-cleanup-enabled");
 const honeypotChannelElement = $("#honeypot-channel");
 const honeypotActionElement = $("#honeypot-action");
 const durationElement = $("#duration");
@@ -1640,7 +1784,7 @@ let privacyFilterDraft = "";
 const audioPlaybackTargets = new Map();
 let currentAudioPlayback;
 let nowPlayingArtworkUrl;
-let currentAppVersion = "1.3.2";
+let currentAppVersion = "1.3.3";
 let bundledChangelogMarkdown = "";
 let latestUpdate;
 let updateUiState = { kind: "idle" };
@@ -3038,6 +3182,8 @@ function applyConfig(config) {
   if (ttsChannelElement.value !== (config.ttsChannelId || "")) {
     populateChannels(ttsChannelElement, bootstrap?.channels || [], config.ttsChannelId, t("ttsDisabled"));
   }
+  musicWelcomeElement.value = config.musicWelcomeMessageId || "";
+  musicCleanupEnabledElement.checked = Boolean(config.musicCleanupEnabled);
   musicChannelElement.value = config.musicChannelId || "";
   if (musicChannelElement.value !== (config.musicChannelId || "")) {
     populateChannels(musicChannelElement, bootstrap?.channels || [], config.musicChannelId, t("musicDisabled"));
@@ -3493,6 +3639,8 @@ async function saveConfig(stateElement) {
         watchedChannelId: channelElement.value,
         ttsChannelId: ttsChannelElement.value,
         musicChannelId: musicChannelElement.value,
+        musicWelcomeMessageId: musicWelcomeElement.value.trim(),
+        musicCleanupEnabled: musicCleanupEnabledElement.checked,
         honeypotChannelId: honeypotChannelElement.value,
         honeypotAction: honeypotActionElement.value,
         displayDurationMs: Number(durationElement.value) * 1000,
@@ -3911,6 +4059,55 @@ musicForm.addEventListener("submit", async (event) => {
     musicSaveStateElement.textContent = String(error);
   } finally {
     youtubeApiKeyElement.value = "";
+  }
+});
+
+let musicCleanupToken;
+const musicCleanupStatus = $("#music-cleanup-status");
+const musicCleanupConfirmation = $("#music-cleanup-confirmation");
+const cleanupPreviewButton = $("#music-cleanup-preview");
+const cleanupConfirmButton = $("#music-cleanup-confirm");
+function clearMusicCleanupPreview() {
+  musicCleanupToken = undefined;
+  musicCleanupConfirmation.hidden = true;
+}
+musicForm.addEventListener("input", clearMusicCleanupPreview);
+$("#music-cleanup-cancel").addEventListener("click", () => {
+  clearMusicCleanupPreview();
+  musicCleanupStatus.textContent = "";
+});
+cleanupPreviewButton.addEventListener("click", async () => {
+  clearMusicCleanupPreview();
+  if (dirtyForms.has(musicForm)) {
+    musicCleanupStatus.textContent = t("musicCleanupSaveFirst");
+    return;
+  }
+  cleanupPreviewButton.disabled = true;
+  try {
+    const preview = await invoke("preview_music_cleanup");
+    musicCleanupToken = preview.token;
+    musicCleanupStatus.textContent = t("musicCleanupCount").replace("{count}", preview.count)
+      + (preview.limitReached ? " " + t("musicCleanupLimit") : "");
+    musicCleanupConfirmation.hidden = preview.count === 0;
+  } catch (error) {
+    musicCleanupStatus.textContent = String(error);
+  } finally { cleanupPreviewButton.disabled = false; }
+});
+cleanupConfirmButton.addEventListener("click", async () => {
+  if (!musicCleanupToken) return;
+  const token = musicCleanupToken;
+  clearMusicCleanupPreview();
+  cleanupPreviewButton.disabled = true;
+  cleanupConfirmButton.disabled = true;
+  try {
+    const result = await invoke("confirm_music_cleanup", { token });
+    musicCleanupStatus.textContent = t("musicCleanupDone")
+      .replace("{deleted}", result.deleted).replace("{failed}", result.failed).replace("{skipped}", result.skipped);
+  } catch (error) {
+    musicCleanupStatus.textContent = String(error);
+  } finally {
+    cleanupPreviewButton.disabled = false;
+    cleanupConfirmButton.disabled = false;
   }
 });
 

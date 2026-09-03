@@ -8,6 +8,7 @@ mod custom_commands;
 mod media_compat;
 mod model;
 mod music;
+mod music_cleanup;
 mod music_i18n;
 mod notification_widget;
 mod privacy;
@@ -49,6 +50,7 @@ use crate::{
     },
     config::{DEFAULT_SKIP_SHORTCUT, migrate_legacy_config},
     model::{MediaKind, RelayEvent, ServerStatus},
+    music_cleanup::{confirm_music_cleanup, preview_music_cleanup},
     notification_widget::restore as restore_notification_widget,
     server::start_server,
     state::{AppCore, MediaDeliveryRequest},
@@ -151,6 +153,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            preview_music_cleanup,
+            confirm_music_cleanup,
             get_bootstrap,
             get_widget_bootstrap,
             get_runtime_status,

@@ -503,7 +503,7 @@ function finishYoutubePlayback(playbackId, generation, notifyServer = true) {
     && (outputClient === "obs" || outputClient === "widget")
     && socket?.readyState === 1
   ) {
-    socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId } }));
+    socket.send(JSON.stringify({ type: "musicEnded", payload: { playbackId, completed: true } }));
   }
   youtubePendingPlayback = undefined;
   youtubePlaybackId = undefined;
