@@ -115,13 +115,27 @@ async fn enforce_honeypot_action(
         }
     };
 
-    core.bot_status.write().await.error = match action_result {
-        Ok(()) if dm_delivered => None,
-        Ok(()) => Some(
-            "Compromised account trap acted, but the Discord DM could not be delivered.".into(),
-        ),
-        Err(error) => Some(format!("Compromised account trap action failed: {error}")),
-    };
+    let deletion_failed = message.delete(&context.http).await.is_err();
+    core.bot_status.write().await.error =
+        honeypot_outcome_error(dm_delivered, action_result.is_err(), deletion_failed);
+}
+
+fn honeypot_outcome_error(
+    dm_delivered: bool,
+    action_failed: bool,
+    deletion_failed: bool,
+) -> Option<String> {
+    let mut errors = Vec::new();
+    if !dm_delivered {
+        errors.push("Discord DM could not be delivered.");
+    }
+    if action_failed {
+        errors.push("Kick or ban failed; check the bot's permissions and role position.");
+    }
+    if deletion_failed {
+        errors.push("Message deletion failed; check the bot's Manage Messages permission.");
+    }
+    (!errors.is_empty()).then(|| format!("Compromised account trap: {}", errors.join(" ")))
 }
 
 #[async_trait]
@@ -3334,6 +3348,26 @@ mod tests {
             tts_failure_status("voice unavailable", false),
             Some("Windows TTS failed: voice unavailable".into())
         );
+    }
+
+    #[test]
+    fn honeypot_reports_each_failure_without_masking_other_failures() {
+        for dm_delivered in [false, true] {
+            for action_failed in [false, true] {
+                for deletion_failed in [false, true] {
+                    let error =
+                        honeypot_outcome_error(dm_delivered, action_failed, deletion_failed);
+                    assert_eq!(
+                        error.is_none(),
+                        dm_delivered && !action_failed && !deletion_failed
+                    );
+                    let text = error.unwrap_or_default();
+                    assert_eq!(text.contains("DM could not"), !dm_delivered);
+                    assert_eq!(text.contains("Kick or ban failed"), action_failed);
+                    assert_eq!(text.contains("Message deletion failed"), deletion_failed);
+                }
+            }
+        }
     }
 
     #[test]

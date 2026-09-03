@@ -14,6 +14,42 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 ## [Unreleased]
 
+### English
+
+- Automatically delete the triggering honeypot message after the kick or ban attempt, including when the action fails. Report deletion failures in the bot status.
+
+### Français
+
+- Supprime automatiquement le message déclencheur du honeypot après la tentative de kick ou de ban, même si elle échoue. Signale les échecs de suppression dans l’état du bot.
+
+### Español
+
+- Elimina automáticamente el mensaje que activa la trampa tras intentar expulsar o banear, incluso si la acción falla. Muestra los fallos de eliminación en el estado del bot.
+
+### Deutsch
+
+- Löscht die auslösende Honeypot-Nachricht automatisch nach dem Kick- oder Ban-Versuch, auch wenn dieser fehlschlägt. Zeigt Löschfehler im Bot-Status an.
+
+### Русский
+
+- Автоматически удаляет сообщение, активировавшее ловушку, после попытки исключения или блокировки, даже если она не удалась. Ошибки удаления отображаются в статусе бота.
+
+### 简体中文
+
+- 尝试踢出或封禁后自动删除触发陷阱的消息，即使操作失败也会尝试删除。删除失败会显示在机器人状态中。
+
+### 한국어
+
+- 추방 또는 차단 시도 후 실패 여부와 관계없이 함정을 작동시킨 메시지를 자동으로 삭제합니다. 삭제 실패는 봇 상태에 표시됩니다.
+
+### 日本語
+
+- キックまたは BAN の試行後、処理が失敗してもトラップを作動させたメッセージを自動削除します。削除の失敗は Bot の状態に表示されます。
+
+### Bahasa Indonesia
+
+- Otomatis menghapus pesan pemicu perangkap setelah percobaan kick atau ban, termasuk jika tindakan gagal. Kegagalan penghapusan ditampilkan dalam status bot.
+
 ## [1.3.2] - 2026-09-03
 
 ### English
