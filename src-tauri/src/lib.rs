@@ -1,6 +1,7 @@
 mod artwork;
 mod bot;
 mod changelog;
+mod channel_cleanup;
 mod commands;
 mod config;
 mod credentials;
@@ -8,6 +9,7 @@ mod custom_commands;
 mod media_compat;
 mod model;
 mod music;
+mod music_cleanup;
 mod music_i18n;
 mod notification_widget;
 mod privacy;
@@ -49,6 +51,7 @@ use crate::{
     },
     config::{DEFAULT_SKIP_SHORTCUT, migrate_legacy_config},
     model::{MediaKind, RelayEvent, ServerStatus},
+    music_cleanup::{confirm_music_cleanup, preview_music_cleanup},
     notification_widget::restore as restore_notification_widget,
     server::start_server,
     state::{AppCore, MediaDeliveryRequest},
@@ -151,6 +154,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            preview_music_cleanup,
+            confirm_music_cleanup,
             get_bootstrap,
             get_widget_bootstrap,
             get_runtime_status,
@@ -615,6 +620,14 @@ mod external_link_tests {
     #[test]
     fn accepts_the_generated_discord_invite_url() {
         assert_eq!(resolve_external_link(INVITE), Ok(INVITE.to_owned()));
+    }
+
+    #[test]
+    fn opens_releases_on_the_current_github_account() {
+        assert_eq!(
+            resolve_external_link("relay-releases"),
+            Ok("https://github.com/stealthsrc/relay/releases/latest".to_owned())
+        );
     }
 
     #[test]

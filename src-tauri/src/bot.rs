@@ -13,7 +13,7 @@ use serenity::{
         CreateButton, CreateChannel, CreateCommand, CreateCommandOption, CreateEmbed,
         CreateInputText, CreateInteractionResponse, CreateInteractionResponseMessage,
         CreateMessage, CreateModal, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption,
-        EditInteractionResponse, EventHandler, GatewayIntents, GetMessages, GuildId,
+        EditInteractionResponse, EditMessage, EventHandler, GatewayIntents, GetMessages, GuildId,
         InputTextStyle, Interaction, Message, MessageId, MessageUpdateEvent, ModalInteraction,
         OnlineStatus, PermissionOverwrite, PermissionOverwriteType, Permissions, Ready,
         StickerFormatType, User, UserId,
@@ -37,8 +37,8 @@ use crate::{
         ServerStatus, StickerEvent, TtsRequest, VisualSegment,
     },
     music::{
-        MusicSelection, MusicSkipDecision, MusicStartResult, SearchSelection, SelectionTake,
-        cooldown_wait_seconds, parse_timestamp,
+        MusicSelection, MusicStartResult, SearchSelection, SelectionTake, cooldown_wait_seconds,
+        parse_timestamp,
     },
     music_i18n::{self, MusicStrings},
     privacy,
@@ -56,6 +56,7 @@ const MUSIC_SEARCH_PREFIX: &str = "relay:music:search:";
 const MUSIC_MODE_PREFIX: &str = "relay:music:mode:";
 const MUSIC_CUSTOM_PREFIX: &str = "relay:music:custom:";
 const MUSIC_SKIP_PREFIX: &str = "relay:music:skip:";
+const MUSIC_LOOP_PREFIX: &str = "relay:music:loop:";
 const MUSIC_CUSTOM_START_ID: &str = "start";
 const MUSIC_CUSTOM_END_ID: &str = "end";
 
@@ -115,13 +116,27 @@ async fn enforce_honeypot_action(
         }
     };
 
-    core.bot_status.write().await.error = match action_result {
-        Ok(()) if dm_delivered => None,
-        Ok(()) => Some(
-            "Compromised account trap acted, but the Discord DM could not be delivered.".into(),
-        ),
-        Err(error) => Some(format!("Compromised account trap action failed: {error}")),
-    };
+    let deletion_failed = message.delete(&context.http).await.is_err();
+    core.bot_status.write().await.error =
+        honeypot_outcome_error(dm_delivered, action_result.is_err(), deletion_failed);
+}
+
+fn honeypot_outcome_error(
+    dm_delivered: bool,
+    action_failed: bool,
+    deletion_failed: bool,
+) -> Option<String> {
+    let mut errors = Vec::new();
+    if !dm_delivered {
+        errors.push("Discord DM could not be delivered.");
+    }
+    if action_failed {
+        errors.push("Kick or ban failed; check the bot's permissions and role position.");
+    }
+    if deletion_failed {
+        errors.push("Message deletion failed; check the bot's Manage Messages permission.");
+    }
+    (!errors.is_empty()).then(|| format!("Compromised account trap: {}", errors.join(" ")))
 }
 
 #[async_trait]
@@ -172,7 +187,17 @@ impl EventHandler for Handler {
         let scoped_config = privacy::scoped_config_for_roles(&config, &role_ids);
 
         if !config.music_channel_id.is_empty() && channel_id == config.music_channel_id {
+            if message.id.to_string() == config.music_welcome_message_id {
+                return;
+            }
             handle_music_message(&self.core, &context.http, &message, &scoped_config).await;
+            crate::music_cleanup::delete(
+                &self.core,
+                &context.http,
+                message.channel_id.get(),
+                message.id.get(),
+            )
+            .await;
             return;
         }
 
@@ -704,6 +729,12 @@ impl EventHandler for Handler {
     }
 }
 
+async fn music_notice(core: &Arc<AppCore>, http: &Arc<Http>, channel: ChannelId, text: &str) {
+    if let Ok(reply) = channel.say(http, text).await {
+        crate::music_cleanup::expire_message(core, http, channel.get(), reply.id.get()).await;
+    }
+}
+
 async fn handle_music_message(
     core: &Arc<AppCore>,
     http: &Arc<Http>,
@@ -731,16 +762,13 @@ async fn handle_music_message(
     let api_key = match load_youtube_api_key() {
         Ok(Some(api_key)) => api_key,
         Ok(None) => {
-            let _ = message.channel_id.say(http, strings.not_configured).await;
+            music_notice(core, http, message.channel_id, strings.not_configured).await;
             return;
         }
         Err(_) => {
             core.bot_status.write().await.error =
                 Some("Unable to read the saved YouTube API key.".into());
-            let _ = message
-                .channel_id
-                .say(http, strings.search_unavailable)
-                .await;
+            music_notice(core, http, message.channel_id, strings.search_unavailable).await;
             return;
         }
     };
@@ -752,7 +780,7 @@ async fn handle_music_message(
         if let Some(remaining) = music.search_cooldown_remaining(user_id, now) {
             let seconds = cooldown_wait_seconds(remaining).to_string();
             let reply = music_i18n::fill(strings.search_cooldown, &[("seconds", &seconds)]);
-            let _ = message.channel_id.say(http, reply).await;
+            music_notice(core, http, message.channel_id, &reply).await;
             return;
         }
         // Mark before the API call so failed/retried spam still burns the cooldown.
@@ -769,12 +797,12 @@ async fn handle_music_message(
             } else {
                 strings.search_unavailable
             };
-            let _ = message.channel_id.say(http, reply).await;
+            music_notice(core, http, message.channel_id, reply).await;
             return;
         }
     };
     if results.is_empty() {
-        let _ = message.channel_id.say(http, strings.no_results).await;
+        music_notice(core, http, message.channel_id, strings.no_results).await;
         return;
     }
 
@@ -821,14 +849,15 @@ async fn handle_music_message(
             .placeholder(strings.choose_placeholder),
         )])
         .allowed_mentions(CreateAllowedMentions::new());
-    if message
-        .channel_id
-        .send_message(http, message_builder)
-        .await
-        .is_err()
-    {
-        core.bot_status.write().await.error =
-            Some("Discord rejected the YouTube search results.".into());
+    match message.channel_id.send_message(http, message_builder).await {
+        Ok(reply) => {
+            crate::music_cleanup::expire_message(core, http, reply.channel_id.get(), reply.id.get())
+                .await
+        }
+        Err(_) => {
+            core.bot_status.write().await.error =
+                Some("Discord rejected the YouTube search results.".into())
+        }
     }
 }
 
@@ -885,6 +914,13 @@ async fn handle_music_component(
                     component,
                     &content,
                     music_mode_components(&selection_id, duration_seconds, &strings),
+                )
+                .await;
+                crate::music_cleanup::delete(
+                    core,
+                    &context.http,
+                    component.channel_id.get(),
+                    component.message.id.get(),
                 )
                 .await;
             }
@@ -1068,14 +1104,59 @@ async fn handle_music_component(
         return;
     }
 
-    if let Some(playback_id) = custom_id.strip_prefix(MUSIC_SKIP_PREFIX) {
-        let decision = {
-            let music = core.music.lock().await;
-            music.skip_decision(playback_id, component.user.id.get())
-        };
-        match decision {
-            MusicSkipDecision::Allowed => {}
-            MusicSkipDecision::NotOwner => {
+    if let Some(control_id) = custom_id.strip_prefix(MUSIC_LOOP_PREFIX) {
+        let result = core
+            .music
+            .lock()
+            .await
+            .toggle_loop(control_id, component.user.id.get());
+        match result {
+            Ok(looping) => {
+                if !looping {
+                    let waiting = core.music.lock().await.waiting_repeat_id(control_id);
+                    if let Some(id) = waiting {
+                        let _ = component
+                            .create_response(&context.http, CreateInteractionResponse::Acknowledge)
+                            .await;
+                        core.cancel_pending_music(&id).await;
+                        return;
+                    }
+                }
+                let response = CreateInteractionResponse::UpdateMessage(
+                    CreateInteractionResponseMessage::new()
+                        .components(music_control_components(control_id, looping, &strings)),
+                );
+                if component
+                    .create_response(&context.http, response)
+                    .await
+                    .is_err()
+                {
+                    core.bot_status.write().await.error =
+                        Some("Unable to update the Loop button.".into());
+                }
+            }
+            Err(_) => {
+                respond_music_component(
+                    core,
+                    context,
+                    component,
+                    strings.skip_not_owner,
+                    Vec::new(),
+                )
+                .await
+            }
+        }
+        return;
+    }
+    if let Some(control_id) = custom_id.strip_prefix(MUSIC_SKIP_PREFIX) {
+        let result = core
+            .music
+            .lock()
+            .await
+            .control_playback_id(control_id, component.user.id.get());
+        let playback_id = match result {
+            Ok(id) => id,
+            Err(_) => {
                 respond_music_component(
                     core,
                     context,
@@ -1086,27 +1167,12 @@ async fn handle_music_component(
                 .await;
                 return;
             }
-            MusicSkipDecision::NotCurrent => {
-                // Server state may already be cleared (e.g. a failing OBS embed
-                // reported musicEnded) while the Windows widget still plays.
-                // Acknowledge before delete — UpdateMessage would fail once gone.
-                let _ = component
-                    .create_response(&context.http, CreateInteractionResponse::Acknowledge)
-                    .await;
-                core.force_stop_music(playback_id).await;
-                if component.message.delete(&context.http).await.is_err() {
-                    // Soft-fail: may already be deleted or missing Manage Messages.
-                }
-                return;
-            }
-        }
-        // Acknowledge the Skip click first, then stop+delete the announce.
+        };
         let _ = component
             .create_response(&context.http, CreateInteractionResponse::Acknowledge)
             .await;
-        if core.stop_music_if_current(playback_id).await.is_none() {
-            core.force_stop_music(playback_id).await;
-            let _ = component.message.delete(&context.http).await;
+        if core.stop_music_if_current(&playback_id).await.is_none() {
+            core.cancel_pending_music(&playback_id).await;
         }
     }
 }
@@ -1289,44 +1355,17 @@ async fn announce_music_playback(
     let channel = truncate_text(&playback.channel_title, 60);
     let user = truncate_text(&playback.requested_by, 40);
 
-    if let Some(position) = queued_position {
-        let position_label = position.to_string();
-        let queued = CreateMessage::new()
-            .content(music_i18n::fill(
-                strings.playback_queued,
-                &[
-                    ("title", &title),
-                    ("position", &position_label),
-                    ("user", &user),
-                ],
-            ))
-            .allowed_mentions(CreateAllowedMentions::new());
-        let _ = ChannelId::new(selection.channel_id)
-            .send_message(&context.http, queued)
-            .await;
-        if let Some(component) = component {
-            let queued_title = truncate_text(&playback.title, 140);
-            respond_music_component(
-                core,
-                context,
-                component,
-                &music_i18n::fill(
-                    strings.playback_queued,
-                    &[
-                        ("title", &queued_title),
-                        ("position", &position_label),
-                        ("user", &user),
-                    ],
-                ),
-                Vec::new(),
-            )
-            .await;
-        }
-        return;
-    }
-
-    let now_playing = CreateMessage::new()
-        .content(music_i18n::fill(
+    let content = if let Some(position) = queued_position {
+        music_i18n::fill(
+            strings.playback_queued,
+            &[
+                ("title", &title),
+                ("position", &position.to_string()),
+                ("user", &user),
+            ],
+        )
+    } else {
+        music_i18n::fill(
             strings.now_playing,
             &[
                 ("title", &title),
@@ -1334,17 +1373,32 @@ async fn announce_music_playback(
                 ("range", &range),
                 ("user", &user),
             ],
+        )
+    };
+    let now_playing = CreateMessage::new()
+        .content(content)
+        .components(music_control_components(
+            &playback.playback_id,
+            false,
+            strings,
         ))
-        .components(music_skip_components(playback, strings))
         .allowed_mentions(CreateAllowedMentions::new());
     if let Ok(now_playing_message) = ChannelId::new(selection.channel_id)
         .send_message(&context.http, now_playing)
         .await
     {
-        core.music
+        let attached = core
+            .music
             .lock()
             .await
             .set_now_playing_message_id(&playback.playback_id, now_playing_message.id.get());
+        if !attached {
+            core.delete_now_playing_message(
+                selection.channel_id,
+                Some(now_playing_message.id.get()),
+            )
+            .await;
+        }
     }
     if let Some(component) = component {
         let started_title = truncate_text(&playback.title, 140);
@@ -1364,6 +1418,45 @@ async fn announce_music_playback(
         )
         .await;
     }
+}
+
+pub(crate) async fn refresh_music_card(core: &AppCore) {
+    let Some(card) = core.music.lock().await.current_card() else {
+        return;
+    };
+    let Some(http) = core
+        .bot_runtime
+        .lock()
+        .await
+        .as_ref()
+        .map(|runtime| runtime.http.clone())
+    else {
+        return;
+    };
+    let strings = music_locale(core).await;
+    let content = music_i18n::fill(
+        strings.now_playing,
+        &[
+            ("title", &truncate_text(&card.playback.title, 160)),
+            ("channel", &truncate_text(&card.playback.channel_title, 60)),
+            ("range", &music_playback_range_label(&card.playback)),
+            ("user", &truncate_text(&card.playback.requested_by, 40)),
+        ],
+    );
+    let _ = ChannelId::new(card.channel_id)
+        .edit_message(
+            &http,
+            MessageId::new(card.message_id),
+            EditMessage::new()
+                .content(content)
+                .components(music_control_components(
+                    &card.control_id,
+                    card.looping,
+                    &strings,
+                ))
+                .allowed_mentions(CreateAllowedMentions::new()),
+        )
+        .await;
 }
 
 async fn respond_music_modal(
@@ -1404,14 +1497,22 @@ fn music_playback_range_label(playback: &MusicPlaybackEvent) -> String {
     format!("{start}→{end}")
 }
 
-fn music_skip_components(
-    playback: &MusicPlaybackEvent,
+fn music_control_components(
+    control_id: &str,
+    looping: bool,
     strings: &MusicStrings,
 ) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![
-        CreateButton::new(format!("{MUSIC_SKIP_PREFIX}{}", playback.playback_id))
+        CreateButton::new(format!("{MUSIC_SKIP_PREFIX}{control_id}"))
             .label(truncate_text(strings.skip, 80))
             .style(ButtonStyle::Secondary),
+        CreateButton::new(format!("{MUSIC_LOOP_PREFIX}{control_id}"))
+            .label(if looping { "Loop: ON" } else { "Loop: OFF" })
+            .style(if looping {
+                ButtonStyle::Success
+            } else {
+                ButtonStyle::Secondary
+            }),
     ])]
 }
 
@@ -1779,9 +1880,15 @@ pub async fn start_bot(core: Arc<AppCore>) -> Result<bool> {
     let http = client.http.clone();
     let cache = client.cache.clone();
     let status_core = core.clone();
+    let cleanup_http = http.clone();
     let task = tokio::spawn(async move {
-        if let Err(error) = client.start().await {
-            set_bot_error(&status_core, format!("Discord connection failed: {error}")).await;
+        tokio::select! {
+            result = client.start() => {
+                if let Err(error) = result {
+                    set_bot_error(&status_core, format!("Discord connection failed: {error}")).await;
+                }
+            }
+            _ = crate::channel_cleanup::run(status_core.clone(), cleanup_http) => {}
         }
         status_core.bot_status.write().await.connected = false;
     });
@@ -2535,6 +2642,18 @@ fn replace_configured_channel_id(
 ) {
     let old_channel_id = old_channel_id.to_string();
     let replacement_channel_id = replacement_channel_id.to_string();
+    if config.watched_channel_id == old_channel_id {
+        config.media_cleanup_enabled = false;
+        config.media_welcome_message_id.clear();
+    }
+    if config.tts_channel_id == old_channel_id {
+        config.tts_cleanup_enabled = false;
+        config.tts_welcome_message_id.clear();
+    }
+    if config.music_channel_id == old_channel_id {
+        config.music_cleanup_enabled = false;
+        config.music_welcome_message_id.clear();
+    }
     for channel_id in [
         &mut config.watched_channel_id,
         &mut config.tts_channel_id,
@@ -3334,6 +3453,26 @@ mod tests {
             tts_failure_status("voice unavailable", false),
             Some("Windows TTS failed: voice unavailable".into())
         );
+    }
+
+    #[test]
+    fn honeypot_reports_each_failure_without_masking_other_failures() {
+        for dm_delivered in [false, true] {
+            for action_failed in [false, true] {
+                for deletion_failed in [false, true] {
+                    let error =
+                        honeypot_outcome_error(dm_delivered, action_failed, deletion_failed);
+                    assert_eq!(
+                        error.is_none(),
+                        dm_delivered && !action_failed && !deletion_failed
+                    );
+                    let text = error.unwrap_or_default();
+                    assert_eq!(text.contains("DM could not"), !dm_delivered);
+                    assert_eq!(text.contains("Kick or ban failed"), action_failed);
+                    assert_eq!(text.contains("Message deletion failed"), deletion_failed);
+                }
+            }
+        }
     }
 
     #[test]

@@ -2,6 +2,8 @@
 identifier = "allow-app-ipc"
 description = "Control panel and tray may invoke Relay commands"
 permissions = [
+  "allow-preview-music-cleanup",
+  "allow-confirm-music-cleanup",
   "allow-get-bootstrap",
   "allow-get-widget-bootstrap",
   "allow-get-runtime-status",

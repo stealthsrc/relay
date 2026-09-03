@@ -120,6 +120,8 @@ pub struct MusicStopEvent {
 #[serde(rename_all = "camelCase")]
 pub struct MusicEndedEvent {
     pub playback_id: String,
+    #[serde(default)]
+    pub completed: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]

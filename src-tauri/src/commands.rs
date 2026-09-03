@@ -73,7 +73,19 @@ pub struct PanelConfig {
     watched_channel_id: String,
     tts_channel_id: String,
     #[serde(default)]
+    media_cleanup_enabled: bool,
+    #[serde(default)]
+    media_welcome_message_id: String,
+    #[serde(default)]
+    tts_cleanup_enabled: bool,
+    #[serde(default)]
+    tts_welcome_message_id: String,
+    #[serde(default)]
     music_channel_id: String,
+    #[serde(default)]
+    music_cleanup_enabled: bool,
+    #[serde(default)]
+    music_welcome_message_id: String,
     #[serde(default)]
     honeypot_channel_id: String,
     #[serde(default)]
@@ -355,14 +367,82 @@ pub async fn store_youtube_api_key(youtube_api_key: String) -> Result<Credential
 pub async fn apply_config(
     app: AppHandle,
     core: State<'_, Arc<AppCore>>,
-    config: PanelConfig,
+    mut config: PanelConfig,
 ) -> Result<Bootstrap, String> {
     let previous = core.config.read().await.clone();
+    config.music_welcome_message_id = crate::music_cleanup::protected_message_id(
+        &config.music_welcome_message_id,
+        &config.music_channel_id,
+    )?;
+    config.media_welcome_message_id = crate::channel_cleanup::welcome_message_id(
+        &config.media_welcome_message_id,
+        &config.watched_channel_id,
+    )?;
+    config.tts_welcome_message_id = crate::channel_cleanup::welcome_message_id(
+        &config.tts_welcome_message_id,
+        &config.tts_channel_id,
+    )?;
+    if config.media_cleanup_enabled
+        && (!previous.media_cleanup_enabled
+            || previous.watched_channel_id != config.watched_channel_id
+            || previous.media_welcome_message_id != config.media_welcome_message_id)
+    {
+        crate::channel_cleanup::verify_welcome(
+            &core,
+            true,
+            &config.watched_channel_id,
+            &config.media_welcome_message_id,
+        )
+        .await?;
+    }
+    if config.tts_cleanup_enabled
+        && (!previous.tts_cleanup_enabled
+            || previous.tts_channel_id != config.tts_channel_id
+            || previous.tts_welcome_message_id != config.tts_welcome_message_id)
+    {
+        crate::channel_cleanup::verify_welcome(
+            &core,
+            true,
+            &config.tts_channel_id,
+            &config.tts_welcome_message_id,
+        )
+        .await?;
+    }
+    if config.music_cleanup_enabled {
+        let http = core
+            .bot_runtime
+            .lock()
+            .await
+            .as_ref()
+            .map(|runtime| runtime.http.clone())
+            .ok_or("Connect the bot before enabling music cleanup.")?;
+        let channel = config
+            .music_channel_id
+            .parse::<u64>()
+            .map_err(|_| "Select a music channel.")?;
+        if channel == 0 {
+            return Err("Select a valid music channel.".into());
+        }
+        let message = config
+            .music_welcome_message_id
+            .parse::<u64>()
+            .map_err(|_| "Set the welcome message.")?;
+        serenity::all::ChannelId::new(channel)
+            .message(&http, serenity::all::MessageId::new(message))
+            .await
+            .map_err(|_| "The welcome message was not found in the selected music channel.")?;
+    }
     let next = core
         .update_config(|current| {
             current.watched_channel_id = config.watched_channel_id;
             current.tts_channel_id = config.tts_channel_id;
+            current.media_cleanup_enabled = config.media_cleanup_enabled;
+            current.media_welcome_message_id = config.media_welcome_message_id;
+            current.tts_cleanup_enabled = config.tts_cleanup_enabled;
+            current.tts_welcome_message_id = config.tts_welcome_message_id;
             current.music_channel_id = config.music_channel_id;
+            current.music_cleanup_enabled = config.music_cleanup_enabled;
+            current.music_welcome_message_id = config.music_welcome_message_id;
             current.honeypot_channel_id = config.honeypot_channel_id;
             current.honeypot_action = config.honeypot_action;
             current.port = config.port;
@@ -1208,7 +1288,7 @@ fn obs_visual_url(port: u16) -> String {
 
 /// Legacy dedicated YouTube URL (still served). Kept for tests and migration docs;
 /// the panel recommends [`obs_visual_url`] instead.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 fn youtube_overlay_url(port: u16) -> String {
     format!("http://{}:{port}/youtube", widget::youtube_embed_host())
 }
@@ -1242,9 +1322,13 @@ mod tests {
         assert_eq!(&wav[..4], b"RIFF");
         assert_eq!(&wav[8..12], b"WAVE");
         assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 19_200);
-        assert!(wav[44..].chunks_exact(2).any(|sample| {
-            i16::from_le_bytes(sample.try_into().expect("two-byte PCM sample")) != 0
-        }));
+        assert!(
+            wav[44..]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .any(|sample| { i16::from_le_bytes(*sample) != 0 })
+        );
     }
 
     #[tokio::test]

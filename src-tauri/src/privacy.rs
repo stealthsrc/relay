@@ -238,7 +238,7 @@ impl PrivacyReport {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn sensitive(reason: &'static str) -> Self {
         Self {
             classification: PrivacyClassification::High,

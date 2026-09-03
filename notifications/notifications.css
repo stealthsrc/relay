@@ -46,7 +46,7 @@ body {
   position: relative;
   display: grid;
   grid-template-columns: calc(58px * var(--notification-scale)) minmax(0, 1fr) calc(4px * var(--notification-scale));
-  width: min(470px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   min-height: calc(94px * var(--notification-scale));
   box-sizing: border-box;
   gap: calc(14px * var(--notification-scale));
@@ -82,7 +82,7 @@ body {
   transform: translateX(0);
 }
 
-/* Match music-card: do not leave an opacity:0 opaque fill on transparent
+/* Do not leave an opacity:0 opaque fill on transparent
    WebView2 / widget chrome (absolute inset:4px would paint a large black hole). */
 .notification-card[aria-hidden="true"] {
   display: none;
@@ -177,8 +177,9 @@ body {
   font-size: calc(12px * var(--font-scale) * var(--notification-scale));
   line-height: 1.25;
   text-wrap: pretty;
+  overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 6;
 }
 
 .notification-card__emoji {
@@ -201,206 +202,6 @@ body {
   height: calc(34px * var(--notification-scale));
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 24%, transparent);
-}
-
-.music-card {
-  /* Match notification-card chrome: compact horizontal thumb + copy. */
-  --music-scale: var(--content-scale);
-  position: relative;
-  display: grid;
-  grid-template-columns: calc(72px * var(--music-scale)) minmax(0, 1fr);
-  width: min(470px, calc(100vw - 32px));
-  min-height: calc(94px * var(--music-scale));
-  box-sizing: border-box;
-  gap: calc(14px * var(--music-scale));
-  align-content: center;
-  align-items: center;
-  padding: calc(14px * var(--music-scale)) calc(14px * var(--music-scale))
-    calc(14px * var(--music-scale)) calc(16px * var(--music-scale));
-  overflow: hidden;
-  border: 1px solid #2a2e36;
-  border-radius: calc(18px * var(--music-scale));
-  color: #f7f8fb;
-  background: #0a0c10;
-  box-shadow: none;
-  filter: none;
-  isolation: isolate;
-  opacity: 0;
-  transform: translateX(34px);
-  transition: opacity 220ms ease, transform 360ms cubic-bezier(0.2, 0.9, 0.24, 1.12);
-}
-
-.music-card::before {
-  position: absolute;
-  z-index: 2;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: var(--accent);
-  content: "";
-}
-
-.music-card[aria-hidden="true"] {
-  display: none;
-}
-
-.music-card[aria-hidden="false"] {
-  display: grid;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.music-card__stage {
-  position: relative;
-  width: calc(72px * var(--music-scale));
-  height: calc(72px * var(--music-scale));
-  flex: none;
-  overflow: hidden;
-  border: 1px solid #2a2e36;
-  border-radius: calc(12px * var(--music-scale));
-  background: #050505;
-}
-
-.music-card__player,
-.music-card__artwork {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.music-card__player {
-  z-index: 1;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.music-card.is-playing .music-card__player {
-  opacity: 1;
-}
-
-.music-card__player iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  pointer-events: none;
-}
-
-.music-card__artwork {
-  z-index: 0;
-  object-fit: cover;
-  background: #050505;
-  transition: opacity 180ms ease;
-}
-
-.music-card.is-playing .music-card__artwork {
-  opacity: 0;
-}
-
-.music-card__copy {
-  display: grid;
-  grid-template-rows: auto auto auto auto;
-  min-width: 0;
-  min-height: 0;
-  align-content: center;
-  gap: calc(2px * var(--music-scale));
-  overflow: hidden;
-}
-
-.music-card__label {
-  overflow: hidden;
-  color: rgb(255 255 255 / 55%);
-  font-size: calc(9px * var(--font-scale) * var(--music-scale));
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.music-card__title,
-.music-card__artist,
-.music-card__meta,
-.music-card__time {
-  min-width: 0;
-}
-
-.music-card__artist,
-.music-card__meta,
-.music-card__time {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.music-card__title {
-  overflow: hidden;
-  font-size: calc(14px * var(--font-scale) * var(--music-scale));
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.music-card__details {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: calc(8px * var(--music-scale));
-  margin-top: calc(1px * var(--music-scale));
-}
-
-.music-card__artist {
-  flex: 1 1 auto;
-  color: rgb(244 247 252 / 76%);
-  font-size: calc(12px * var(--font-scale) * var(--music-scale));
-  font-weight: 500;
-}
-
-.music-card__meta {
-  flex: 0 1 auto;
-  max-width: 42%;
-  color: rgb(255 255 255 / 52%);
-  font-size: calc(10px * var(--font-scale) * var(--music-scale));
-  font-weight: 600;
-}
-
-.music-card__time {
-  flex: none;
-  margin-left: auto;
-  color: rgb(255 255 255 / 72%);
-  font-size: calc(10px * var(--font-scale) * var(--music-scale));
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-.music-card__meta[hidden],
-.music-card__time[hidden] {
-  display: none;
-}
-
-.music-card__progress {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  height: 3px;
-  margin-top: calc(4px * var(--music-scale));
-  border-radius: 999px;
-  background: rgb(255 255 255 / 14%);
-}
-
-.music-card__progress[hidden] {
-  display: none;
-}
-
-.music-card__progress-fill {
-  display: block;
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 160ms linear;
 }
 
 .notification-move-layer {
@@ -435,18 +236,6 @@ html.notification-widget .notification-stage {
   padding: 4px;
 }
 
-/* Now Playing still fills the configured Windows widget size. */
-html.notification-widget .music-card {
-  position: absolute;
-  inset: 4px;
-  width: auto;
-  max-width: none;
-  height: auto;
-  max-height: none;
-  min-width: 0;
-  min-height: 0;
-}
-
 /* Fill the dedicated TTS widget. Its native width is user-configurable, so
    capping the card below that width left a visible transparent strip. */
 html.notification-widget .notification-card {
@@ -475,55 +264,12 @@ html.notification-widget .notification-card__signal {
   height: calc(26px * var(--notification-scale));
 }
 
-html.notification-widget .music-card {
-  container-type: size;
-  container-name: music-card;
-  /* Now Playing is a compact toast. Never let a legacy tall window inflate
-     its video and type to poster size. */
-  --music-scale: calc(
-    var(--content-scale) * clamp(
-      0.85,
-      min(100cqh / 94px, 100cqw / 520px),
-      1.15
-    )
-  );
-  grid-template-columns: calc(104px * var(--music-scale)) minmax(0, 1fr);
-  gap: calc(10px * var(--music-scale));
-  padding: calc(6px * var(--music-scale)) calc(10px * var(--music-scale))
-    calc(6px * var(--music-scale)) calc(12px * var(--music-scale));
-}
-
-html.notification-widget .music-card__stage {
-  width: calc(104px * var(--music-scale));
-  height: calc(58px * var(--music-scale));
-  border-radius: calc(10px * var(--music-scale));
-}
-
-html.notification-widget .music-card__details {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: calc(8px * var(--music-scale));
-  row-gap: calc(2px * var(--music-scale));
-}
-
-html.notification-widget .music-card__meta {
-  grid-column: 2;
-  max-width: none;
-}
-
-html.notification-widget .music-card__time {
-  grid-column: 1 / -1;
-  margin-left: 0;
-}
-
 html.widget-edit .notification-move-layer {
   display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notification-card,
-  .music-card,
-  .music-card__artwork {
+  .notification-card {
     transition-duration: 1ms;
   }
 }

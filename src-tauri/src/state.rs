@@ -107,6 +107,7 @@ pub struct AppCore {
     pub media_audio: RwLock<VecDeque<MediaAudio>>,
     pub tts_synthesis_lock: Mutex<()>,
     pub music: Mutex<MusicState>,
+    pub music_cleanup: Mutex<crate::music_cleanup::MusicCleanup>,
     music_stage_tickets: Mutex<HashMap<String, StageTicket>>,
     pub relay_tx: broadcast::Sender<RelayEvent>,
     pub stage_scheduler: StageScheduler,
@@ -151,6 +152,7 @@ impl AppCore {
             media_audio: RwLock::new(VecDeque::with_capacity(MEDIA_AUDIO_CACHE_LIMIT)),
             tts_synthesis_lock: Mutex::new(()),
             music: Mutex::new(MusicState::default()),
+            music_cleanup: Mutex::new(crate::music_cleanup::MusicCleanup::default()),
             music_stage_tickets: Mutex::new(HashMap::new()),
             relay_tx,
             stage_scheduler,
@@ -282,6 +284,18 @@ impl AppCore {
         self.music.lock().await.current_event()
     }
 
+    pub async fn cancel_pending_music(&self, playback_id: &str) {
+        let stopped = self.music.lock().await.remove_pending(playback_id);
+        if let Some(stopped) = stopped {
+            let ticket = self.music_stage_tickets.lock().await.remove(playback_id);
+            if let Some(ticket) = ticket {
+                self.cancel_stage_output(ticket).await;
+            }
+            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+                .await;
+        }
+    }
+
     pub async fn stop_current_music(&self) -> Option<MusicPlaybackEvent> {
         let (stopped, next) = {
             let mut music = self.music.lock().await;
@@ -307,11 +321,16 @@ impl AppCore {
 
     /// Clear current music and the entire pending queue (force-clear / overlay clear).
     pub async fn clear_all_music(&self) -> Option<MusicPlaybackEvent> {
-        let stopped = self.music.lock().await.clear_all();
+        let (cards, stopped) = {
+            let mut music = self.music.lock().await;
+            (music.active_message_ids(), music.clear_all())
+        };
         self.music_stage_tickets.lock().await.clear();
-        if let Some(stopped) = &stopped {
-            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
+        for (channel, message) in cards {
+            self.delete_now_playing_message(channel, Some(message))
                 .await;
+        }
+        if let Some(stopped) = &stopped {
             let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
                 playback_id: stopped.playback.playback_id.clone(),
             }));
@@ -346,34 +365,6 @@ impl AppCore {
         None
     }
 
-    /// Stop overlays for `playback_id` even when server state was already cleared
-    /// (e.g. a failing OBS embed reported `musicEnded` while the widget still plays).
-    pub async fn force_stop_music(&self, playback_id: &str) {
-        let had_current = {
-            let mut music = self.music.lock().await;
-            let stopped = music.stop_if_current(playback_id);
-            let next = if stopped.is_some() {
-                music.promote_next()
-            } else {
-                None
-            };
-            (stopped, next)
-        };
-        if let Some(stopped) = &had_current.0 {
-            self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
-                .await;
-        }
-        let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
-            playback_id: playback_id.to_string(),
-        }));
-        match had_current {
-            (Some(_), next) => self.emit_music_follow_up(next).await,
-            (None, _) => {
-                let _ = self.relay_tx.send(RelayEvent::MusicIdle);
-            }
-        }
-    }
-
     /// GUI / hotkey skip: skip current YouTube if any (promoting the queue), else skip media.
     pub async fn skip_playback(&self) {
         if self.stop_current_music().await.is_some() {
@@ -387,32 +378,41 @@ impl AppCore {
     }
 
     pub async fn finish_music(&self, playback_id: &str) -> bool {
-        let (stopped, next) = {
+        let (stopped, repeated, next) = {
             let mut music = self.music.lock().await;
-            let stopped = music.stop_if_current(playback_id);
-            if stopped.is_none() {
+            let Some((stopped, repeated)) = music.finish_current(playback_id) else {
                 return false;
-            }
+            };
             let next = music.promote_next();
-            (stopped, next)
+            (stopped, repeated, next)
         };
-        if let Some(stopped) = stopped {
+        if !repeated {
             self.delete_now_playing_message(stopped.channel_id, stopped.now_playing_message_id)
                 .await;
-            // Broadcast stop so OBS /youtube clients that missed local ENDED still unload.
-            let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
-                playback_id: stopped.playback.playback_id.clone(),
-            }));
         }
+        let _ = self.relay_tx.send(RelayEvent::MusicStop(MusicStopEvent {
+            playback_id: stopped.playback.playback_id.clone(),
+        }));
         // Promote next or signal idle so overlays can resume media.
         self.emit_music_follow_up(next).await;
         true
     }
 
-    async fn delete_now_playing_message(&self, channel_id: u64, message_id: Option<u64>) {
+    pub(crate) async fn delete_now_playing_message(
+        &self,
+        channel_id: u64,
+        message_id: Option<u64>,
+    ) {
         let Some(message_id) = message_id else {
             return;
         };
+        let config = self.config.read().await;
+        if config.music_channel_id == channel_id.to_string()
+            && config.music_welcome_message_id == message_id.to_string()
+        {
+            return;
+        }
+        drop(config);
         let http = {
             let runtime = self.bot_runtime.lock().await;
             runtime.as_ref().map(|runtime| runtime.http.clone())
@@ -449,6 +449,7 @@ impl AppCore {
                     .enqueue(RelayEvent::MusicPlay(playback), StageLane::Music)
                     .await;
             }
+            crate::bot::refresh_music_card(self).await;
         } else {
             let _ = self.relay_tx.send(RelayEvent::MusicIdle);
         }
@@ -505,18 +506,19 @@ impl AppCore {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_media(&self, media: MediaEvent) {
         self.submit_analyzed_media_with_text(media, None, None)
             .await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_analyzed_media(&self, media: MediaEvent, report: Option<PrivacyReport>) {
         self.submit_analyzed_media_with_text(media, report, None)
             .await;
     }
 
+    #[cfg(test)]
     pub async fn submit_analyzed_media_with_text(
         &self,
         media: MediaEvent,
@@ -643,7 +645,7 @@ impl AppCore {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_sticker(
         &self,
         sticker: StickerEvent,
@@ -655,6 +657,7 @@ impl AppCore {
             .await;
     }
 
+    #[cfg(test)]
     pub async fn submit_sticker_with_roles(
         &self,
         sticker: StickerEvent,
@@ -1224,11 +1227,12 @@ impl AppCore {
         self.complete_sticker(ticket, sticker).await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
         self.publish_tts_with_roles(request, &[]).await
     }
 
+    #[cfg(test)]
     pub async fn publish_tts_with_roles(
         &self,
         request: TtsRequest,
@@ -1295,7 +1299,7 @@ impl AppCore {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_visual_tts(
         &self,
         id: String,
@@ -1338,7 +1342,7 @@ impl AppCore {
         self.complete_tts(ticket, event).await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_visual_tts_if_allowed(
         &self,
         id: String,
@@ -1361,6 +1365,7 @@ impl AppCore {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[cfg(test)]
     pub async fn publish_visual_tts_if_allowed_with_roles(
         &self,
         id: String,
