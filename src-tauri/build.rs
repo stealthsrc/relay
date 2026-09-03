@@ -1,6 +1,8 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "preview_music_cleanup",
+            "confirm_music_cleanup",
             "get_bootstrap",
             "get_widget_bootstrap",
             "get_runtime_status",

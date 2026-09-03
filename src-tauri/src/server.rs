@@ -998,7 +998,11 @@ async fn handle_socket(
                                     .send(RelayEvent::AudioPlayback(*playback));
                             }
                             OutputClientMessage::MusicEnded(event) if receives_music => {
-                                let _ = state.core.finish_music(&event.playback_id).await;
+                                if event.completed {
+                                    let _ = state.core.finish_music(&event.playback_id).await;
+                                } else {
+                                    let _ = state.core.stop_music_if_current(&event.playback_id).await;
+                                }
                             }
                             OutputClientMessage::MediaClock(clock) if tracked_clock_source.is_some() => {
                                 let source = tracked_clock_source.expect("tracked clock source");

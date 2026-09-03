@@ -14,39 +14,68 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-09-03
+
 ### English
+
+- Added automatic music channel cleanup with a verified, protected welcome message, 120-second result expiration, and a separate preview and confirmation for historical messages.
+- Added a requester-only Loop button alongside Skip. Repeats keep the selected range, reuse the Discord card, and yield to queued work. Media volume help now explicitly includes YouTube.
 
 - Automatically delete the triggering honeypot message after the kick or ban attempt, including when the action fails. Report deletion failures in the bot status.
 
 ### Français
 
+- Ajout du nettoyage automatique du salon musique avec message d’accueil vérifié et protégé, expiration des résultats après 120 secondes et aperçu avec confirmation pour l’historique.
+- Ajout du bouton Loop, réservé au demandeur, à côté de Skip. La boucle conserve l’extrait choisi et la carte Discord, et laisse passer les demandes en attente. L’aide du volume mentionne désormais YouTube.
+
 - Supprime automatiquement le message déclencheur du honeypot après la tentative de kick ou de ban, même si elle échoue. Signale les échecs de suppression dans l’état du bot.
 
 ### Español
+
+- Añadida limpieza automática del canal de música con bienvenida verificada y protegida, resultados que caducan a los 120 segundos y vista previa con confirmación para el historial.
+- Añadido Loop junto a Skip, solo para quien solicita la canción. Conserva el fragmento y la tarjeta de Discord y cede el turno a la cola. La ayuda del volumen incluye YouTube.
 
 - Elimina automáticamente el mensaje que activa la trampa tras intentar expulsar o banear, incluso si la acción falla. Muestra los fallos de eliminación en el estado del bot.
 
 ### Deutsch
 
+- Automatische Musikkanalbereinigung mit geprüfter, geschützter Willkommensnachricht, 120 Sekunden gültigen Ergebnissen sowie Vorschau und Bestätigung für den Verlauf hinzugefügt.
+- Loop neben Skip ist nur für den Anfragenden verfügbar. Wiederholungen behalten Ausschnitt und Discord-Karte und lassen wartende Einträge vor. Die Lautstärkehilfe nennt jetzt YouTube.
+
 - Löscht die auslösende Honeypot-Nachricht automatisch nach dem Kick- oder Ban-Versuch, auch wenn dieser fehlschlägt. Zeigt Löschfehler im Bot-Status an.
 
 ### Русский
+
+- Добавлена автоматическая очистка музыкального канала с проверенным защищённым приветствием, удалением результатов через 120 секунд и отдельным предпросмотром с подтверждением очистки истории.
+- Рядом со Skip добавлена кнопка Loop для автора запроса. Повтор сохраняет отрывок и карточку Discord, уступая очередь другим запросам. В описании громкости указан YouTube.
 
 - Автоматически удаляет сообщение, активировавшее ловушку, после попытки исключения или блокировки, даже если она не удалась. Ошибки удаления отображаются в статусе бота.
 
 ### 简体中文
 
+- 新增音乐频道自动清理：验证并保护欢迎消息，搜索结果在120秒后过期，历史消息清理需要单独预览和确认。
+- 在 Skip 旁新增仅请求者可用的 Loop 按钮。循环保留所选片段和 Discord 卡片，并让等待中的请求先播放。音量说明明确包含 YouTube。
+
 - 尝试踢出或封禁后自动删除触发陷阱的消息，即使操作失败也会尝试删除。删除失败会显示在机器人状态中。
 
 ### 한국어
+
+- 확인된 환영 메시지를 보호하는 음악 채널 자동 정리를 추가했습니다. 검색 결과는 120초 후 만료되며 기록 정리는 미리 보기와 확인이 필요합니다.
+- Skip 옆에 요청자 전용 Loop 버튼을 추가했습니다. 선택한 구간과 Discord 카드를 유지하고 대기 중인 요청에 순서를 양보합니다. 볼륨 설명에 YouTube를 명시했습니다.
 
 - 추방 또는 차단 시도 후 실패 여부와 관계없이 함정을 작동시킨 메시지를 자동으로 삭제합니다. 삭제 실패는 봇 상태에 표시됩니다.
 
 ### 日本語
 
+- 確認済みの案内メッセージを保護する音楽チャンネルの自動整理を追加しました。検索結果は120秒で失効し、履歴の整理にはプレビューと確認が必要です。
+- Skip の隣にリクエスト者専用の Loop を追加しました。選択区間と Discord カードを保持し、待機中のリクエストに順番を譲ります。音量説明に YouTube を明記しました。
+
 - キックまたは BAN の試行後、処理が失敗してもトラップを作動させたメッセージを自動削除します。削除の失敗は Bot の状態に表示されます。
 
 ### Bahasa Indonesia
+
+- Menambahkan pembersihan channel musik otomatis dengan pesan sambutan terverifikasi dan dilindungi, hasil kedaluwarsa setelah 120 detik, serta pratinjau dan konfirmasi terpisah untuk riwayat.
+- Menambahkan Loop di samping Skip, hanya untuk peminta lagu. Pengulangan mempertahankan cuplikan dan kartu Discord serta memberi giliran antrean. Bantuan volume kini menyebut YouTube.
 
 - Otomatis menghapus pesan pemicu perangkap setelah percobaan kick atau ban, termasuk jika tindakan gagal. Kegagalan penghapusan ditampilkan dalam status bot.
 

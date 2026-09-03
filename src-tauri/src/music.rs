@@ -34,6 +34,8 @@ struct PendingSelection {
 }
 
 struct CurrentMusic {
+    control_id: String,
+    looping: bool,
     playback: MusicPlaybackEvent,
     owner_id: u64,
     channel_id: u64,
@@ -46,6 +48,14 @@ pub struct StoppedMusic {
     pub playback: MusicPlaybackEvent,
     pub channel_id: u64,
     pub now_playing_message_id: Option<u64>,
+}
+
+pub struct MusicCard {
+    pub playback: MusicPlaybackEvent,
+    pub control_id: String,
+    pub looping: bool,
+    pub channel_id: u64,
+    pub message_id: u64,
 }
 
 #[derive(Default)]
@@ -314,6 +324,8 @@ impl MusicState {
             requested_by: selection.owner_name,
         };
         let entry = CurrentMusic {
+            control_id: playback.playback_id.clone(),
+            looping: false,
             playback: playback.clone(),
             owner_id: selection.owner_id,
             channel_id: selection.channel_id,
@@ -332,7 +344,12 @@ impl MusicState {
     }
 
     pub fn set_now_playing_message_id(&mut self, playback_id: &str, message_id: u64) -> bool {
-        let Some(current) = self.current.as_mut() else {
+        let Some(current) = self
+            .current
+            .iter_mut()
+            .chain(self.pending.iter_mut())
+            .find(|entry| entry.playback.playback_id == playback_id)
+        else {
             return false;
         };
         if current.playback.playback_id != playback_id {
@@ -346,6 +363,116 @@ impl MusicState {
         self.current
             .as_ref()
             .map(|current| current.playback.clone())
+    }
+
+    pub fn active_message_ids(&self) -> Vec<(u64, u64)> {
+        self.current
+            .iter()
+            .chain(self.pending.iter())
+            .filter_map(|entry| {
+                entry
+                    .now_playing_message_id
+                    .map(|id| (entry.channel_id, id))
+            })
+            .collect()
+    }
+
+    pub fn current_card(&self) -> Option<MusicCard> {
+        let entry = self.current.as_ref()?;
+        Some(MusicCard {
+            playback: entry.playback.clone(),
+            control_id: entry.control_id.clone(),
+            looping: entry.looping,
+            channel_id: entry.channel_id,
+            message_id: entry.now_playing_message_id?,
+        })
+    }
+
+    pub fn toggle_loop(
+        &mut self,
+        control_id: &str,
+        user_id: u64,
+    ) -> Result<bool, MusicSkipDecision> {
+        let entry = self
+            .current
+            .iter_mut()
+            .chain(self.pending.iter_mut())
+            .find(|entry| entry.control_id == control_id)
+            .ok_or(MusicSkipDecision::NotCurrent)?;
+        if entry.owner_id != user_id {
+            return Err(MusicSkipDecision::NotOwner);
+        }
+        entry.looping = !entry.looping;
+        Ok(entry.looping)
+    }
+
+    pub fn control_playback_id(
+        &self,
+        control_id: &str,
+        user_id: u64,
+    ) -> Result<String, MusicSkipDecision> {
+        let entry = self
+            .current
+            .iter()
+            .chain(self.pending.iter())
+            .find(|entry| entry.control_id == control_id)
+            .ok_or(MusicSkipDecision::NotCurrent)?;
+        if entry.owner_id != user_id {
+            return Err(MusicSkipDecision::NotOwner);
+        }
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|current| current.control_id == control_id)
+            && self.skip_decision(&entry.playback.playback_id, user_id)
+                != MusicSkipDecision::Allowed
+        {
+            return Err(MusicSkipDecision::NotOwner);
+        }
+        Ok(entry.playback.playback_id.clone())
+    }
+
+    pub fn remove_pending(&mut self, playback_id: &str) -> Option<StoppedMusic> {
+        let index = self
+            .pending
+            .iter()
+            .position(|entry| entry.playback.playback_id == playback_id)?;
+        let entry = self.pending.remove(index)?;
+        Some(StoppedMusic {
+            playback: entry.playback,
+            channel_id: entry.channel_id,
+            now_playing_message_id: entry.now_playing_message_id,
+        })
+    }
+
+    pub fn waiting_repeat_id(&self, control_id: &str) -> Option<String> {
+        self.pending
+            .iter()
+            .find(|entry| {
+                entry.control_id == control_id
+                    && entry.playback.playback_id != control_id
+                    && !entry.looping
+            })
+            .map(|entry| entry.playback.playback_id.clone())
+    }
+
+    /// Only a natural end may repeat. A fresh ID makes duplicate end events harmless.
+    pub fn finish_current(&mut self, playback_id: &str) -> Option<(StoppedMusic, bool)> {
+        if self.current.as_ref()?.playback.playback_id != playback_id {
+            return None;
+        }
+        let mut entry = self.current.take()?;
+        let stopped = StoppedMusic {
+            playback: entry.playback.clone(),
+            channel_id: entry.channel_id,
+            now_playing_message_id: entry.now_playing_message_id,
+        };
+        let repeat = entry.looping;
+        if repeat {
+            entry.playback.playback_id = self.next_id("p");
+            self.pending.push_back(entry);
+        }
+        Some((stopped, repeat))
     }
 
     /// Clears the current track only (does not touch the pending queue).
@@ -516,6 +643,85 @@ mod tests {
             channel_id: 9,
             track: track("video-1", 90),
         }
+    }
+
+    #[test]
+    fn looping_yields_to_queued_tracks_and_rejects_duplicate_end_events() {
+        let mut state = MusicState::default();
+        let MusicStartResult::Started(first) = state.start(selection(), MusicPlaybackMode::Preview)
+        else {
+            panic!()
+        };
+        state.set_now_playing_message_id(&first.playback_id, 42);
+        assert_eq!(
+            state.toggle_loop(&first.playback_id, 8),
+            Err(MusicSkipDecision::NotOwner)
+        );
+        assert_eq!(state.toggle_loop(&first.playback_id, 7), Ok(true));
+        let MusicStartResult::Queued {
+            playback: second, ..
+        } = state.start(selection(), MusicPlaybackMode::Full)
+        else {
+            panic!()
+        };
+        assert!(state.finish_current(&first.playback_id).unwrap().1);
+        assert_eq!(
+            state.promote_next().unwrap().playback_id,
+            second.playback_id
+        );
+        assert!(state.finish_current(&first.playback_id).is_none());
+        state.stop_current();
+        let repeated = state.promote_next().unwrap();
+        assert_ne!(repeated.playback_id, first.playback_id);
+        assert_eq!(repeated.end_seconds, Some(30));
+        assert_eq!(state.active_message_ids(), vec![(9, 42)]);
+        assert_eq!(state.toggle_loop(&first.playback_id, 7), Ok(false));
+        assert!(!state.finish_current(&repeated.playback_id).unwrap().1);
+        assert!(state.promote_next().is_none());
+    }
+
+    #[test]
+    fn skipping_a_loop_never_requeues_it() {
+        let mut state = MusicState::default();
+        let MusicStartResult::Started(first) = state.start(selection(), MusicPlaybackMode::Full)
+        else {
+            panic!()
+        };
+        state.toggle_loop(&first.playback_id, 7).unwrap();
+        assert!(state.stop_if_current(&first.playback_id).is_some());
+        assert!(state.promote_next().is_none());
+        assert_eq!(
+            state.toggle_loop(&first.playback_id, 7),
+            Err(MusicSkipDecision::NotCurrent)
+        );
+    }
+
+    #[test]
+    fn loop_off_cancels_a_waiting_repeat_but_preserves_an_original_queued_track() {
+        let mut state = MusicState::default();
+        let MusicStartResult::Started(first) = state.start(selection(), MusicPlaybackMode::Full)
+        else {
+            panic!()
+        };
+        state.toggle_loop(&first.playback_id, 7).unwrap();
+        let MusicStartResult::Queued {
+            playback: second, ..
+        } = state.start(selection(), MusicPlaybackMode::Full)
+        else {
+            panic!()
+        };
+        assert!(state.waiting_repeat_id(&second.playback_id).is_none());
+        state.finish_current(&first.playback_id).unwrap();
+        state.promote_next();
+        assert_eq!(state.toggle_loop(&first.playback_id, 7), Ok(false));
+        let repeat = state.waiting_repeat_id(&first.playback_id).unwrap();
+        assert!(state.remove_pending(&repeat).is_some());
+        assert_eq!(
+            state.current_event().unwrap().playback_id,
+            second.playback_id
+        );
+        state.stop_current();
+        assert!(state.promote_next().is_none());
     }
 
     #[test]

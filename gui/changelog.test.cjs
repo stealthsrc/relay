@@ -37,8 +37,9 @@ test("the sidebar exposes a Changelog page after Personalization", () => {
 test("parses published changelog sections and skips Unreleased", () => {
   const releases = context.parseChangelogReleases(changelogMarkdown);
   assert.ok(releases.length >= 2);
-  assert.equal(releases[0].version, "1.3.1");
-  assert.equal(releases[0].date, "2026-08-17");
+  const version = JSON.parse(fs.readFileSync(__dirname + "/../src-tauri/tauri.conf.json", "utf8")).version;
+  assert.equal(releases[0].version, version);
+  assert.match(releases[0].date, /^\d{4}-\d{2}-\d{2}$/);
   for (const heading of [
     "### English", "### Français", "### Español", "### Deutsch",
     "### Русский", "### 简体中文", "### 한국어", "### 日本語", "### Bahasa Indonesia",
@@ -76,7 +77,7 @@ test("selects every Relay interface language from a multilingual section", () =>
 
 test("the installed 1.3.1 notes keep each interface language distinct", () => {
   const releases = context.parseChangelogReleases(changelogMarkdown);
-  const body = releases[0].body;
+  const body = releases.find((release) => release.version === "1.3.1").body;
   assert.match(context.changelogBodyForLanguage(body, "de"), /Kanalreferenzen/);
   assert.doesNotMatch(context.changelogBodyForLanguage(body, "de"), /#### Added/);
   assert.match(context.changelogBodyForLanguage(body, "ja"), /チャンネル/);
