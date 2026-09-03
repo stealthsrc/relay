@@ -25,32 +25,6 @@
         </div>
         <span class="notification-card__signal" aria-hidden="true"></span>
       </article>
-      <article id="music" class="music-card" aria-hidden="true">
-        <div class="music-card__stage">
-          <div id="music-youtube-player" class="music-card__player" aria-hidden="true"></div>
-          <img id="music-artwork" class="music-card__artwork" src="/overlay-assets/relay-radar.png" alt="">
-        </div>
-        <div class="music-card__copy">
-          <span id="music-label" class="music-card__label">NOW PLAYING</span>
-          <strong id="music-title" class="music-card__title"></strong>
-          <div class="music-card__details">
-            <span id="music-artist" class="music-card__artist"></span>
-            <span id="music-meta" class="music-card__meta" hidden></span>
-            <span id="music-time" class="music-card__time" hidden></span>
-          </div>
-          <div
-            id="music-progress"
-            class="music-card__progress"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="0"
-            hidden
-          >
-            <span id="music-progress-fill" class="music-card__progress-fill"></span>
-          </div>
-        </div>
-      </article>
       <audio id="notification-clock" muted preload="auto"></audio>
     </main>
     <div id="notification-move-layer" class="notification-move-layer" data-tauri-drag-region>

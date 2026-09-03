@@ -20,7 +20,7 @@ use tauri::AppHandle;
 use std::os::windows::fs::OpenOptionsExt;
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const LATEST_RELEASE_API: &str = "https://api.github.com/repos/imnotStealthy/relay/releases/latest";
+const LATEST_RELEASE_API: &str = "https://api.github.com/repos/stealthsrc/relay/releases/latest";
 const MAX_RELEASE_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_INSTALLER_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_SIGNATURE_BYTES: usize = 16 * 1024;
@@ -317,7 +317,7 @@ fn validated_asset_url(
     expected_name: &str,
 ) -> anyhow::Result<reqwest::Url> {
     let expected_path = format!(
-        "/imnotStealthy/relay/releases/download/{}/{}",
+        "/stealthsrc/relay/releases/download/{}/{}",
         release.tag_name, expected_name
     );
     let url = reqwest::Url::parse(&asset.browser_download_url)
@@ -483,13 +483,13 @@ mod tests {
     #[test]
     fn accepts_only_the_expected_official_installer_url() {
         let official = release(
-            "https://github.com/imnotStealthy/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
+            "https://github.com/stealthsrc/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
         );
         let asset = installer_asset(&official, "1.1.23").unwrap();
         assert!(validated_download_url(&official, asset, "1.1.23").is_ok());
 
         let foreign = release(
-            "https://example.com/imnotStealthy/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
+            "https://example.com/stealthsrc/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
         );
         let asset = installer_asset(&foreign, "1.1.23").unwrap();
         assert!(validated_download_url(&foreign, asset, "1.1.23").is_err());
@@ -498,7 +498,7 @@ mod tests {
     #[test]
     fn requires_a_sha256_digest_from_github() {
         let mut release = release(
-            "https://github.com/imnotStealthy/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
+            "https://github.com/stealthsrc/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
         );
         assert!(expected_digest(&release.assets[0]).is_ok());
         release.assets[0].digest = None;
@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn requires_the_expected_official_signature_asset() {
         let mut release = release(
-            "https://github.com/imnotStealthy/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
+            "https://github.com/stealthsrc/relay/releases/download/v1.1.23/Relay_1.1.23_x64-setup.exe",
         );
         let asset = signature_asset(&release, "1.1.23").unwrap();
         assert!(validated_asset_url(&release, asset, "Relay_1.1.23_x64-setup.exe.sig").is_ok());

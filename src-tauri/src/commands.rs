@@ -73,6 +73,14 @@ pub struct PanelConfig {
     watched_channel_id: String,
     tts_channel_id: String,
     #[serde(default)]
+    media_cleanup_enabled: bool,
+    #[serde(default)]
+    media_welcome_message_id: String,
+    #[serde(default)]
+    tts_cleanup_enabled: bool,
+    #[serde(default)]
+    tts_welcome_message_id: String,
+    #[serde(default)]
     music_channel_id: String,
     #[serde(default)]
     music_cleanup_enabled: bool,
@@ -361,10 +369,45 @@ pub async fn apply_config(
     core: State<'_, Arc<AppCore>>,
     mut config: PanelConfig,
 ) -> Result<Bootstrap, String> {
+    let previous = core.config.read().await.clone();
     config.music_welcome_message_id = crate::music_cleanup::protected_message_id(
         &config.music_welcome_message_id,
         &config.music_channel_id,
     )?;
+    config.media_welcome_message_id = crate::channel_cleanup::welcome_message_id(
+        &config.media_welcome_message_id,
+        &config.watched_channel_id,
+    )?;
+    config.tts_welcome_message_id = crate::channel_cleanup::welcome_message_id(
+        &config.tts_welcome_message_id,
+        &config.tts_channel_id,
+    )?;
+    if config.media_cleanup_enabled
+        && (!previous.media_cleanup_enabled
+            || previous.watched_channel_id != config.watched_channel_id
+            || previous.media_welcome_message_id != config.media_welcome_message_id)
+    {
+        crate::channel_cleanup::verify_welcome(
+            &core,
+            true,
+            &config.watched_channel_id,
+            &config.media_welcome_message_id,
+        )
+        .await?;
+    }
+    if config.tts_cleanup_enabled
+        && (!previous.tts_cleanup_enabled
+            || previous.tts_channel_id != config.tts_channel_id
+            || previous.tts_welcome_message_id != config.tts_welcome_message_id)
+    {
+        crate::channel_cleanup::verify_welcome(
+            &core,
+            true,
+            &config.tts_channel_id,
+            &config.tts_welcome_message_id,
+        )
+        .await?;
+    }
     if config.music_cleanup_enabled {
         let http = core
             .bot_runtime
@@ -389,11 +432,14 @@ pub async fn apply_config(
             .await
             .map_err(|_| "The welcome message was not found in the selected music channel.")?;
     }
-    let previous = core.config.read().await.clone();
     let next = core
         .update_config(|current| {
             current.watched_channel_id = config.watched_channel_id;
             current.tts_channel_id = config.tts_channel_id;
+            current.media_cleanup_enabled = config.media_cleanup_enabled;
+            current.media_welcome_message_id = config.media_welcome_message_id;
+            current.tts_cleanup_enabled = config.tts_cleanup_enabled;
+            current.tts_welcome_message_id = config.tts_welcome_message_id;
             current.music_channel_id = config.music_channel_id;
             current.music_cleanup_enabled = config.music_cleanup_enabled;
             current.music_welcome_message_id = config.music_welcome_message_id;
@@ -1242,7 +1288,7 @@ fn obs_visual_url(port: u16) -> String {
 
 /// Legacy dedicated YouTube URL (still served). Kept for tests and migration docs;
 /// the panel recommends [`obs_visual_url`] instead.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 fn youtube_overlay_url(port: u16) -> String {
     format!("http://{}:{port}/youtube", widget::youtube_embed_host())
 }

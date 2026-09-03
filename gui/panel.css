@@ -168,7 +168,9 @@ select:focus-visible {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
+  overflow: hidden;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -225,6 +227,9 @@ select:focus-visible {
 
 .navigation {
   display: grid;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   gap: 2px;
 }
 
@@ -493,6 +498,8 @@ select:focus-visible {
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .topbar {
@@ -898,7 +905,9 @@ h3 {
 
 .pages {
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   scrollbar-color: var(--line-strong) transparent;
   scrollbar-width: thin;
 }
@@ -2285,7 +2294,7 @@ input[type="range"] {
   background: var(--surface-subtle);
 }
 
-.output-geometry-card header,
+.output-geometry-card > summary,
 .geometry-size-row,
 .geometry-control {
   display: grid;
@@ -2293,13 +2302,77 @@ input[type="range"] {
   gap: 8px;
 }
 
-.output-geometry-card header {
+.output-geometry-card > summary {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .output-geometry-card h4 {
   margin: 0;
   font-size: 13px;
+}
+
+/* Native disclosures keep forms mounted and remain keyboard accessible. */
+.split-layout:has(> .panel-disclosure) {
+  align-items: start;
+  overflow: visible;
+}
+
+.panel-disclosure > summary,
+.geometry-disclosure > summary {
+  position: relative;
+  padding-right: 26px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.panel-disclosure > summary::-webkit-details-marker,
+.geometry-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-disclosure > summary::after,
+.geometry-disclosure > summary::after {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  color: var(--muted);
+  font-size: 18px;
+  content: "+";
+}
+
+.panel-disclosure[open] > summary::after,
+.geometry-disclosure[open] > summary::after {
+  content: "−";
+}
+
+.panel-disclosure:not([open]) > summary {
+  min-height: 24px;
+  margin-bottom: 0;
+}
+
+.panel-section.panel-disclosure:not([open]) {
+  min-height: 0;
+  align-self: start;
+}
+
+.geometry-disclosure {
+  align-self: start;
+}
+
+.preview-section > summary {
+  padding-right: 44px;
+}
+
+.preview-section > summary::after {
+  top: 12px;
+  right: 16px;
+}
+
+.panel-disclosure > summary:focus-visible,
+.geometry-disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: 4px;
 }
 
 .geometry-preview {

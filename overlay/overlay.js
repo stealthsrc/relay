@@ -232,7 +232,7 @@ function showYoutubeCredit(payload = {}) {
   youtubeCreditTimer = undefined;
   const title = decodeBasicHtmlEntities(payload.title || "").trim();
   const channel = decodeBasicHtmlEntities(payload.channelTitle || "").trim();
-  const primary = isWidgetWindow ? title : channel;
+  const primary = title;
   const requester = decodeBasicHtmlEntities(payload.requestedBy || "").trim();
   if (!primary && !requester) {
     hideYoutubeCredit();
@@ -574,13 +574,6 @@ function mediaStageBlocked() {
 function youtubeStageBlocked() {
   // Ignore our own media-lane report while we already hold YouTube on this page.
   return ttsBusy || (mediaBusy && !mediaStageOccupied());
-}
-
-function clearMediaStageClaim() {
-  mediaStageClaimPending = false;
-  if (reportedMediaStageBusy && !mediaStageOccupied()) {
-    reportedMediaStageBusy = false;
-  }
 }
 
 function resolveMediaStageClaim() {

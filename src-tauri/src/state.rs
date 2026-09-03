@@ -506,18 +506,19 @@ impl AppCore {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_media(&self, media: MediaEvent) {
         self.submit_analyzed_media_with_text(media, None, None)
             .await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_analyzed_media(&self, media: MediaEvent, report: Option<PrivacyReport>) {
         self.submit_analyzed_media_with_text(media, report, None)
             .await;
     }
 
+    #[cfg(test)]
     pub async fn submit_analyzed_media_with_text(
         &self,
         media: MediaEvent,
@@ -644,7 +645,7 @@ impl AppCore {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn submit_sticker(
         &self,
         sticker: StickerEvent,
@@ -656,6 +657,7 @@ impl AppCore {
             .await;
     }
 
+    #[cfg(test)]
     pub async fn submit_sticker_with_roles(
         &self,
         sticker: StickerEvent,
@@ -1225,11 +1227,12 @@ impl AppCore {
         self.complete_sticker(ticket, sticker).await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_tts(&self, request: TtsRequest) -> Result<()> {
         self.publish_tts_with_roles(request, &[]).await
     }
 
+    #[cfg(test)]
     pub async fn publish_tts_with_roles(
         &self,
         request: TtsRequest,
@@ -1296,7 +1299,7 @@ impl AppCore {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_visual_tts(
         &self,
         id: String,
@@ -1339,7 +1342,7 @@ impl AppCore {
         self.complete_tts(ticket, event).await;
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub async fn publish_visual_tts_if_allowed(
         &self,
         id: String,
@@ -1362,6 +1365,7 @@ impl AppCore {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[cfg(test)]
     pub async fn publish_visual_tts_if_allowed_with_roles(
         &self,
         id: String,

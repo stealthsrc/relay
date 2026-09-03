@@ -606,6 +606,7 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
       startSeconds: 0,
       endSeconds: 30,
       channelTitle: "Rick Astley",
+      title: "Never Gonna Give You Up",
       requestedBy: "stealthy",
     },
   }));
@@ -629,7 +630,7 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
     startSeconds: 0,
     endSeconds: 30,
   }));
-  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "Rick Astley");
+  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "Never Gonna Give You Up");
   assert.equal(audio.elements["#youtube-credit-added"].textContent, "Added by stealthy");
   assert.equal(audio.elements["#youtube-credit"].hidden, false);
 
@@ -640,6 +641,7 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
       videoId: "9bZkp7q19f0",
       startSeconds: 0,
       channelTitle: "PSY",
+      title: "Gangnam Style",
       requestedBy: "ada",
     },
   }));
@@ -650,7 +652,7 @@ test("YouTube music uses the official IFrame player and rejects stale stops", as
   assert.ok(nextPlayer);
   nextPlayer.ready();
   assert.equal(nextPlayer.loaded.videoId, "9bZkp7q19f0");
-  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "PSY");
+  assert.equal(audio.elements["#youtube-credit-channel"].textContent, "Gangnam Style");
   assert.equal(audio.elements["#youtube-credit-added"].textContent, "Added by ada");
 
   audio.socket.emit("message", JSON.stringify({

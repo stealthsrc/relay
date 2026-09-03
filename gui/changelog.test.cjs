@@ -83,3 +83,17 @@ test("the installed 1.3.1 notes keep each interface language distinct", () => {
   assert.match(context.changelogBodyForLanguage(body, "ja"), /チャンネル/);
   assert.doesNotMatch(context.changelogBodyForLanguage(body, "ja"), /#### Ajouté/);
 });
+
+test("an up-to-date local build shows its installed version, not the older GitHub release", () => {
+  const control = () => ({ classList: { toggle() {} } });
+  const status = { textContent: "" };
+  const local = vm.createContext({
+    currentAppVersion: "1.3.3", updateUiState: { kind: "current", version: "1.3.2" },
+    latestUpdate: { updateAvailable: false }, updateStatusElement: status,
+    updateCheckButton: control(), installUpdateButton: control(), updateAvailableDot: control(),
+    t: (key) => key, formatTranslation: (key, values) => `${key}: ${values.version}`,
+  });
+  vm.runInContext(sourceBetween(panelSource, "function renderUpdateStatus", "function setUpdateMenuOpen")
+    + "\nrenderUpdateStatus();", local);
+  assert.equal(status.textContent, "upToDate: 1.3.3");
+});

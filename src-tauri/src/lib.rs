@@ -1,6 +1,7 @@
 mod artwork;
 mod bot;
 mod changelog;
+mod channel_cleanup;
 mod commands;
 mod config;
 mod credentials;
@@ -532,8 +533,8 @@ fn resolve_external_link(link: &str) -> Result<String, String> {
         "discord" => "https://discord.com/developers/applications",
         "obs" => "https://obsproject.com/kb/browser-source",
         "github" => "https://github.com/stealthsrc",
-        "relay-releases" => "https://github.com/imnotStealthy/relay/releases/latest",
-        "relay-changelog" => "https://github.com/imnotStealthy/relay/blob/main/CHANGELOG.md",
+        "relay-releases" => "https://github.com/stealthsrc/relay/releases/latest",
+        "relay-changelog" => "https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md",
         "google-cloud" => "https://console.cloud.google.com/",
         "youtube-api-library" => {
             "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
@@ -622,10 +623,18 @@ mod external_link_tests {
     }
 
     #[test]
+    fn opens_releases_on_the_current_github_account() {
+        assert_eq!(
+            resolve_external_link("relay-releases"),
+            Ok("https://github.com/stealthsrc/relay/releases/latest".to_owned())
+        );
+    }
+
+    #[test]
     fn opens_the_bundled_changelog_on_github() {
         assert_eq!(
             resolve_external_link("relay-changelog"),
-            Ok("https://github.com/imnotStealthy/relay/blob/main/CHANGELOG.md".to_owned())
+            Ok("https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md".to_owned())
         );
     }
 
