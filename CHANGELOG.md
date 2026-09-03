@@ -14,6 +14,125 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-03
+
+### English
+
+#### Changed
+
+- The native window title bar now follows the selected interface theme and its colors instead of switching between fixed light and dark styles.
+- The GitHub profile link in the panel now points to the current creator profile.
+- Automatic moderation now includes a configurable compromised account trap with a Discord channel selector, Kick or Ban action, and an English security notice for affected users.
+
+#### Fixed
+
+- Fixed inherited application icons lingering on the native title bar after theme changes.
+- Restored the Relay logo and `Relay` title in Windows taskbar previews while keeping both hidden from the app's native title bar.
+
+### Français
+
+#### Modifié
+
+- La barre de titre native suit désormais le thème d'interface sélectionné et ses couleurs, au lieu d'alterner entre des styles clair et sombre fixes.
+- Le lien de profil GitHub du panneau pointe désormais vers le profil actuel du créateur.
+- La modération automatique propose désormais un piège à compte compromis configurable, avec choix du salon Discord, action Exclure ou Bannir et avertissement de sécurité en anglais pour l’utilisateur concerné.
+
+#### Corrigé
+
+- Correction des icônes héritées qui restaient sur la barre de titre native après un changement de thème.
+- Restauration du logo Relay et du titre `Relay` dans les aperçus de la barre des tâches Windows, tout en les masquant dans la barre de titre native de l’application.
+
+### Español
+
+#### Cambiado
+
+- La barra de título nativa ahora sigue el tema de interfaz seleccionado y sus colores, en lugar de alternar entre estilos claros y oscuros fijos.
+- El enlace de perfil de GitHub del panel apunta ahora al perfil actual del creador.
+- La moderación automática incluye ahora una trampa configurable para cuentas comprometidas, con selector de canal de Discord, acción Expulsar o Banear y aviso de seguridad en inglés para el usuario afectado.
+
+#### Corregido
+
+- Corregidos los iconos heredados que permanecían en la barra de título nativa tras cambiar de tema.
+- Restaurados el logotipo de Relay y el título `Relay` en las vistas previas de la barra de tareas de Windows, manteniéndolos ocultos en la barra de título nativa de la aplicación.
+
+### Deutsch
+
+#### Geändert
+
+- Die native Titelleiste folgt jetzt dem ausgewählten Oberflächenthema und dessen Farben, statt nur zwischen festen hellen und dunklen Stilen zu wechseln.
+- Der GitHub-Profil-Link im Panel zeigt jetzt auf das aktuelle Erstellerprofil.
+- Die automatische Moderation enthält jetzt eine konfigurierbare Falle für kompromittierte Konten mit Discord-Kanalauswahl, Kick- oder Ban-Aktion und englischem Sicherheitshinweis für betroffene Benutzer.
+
+#### Behoben
+
+- Ererbte Symbole, die nach einem Themenwechsel auf der nativen Titelleiste verblieben, werden jetzt entfernt.
+- Das Relay-Logo und der Titel `Relay` werden wieder in den Vorschauen der Windows-Taskleiste angezeigt, bleiben aber in der nativen Titelleiste der App ausgeblendet.
+
+### Русский
+
+#### Изменено
+
+- Нативная строка заголовка теперь следует выбранной теме интерфейса и её цветам вместо переключения между фиксированными светлым и тёмным стилями.
+- Ссылка на профиль GitHub в панели теперь ведёт на актуальный профиль автора.
+- В автоматическую модерацию добавлена настраиваемая ловушка для скомпрометированных аккаунтов с выбором канала Discord, действием Kick или Ban и предупреждением на английском языке для затронутого пользователя.
+
+#### Исправлено
+
+- Исправлена проблема с унаследованными значками приложения, остававшимися в нативной строке заголовка после смены темы.
+- В предварительных просмотрах панели задач Windows восстановлены логотип Relay и заголовок `Relay`, при этом в нативной строке заголовка приложения они скрыты.
+
+### 简体中文
+
+#### 更改
+
+- 原生窗口标题栏现在跟随所选的界面主题及其颜色，而不再只在固定的浅色和深色样式之间切换。
+- 面板中的 GitHub 主页链接现在指向当前的创作者主页。
+- 自动审核现已加入可配置的被盗账号陷阱，支持选择 Discord 频道、Kick 或 Ban 操作，并向受影响用户发送英文安全通知。
+
+#### 已修复
+
+- 修复了切换主题后原生标题栏残留继承应用图标的问题。
+- Windows 任务栏预览中重新显示 Relay 标志和 `Relay` 标题，同时在应用的原生标题栏中将两者隐藏。
+
+### 한국어
+
+#### 변경
+
+- 네이티브 창 제목 표시줄이 이제 고정된 밝은/어두운 스타일 사이를 전환하는 대신 선택한 인터페이스 테마와 색상을 따릅니다.
+- 패널의 GitHub 프로필 링크가 이제 현재 크리에이터 프로필을 가리킵니다.
+- 자동 검토에 Discord 채널 선택, Kick 또는 Ban 작업, 영향을 받은 사용자에게 보내는 영어 보안 알림을 갖춘 탈취 계정 함정이 추가되었습니다.
+
+#### 수정됨
+
+- 테마 변경 후 네이티브 제목 표시줄에 남아 있던 상속된 앱 아이콘 문제를 수정했습니다.
+- Windows 작업 표시줄 미리 보기에 Relay 로고와 `Relay` 제목을 복원하고 앱의 네이티브 제목 표시줄에서는 둘 다 숨겼습니다.
+
+### 日本語
+
+#### 変更
+
+- ネイティブのタイトルバーが、固定のライト/ダークスタイル間の切り替えではなく、選択したインターフェーステーマとその色に追従するようになりました。
+- パネルの GitHub プロフィールリンクを現在のクリエイタープロフィールに更新しました。
+- 自動モデレーションに、Discord チャンネル、Kick または Ban の処理、対象ユーザーへの英語のセキュリティ通知を選べる乗っ取りアカウント用トラップを追加しました。
+
+#### 修正
+
+- テーマ変更後にネイティブのタイトルバーに残っていた継承アイコンの問題を修正しました。
+- Windows タスクバーのプレビューに Relay ロゴと `Relay` タイトルを復元し、アプリのネイティブタイトルバーでは両方を非表示にしました。
+
+### Bahasa Indonesia
+
+#### Diubah
+
+- Bilah judul jendela native kini mengikuti tema antarmuka yang dipilih beserta warnanya, alih-alih berganti antara gaya terang dan gelap yang tetap.
+- Tautan profil GitHub di panel kini menunjuk ke profil pembuat saat ini.
+- Moderasi otomatis kini memiliki perangkap akun yang disusupi dengan pilihan channel Discord, tindakan Kick atau Ban, serta pemberitahuan keamanan berbahasa Inggris untuk pengguna terdampak.
+
+#### Diperbaiki
+
+- Memperbaiki ikon aplikasi warisan yang tersisa di bilah judul native setelah perubahan tema.
+- Memulihkan logo Relay dan judul `Relay` pada pratinjau bilah tugas Windows sambil menyembunyikan keduanya dari bilah judul native aplikasi.
+
 ## [1.3.1] - 2026-08-17
 
 ### English
@@ -29,7 +148,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Security
 
-- Removed the vulnerable `quick-xml 0.39.4` and `rustls-webpki 0.102.8` transitive dependencies by using the Windows-native file-dialog and Discord TLS backends.
+- Stopped using the vulnerable transitive versions `quick-xml 0.39.4` and `rustls-webpki 0.102.8` by moving file dialogs and Discord TLS to Windows-native backends.
 
 ### Français
 
@@ -44,7 +163,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Sécurité
 
-- Suppression des dépendances transitives vulnérables `quick-xml 0.39.4` et `rustls-webpki 0.102.8` en utilisant les backends Windows natifs pour les sélecteurs de fichiers et le TLS Discord.
+- Abandon des versions transitives vulnérables `quick-xml 0.39.4` et `rustls-webpki 0.102.8` en migrant les sélecteurs de fichiers et le TLS Discord vers les backends natifs Windows.
 
 ### Español
 
@@ -59,7 +178,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Seguridad
 
-- Eliminadas las dependencias transitivas vulnerables `quick-xml 0.39.4` y `rustls-webpki 0.102.8` mediante el uso de los backends nativos de Windows para los selectores de archivos y el TLS de Discord.
+- Se dejó de usar las versiones transitivas vulnerables `quick-xml 0.39.4` y `rustls-webpki 0.102.8` al migrar los selectores de archivos y el TLS de Discord a los backends nativos de Windows.
 
 ### Deutsch
 
@@ -74,7 +193,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Sicherheit
 
-- Die verwundbaren transitiven Abhängigkeiten `quick-xml 0.39.4` und `rustls-webpki 0.102.8` entfernt, indem native Windows-Backends für Dateidialoge und Discord-TLS verwendet werden.
+- Die verwundbaren transitiven Versionen `quick-xml 0.39.4` und `rustls-webpki 0.102.8` werden nicht mehr verwendet, da Dateidialoge und Discord-TLS auf native Windows-Backends umgestellt wurden.
 
 ### Русский
 
@@ -89,7 +208,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Безопасность
 
-- Удалены уязвимые транзитивные зависимости `quick-xml 0.39.4` и `rustls-webpki 0.102.8` благодаря использованию нативных Windows-бэкендов для диалогов файлов и TLS Discord.
+- От применения уязвимых транзитивных версий `quick-xml 0.39.4` и `rustls-webpki 0.102.8` отказано благодаря переходу диалогов выбора файлов и TLS Discord на нативные бэкенды Windows.
 
 ### 简体中文
 
@@ -104,7 +223,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### 安全
 
-- 改用 Windows 原生文件选择器和 Discord TLS 后端，移除了存在漏洞的间接依赖 `quick-xml 0.39.4` 和 `rustls-webpki 0.102.8`。
+- 改用 Windows 原生文件选择器和 Discord TLS 后端，不再使用存在漏洞的间接依赖版本 `quick-xml 0.39.4` 和 `rustls-webpki 0.102.8`。
 
 ### 한국어
 
@@ -119,7 +238,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### 보안
 
-- Windows 기본 파일 대화 상자와 Discord TLS 백엔드를 사용하도록 변경하여 취약한 간접 의존성 `quick-xml 0.39.4` 및 `rustls-webpki 0.102.8`을 제거했습니다.
+- Windows 기본 파일 대화 상자와 Discord TLS 백엔드로 전환하여 취약한 간접 의존성 버전 `quick-xml 0.39.4` 및 `rustls-webpki 0.102.8`의 사용을 중단했습니다.
 
 ### 日本語
 
@@ -134,7 +253,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### セキュリティ
 
-- Windows ネイティブのファイルダイアログと Discord TLS バックエンドへ切り替え、脆弱な間接依存関係 `quick-xml 0.39.4` と `rustls-webpki 0.102.8` を削除しました。
+- Windows ネイティブのファイルダイアログと Discord TLS バックエンドへ切り替え、脆弱な間接依存関係バージョン `quick-xml 0.39.4` と `rustls-webpki 0.102.8` を使用しないようにしました。
 
 ### Bahasa Indonesia
 
@@ -149,7 +268,7 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 #### Keamanan
 
-- Menghapus dependensi transitif rentan `quick-xml 0.39.4` dan `rustls-webpki 0.102.8` dengan memakai backend native Windows untuk dialog file dan TLS Discord.
+- Berhenti memakai versi dependensi transitif rentan `quick-xml 0.39.4` dan `rustls-webpki 0.102.8` dengan beralih ke backend native Windows untuk dialog file dan TLS Discord.
 
 ## [1.3.0] - 2026-08-17
 
