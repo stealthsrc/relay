@@ -28,7 +28,7 @@ use serenity::{
 use crate::{
     artwork,
     commands::emit_output_test,
-    config::{AppConfig, ChannelLockSnapshot, PermissionOverwriteSnapshot},
+    config::{AppConfig, ChannelLockSnapshot, HoneypotAction, PermissionOverwriteSnapshot},
     credentials::{load_discord_credentials, load_youtube_api_key},
     custom_commands,
     model::{
@@ -61,6 +61,67 @@ const MUSIC_CUSTOM_END_ID: &str = "end";
 
 struct Handler {
     core: Arc<AppCore>,
+}
+
+const HONEYPOT_AUDIT_REASON: &str =
+    "Relay compromised-account trap: message posted in the protected channel.";
+
+fn honeypot_action_for_channel(config: &AppConfig, channel_id: &str) -> Option<HoneypotAction> {
+    (!config.honeypot_channel_id.is_empty() && config.honeypot_channel_id == channel_id)
+        .then_some(config.honeypot_action)
+}
+
+fn honeypot_notice(action: HoneypotAction) -> &'static str {
+    match action {
+        HoneypotAction::Kick => {
+            "A message from your Discord account was posted in a protected honeypot channel used to identify compromised accounts. Your account may have been compromised, including by token-grabbing malware or a malicious application. As a precaution, you will be kicked from the server. Change your Discord password, enable two-factor authentication, and review Authorized Apps before rejoining."
+        }
+        HoneypotAction::Ban => {
+            "A message from your Discord account was posted in a protected honeypot channel used to identify compromised accounts. Your account may have been compromised, including by token-grabbing malware or a malicious application. As a precaution, you will be banned from the server. Change your Discord password, enable two-factor authentication, and review Authorized Apps before contacting the server moderators."
+        }
+    }
+}
+
+async fn enforce_honeypot_action(
+    core: &AppCore,
+    context: &Context,
+    message: &Message,
+    action: HoneypotAction,
+) {
+    let Some(guild_id) = message.guild_id else {
+        core.bot_status.write().await.error =
+            Some("Compromised account trap ignored a non-server message.".into());
+        return;
+    };
+
+    let dm_delivered = message
+        .author
+        .direct_message(
+            &context.http,
+            CreateMessage::new().content(honeypot_notice(action)),
+        )
+        .await
+        .is_ok();
+    let action_result = match action {
+        HoneypotAction::Kick => {
+            guild_id
+                .kick_with_reason(&context.http, message.author.id, HONEYPOT_AUDIT_REASON)
+                .await
+        }
+        HoneypotAction::Ban => {
+            guild_id
+                .ban_with_reason(&context.http, message.author.id, 0, HONEYPOT_AUDIT_REASON)
+                .await
+        }
+    };
+
+    core.bot_status.write().await.error = match action_result {
+        Ok(()) if dm_delivered => None,
+        Ok(()) => Some(
+            "Compromised account trap acted, but the Discord DM could not be delivered.".into(),
+        ),
+        Err(error) => Some(format!("Compromised account trap action failed: {error}")),
+    };
 }
 
 #[async_trait]
@@ -100,9 +161,15 @@ impl EventHandler for Handler {
             return;
         }
         let config = self.core.config.read().await.clone();
+        let channel_id = message.channel_id.to_string();
+
+        if let Some(action) = honeypot_action_for_channel(&config, &channel_id) {
+            enforce_honeypot_action(&self.core, &context, &message, action).await;
+            return;
+        }
+
         let role_ids = message_role_ids(&message);
         let scoped_config = privacy::scoped_config_for_roles(&config, &role_ids);
-        let channel_id = message.channel_id.to_string();
 
         if !config.music_channel_id.is_empty() && channel_id == config.music_channel_id {
             handle_music_message(&self.core, &context.http, &message, &scoped_config).await;
@@ -2472,6 +2539,7 @@ fn replace_configured_channel_id(
         &mut config.watched_channel_id,
         &mut config.tts_channel_id,
         &mut config.music_channel_id,
+        &mut config.honeypot_channel_id,
     ] {
         if *channel_id == old_channel_id {
             *channel_id = replacement_channel_id.clone();
@@ -3269,6 +3337,34 @@ mod tests {
     }
 
     #[test]
+    fn honeypot_targets_only_the_configured_channel_with_english_notices() {
+        let config = AppConfig {
+            honeypot_channel_id: "123456789012345678".into(),
+            honeypot_action: HoneypotAction::Ban,
+            ..AppConfig::default()
+        };
+
+        assert_eq!(
+            honeypot_action_for_channel(&config, "123456789012345678"),
+            Some(HoneypotAction::Ban)
+        );
+        assert_eq!(
+            honeypot_action_for_channel(&config, "223456789012345678"),
+            None
+        );
+        assert!(honeypot_notice(HoneypotAction::Kick).contains("kicked from the server"));
+        assert!(honeypot_notice(HoneypotAction::Ban).contains("banned from the server"));
+        for notice in [
+            honeypot_notice(HoneypotAction::Kick),
+            honeypot_notice(HoneypotAction::Ban),
+        ] {
+            assert!(notice.contains("token-grabbing"));
+            assert!(notice.contains("Change your Discord password"));
+            assert!(notice.contains("two-factor authentication"));
+        }
+    }
+
+    #[test]
     fn deferred_embed_updates_fetch_roles_before_using_the_partial_fallback() {
         let source = include_str!("bot.rs");
         let handler = source
@@ -3450,6 +3546,7 @@ mod tests {
             watched_channel_id: "1".into(),
             tts_channel_id: "1".into(),
             music_channel_id: "2".into(),
+            honeypot_channel_id: "1".into(),
             channel_lock: Some(ChannelLockSnapshot {
                 channel_id: "1".into(),
                 overwrites: Vec::new(),
@@ -3462,6 +3559,7 @@ mod tests {
         assert_eq!(config.watched_channel_id, "3");
         assert_eq!(config.tts_channel_id, "3");
         assert_eq!(config.music_channel_id, "2");
+        assert_eq!(config.honeypot_channel_id, "3");
         assert_eq!(config.channel_lock.unwrap().channel_id, "3");
     }
 

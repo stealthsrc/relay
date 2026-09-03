@@ -119,6 +119,7 @@ test("moderation settings use three native disclosures without changing control 
   for (const id of [
     "privacy-concepts", "privacy-exempt-role-ids", "moderation-enabled",
     "moderation-allow-images", "moderation-allow-videos", "moderation-allow-audio",
+    "honeypot-channel", "honeypot-action",
     "privacy-scan-enabled", "privacy-protection-level", "privacy-block-threshold",
     "privacy-review-intermediate", "privacy-auto-delete-blocked-messages",
     "privacy-custom-patterns", "privacy-allowlist",
@@ -127,19 +128,22 @@ test("moderation settings use three native disclosures without changing control 
   }
 
   assert.match(panelHtml, /value="balanced" data-i18n="privacyProfileBalanced"/);
+  assert.match(panelHtml, /id="honeypot-action"[\s\S]*value="kick" data-i18n="honeypotKick"[\s\S]*value="ban" data-i18n="honeypotBan"/);
   assert.match(panelHtml, /id="privacy-custom-patterns"[^>]*data-i18n-placeholder="privacyCustomPatternsPlaceholder"/);
   assert.match(panelHtml, /id="privacy-allowlist"[^>]*data-i18n-placeholder="privacyAllowlistPlaceholder"/);
+  assert.match(panelSource, /honeypotChannelId: honeypotChannelElement\.value/);
+  assert.match(panelSource, /honeypotAction: honeypotActionElement\.value/);
 });
 
 test("moderation translations are explicit and localized in every language", () => {
   const expected = {
-    fr: ["Filtrage automatique", "Modération manuelle", "Activer l’analyse locale de confidentialité", "Équilibré", "Une valeur par ligne"],
-    es: ["Filtrado automático", "Moderación manual", "Activar el análisis local de privacidad", "Equilibrado", "Un valor por línea"],
-    de: ["Automatische Filterung", "Manuelle Moderation", "Lokalen Datenschutzscan aktivieren", "Ausgewogen", "Ein Wert pro Zeile"],
+    fr: ["Filtrage automatique", "Modération manuelle", "Activer l’analyse locale de confidentialité", "Équilibré", "Une valeur par ligne", "Piège à compte compromis"],
+    es: ["Filtrado automático", "Moderación manual", "Activar el análisis local de privacidad", "Equilibrado", "Un valor por línea", "Trampa para cuentas comprometidas"],
+    de: ["Automatische Filterung", "Manuelle Moderation", "Lokalen Datenschutzscan aktivieren", "Ausgewogen", "Ein Wert pro Zeile", "Falle für kompromittierte Konten"],
   };
   const keys = [
     "automaticFilterWords", "manualModeration", "privacyScanEnabled",
-    "privacyProfileBalanced", "privacyCustomPatternsPlaceholder",
+    "privacyProfileBalanced", "privacyCustomPatternsPlaceholder", "honeypotChannel",
   ];
 
   for (const [language, values] of Object.entries(expected)) {

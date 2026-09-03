@@ -1209,6 +1209,22 @@ for (const [languageCode, extension] of Object.entries(personalizationExtensionT
   Object.assign(translations[languageCode], extension);
 }
 
+const honeypotExtensionTranslations = {
+  en: { honeypotChannel: "Compromised account trap", honeypotChannelHelp: "Choose a protected Discord channel. Any non-bot account that posts there is treated as potentially compromised.", honeypotDisabled: "Disabled", honeypotAction: "Trap action", honeypotActionHelp: "Relay sends an English security notice, then applies the selected action. The bot needs the matching Discord permission and role position.", honeypotKick: "Kick", honeypotBan: "Ban", moderationLocalOnly: "Manual review decisions stay local. The compromised account trap notifies affected users in English." },
+  fr: { honeypotChannel: "Piège à compte compromis", honeypotChannelHelp: "Choisissez un salon Discord protégé. Tout compte non-bot qui y publie est considéré comme potentiellement compromis.", honeypotDisabled: "Désactivé", honeypotAction: "Action du piège", honeypotActionHelp: "Relay envoie un avertissement de sécurité en anglais, puis applique l’action choisie. Le bot doit disposer de l’autorisation Discord correspondante et d’un rôle suffisamment élevé.", honeypotKick: "Exclure (Kick)", honeypotBan: "Bannir (Ban)", moderationLocalOnly: "Les décisions de validation manuelle restent locales. Le piège à compte compromis avertit l’utilisateur concerné en anglais." },
+  es: { honeypotChannel: "Trampa para cuentas comprometidas", honeypotChannelHelp: "Elige un canal de Discord protegido. Toda cuenta que no sea un bot y publique allí se considera potencialmente comprometida.", honeypotDisabled: "Desactivada", honeypotAction: "Acción de la trampa", honeypotActionHelp: "Relay envía un aviso de seguridad en inglés y después aplica la acción elegida. El bot necesita el permiso de Discord correspondiente y una posición de rol suficiente.", honeypotKick: "Expulsar (Kick)", honeypotBan: "Banear (Ban)", moderationLocalOnly: "Las decisiones de revisión manual permanecen locales. La trampa para cuentas comprometidas avisa en inglés a los usuarios afectados." },
+  de: { honeypotChannel: "Falle für kompromittierte Konten", honeypotChannelHelp: "Wähle einen geschützten Discord-Kanal. Jedes Nicht-Bot-Konto, das dort schreibt, gilt als möglicherweise kompromittiert.", honeypotDisabled: "Deaktiviert", honeypotAction: "Aktion der Falle", honeypotActionHelp: "Relay sendet einen Sicherheitshinweis auf Englisch und führt danach die gewählte Aktion aus. Der Bot benötigt die passende Discord-Berechtigung und Rollenposition.", honeypotKick: "Entfernen (Kick)", honeypotBan: "Sperren (Ban)", moderationLocalOnly: "Entscheidungen der manuellen Prüfung bleiben lokal. Die Falle für kompromittierte Konten benachrichtigt betroffene Benutzer auf Englisch." },
+  ru: { honeypotChannel: "Ловушка для скомпрометированных аккаунтов", honeypotChannelHelp: "Выберите защищённый канал Discord. Любой аккаунт, не являющийся ботом, который пишет туда, считается потенциально скомпрометированным.", honeypotDisabled: "Отключено", honeypotAction: "Действие ловушки", honeypotActionHelp: "Relay отправляет предупреждение о безопасности на английском языке, а затем выполняет выбранное действие. Боту нужны соответствующее разрешение Discord и достаточная позиция роли.", honeypotKick: "Исключить (Kick)", honeypotBan: "Заблокировать (Ban)", moderationLocalOnly: "Решения ручной проверки остаются локальными. Ловушка уведомляет затронутых пользователей на английском языке." },
+  zh: { honeypotChannel: "被盗账号陷阱", honeypotChannelHelp: "选择一个受保护的 Discord 频道。任何在其中发言的非机器人账号都会被视为可能已被盗用。", honeypotDisabled: "已禁用", honeypotAction: "陷阱操作", honeypotActionHelp: "Relay 会先发送英文安全通知，再执行所选操作。机器人需要相应的 Discord 权限和足够高的身份组位置。", honeypotKick: "踢出 (Kick)", honeypotBan: "封禁 (Ban)", moderationLocalOnly: "手动审核决定保留在本地。被盗账号陷阱会用英文通知受影响的用户。" },
+  ko: { honeypotChannel: "탈취 계정 함정", honeypotChannelHelp: "보호할 Discord 채널을 선택하세요. 그곳에 게시하는 봇이 아닌 계정은 잠재적으로 탈취된 것으로 간주됩니다.", honeypotDisabled: "사용 안 함", honeypotAction: "함정 작업", honeypotActionHelp: "Relay가 영어 보안 알림을 보낸 뒤 선택한 작업을 적용합니다. 봇에는 해당 Discord 권한과 충분히 높은 역할 위치가 필요합니다.", honeypotKick: "추방 (Kick)", honeypotBan: "차단 (Ban)", moderationLocalOnly: "수동 검토 결정은 로컬에만 유지됩니다. 탈취 계정 함정은 영향을 받은 사용자에게 영어로 알립니다." },
+  ja: { honeypotChannel: "乗っ取りアカウント用トラップ", honeypotChannelHelp: "保護する Discord チャンネルを選択します。そこに投稿した Bot 以外のアカウントは、乗っ取られた可能性があると見なされます。", honeypotDisabled: "無効", honeypotAction: "トラップの処理", honeypotActionHelp: "Relay は英語のセキュリティ通知を送信してから、選択した処理を実行します。Bot には対応する Discord 権限と十分に高いロール位置が必要です。", honeypotKick: "キック (Kick)", honeypotBan: "BAN (Ban)", moderationLocalOnly: "手動確認の判断はローカルに留まります。乗っ取りアカウント用トラップは対象ユーザーに英語で通知します。" },
+  id: { honeypotChannel: "Perangkap akun yang disusupi", honeypotChannelHelp: "Pilih channel Discord yang dilindungi. Setiap akun non-bot yang mengirim pesan di sana dianggap berpotensi disusupi.", honeypotDisabled: "Dinonaktifkan", honeypotAction: "Tindakan perangkap", honeypotActionHelp: "Relay mengirim pemberitahuan keamanan dalam bahasa Inggris, lalu menerapkan tindakan yang dipilih. Bot memerlukan izin Discord dan posisi peran yang sesuai.", honeypotKick: "Keluarkan (Kick)", honeypotBan: "Cekal (Ban)", moderationLocalOnly: "Keputusan tinjauan manual tetap lokal. Perangkap akun yang disusupi memberi tahu pengguna terdampak dalam bahasa Inggris." },
+};
+
+for (const [languageCode, extension] of Object.entries(honeypotExtensionTranslations)) {
+  Object.assign(translations[languageCode], extension);
+}
+
 const musicExtensionTranslations = {
   en: {},
   fr: {},
@@ -1418,6 +1434,8 @@ const channelElement = $("#channel");
 const refreshChannelsButton = $("#refresh-channels");
 const ttsChannelElement = $("#tts-channel");
 const musicChannelElement = $("#music-channel");
+const honeypotChannelElement = $("#honeypot-channel");
+const honeypotActionElement = $("#honeypot-action");
 const durationElement = $("#duration");
 const gifDurationElement = $("#gif-duration");
 const stickerDurationElement = $("#sticker-duration");
@@ -1925,6 +1943,7 @@ function applyLanguage() {
     populateChannels(channelElement, bootstrap.channels, channelElement.value, t("selectChannel"));
     populateChannels(ttsChannelElement, bootstrap.channels, ttsChannelElement.value, t("ttsDisabled"));
     populateChannels(musicChannelElement, bootstrap.channels, musicChannelElement.value, t("musicDisabled"));
+    populateChannels(honeypotChannelElement, bootstrap.channels, honeypotChannelElement.value, t("honeypotDisabled"));
     renderHistory();
     renderModeration();
   }
@@ -2995,6 +3014,7 @@ function applyConfig(config) {
   moderationAllowImagesElement.checked = config.moderationAllowImages !== false;
   moderationAllowVideosElement.checked = config.moderationAllowVideos !== false;
   moderationAllowAudioElement.checked = config.moderationAllowAudio !== false;
+  honeypotActionElement.value = config.honeypotAction || "kick";
   privacyScanEnabledElement.checked = Boolean(config.privacyScanEnabled);
   privacyProtectionLevelElement.value = config.privacyProtectionLevel || "balanced";
   privacyBlockThresholdElement.value = config.privacyBlockThreshold || "high";
@@ -3021,6 +3041,10 @@ function applyConfig(config) {
   musicChannelElement.value = config.musicChannelId || "";
   if (musicChannelElement.value !== (config.musicChannelId || "")) {
     populateChannels(musicChannelElement, bootstrap?.channels || [], config.musicChannelId, t("musicDisabled"));
+  }
+  honeypotChannelElement.value = config.honeypotChannelId || "";
+  if (honeypotChannelElement.value !== (config.honeypotChannelId || "")) {
+    populateChannels(honeypotChannelElement, bootstrap?.channels || [], config.honeypotChannelId, t("honeypotDisabled"));
   }
   commandInputs.channel.checked = config.commandChannelEnabled !== false;
   commandInputs.url.checked = config.commandUrlEnabled !== false;
@@ -3430,6 +3454,7 @@ function applyBootstrap(nextBootstrap, reconnect = false) {
   populateChannels(channelElement, bootstrap.channels, bootstrap.config.watchedChannelId, t("selectChannel"));
   populateChannels(ttsChannelElement, bootstrap.channels, bootstrap.config.ttsChannelId, t("ttsDisabled"));
   populateChannels(musicChannelElement, bootstrap.channels, bootstrap.config.musicChannelId, t("musicDisabled"));
+  populateChannels(honeypotChannelElement, bootstrap.channels, bootstrap.config.honeypotChannelId, t("honeypotDisabled"));
   applyConfig(bootstrap.config);
   replaceHistory(bootstrap.history);
   renderModeration();
@@ -3468,6 +3493,8 @@ async function saveConfig(stateElement) {
         watchedChannelId: channelElement.value,
         ttsChannelId: ttsChannelElement.value,
         musicChannelId: musicChannelElement.value,
+        honeypotChannelId: honeypotChannelElement.value,
+        honeypotAction: honeypotActionElement.value,
         displayDurationMs: Number(durationElement.value) * 1000,
         gifDurationMs: Number(gifDurationElement.value) * 1000,
         stickerDurationMs: Number(stickerDurationElement.value) * 1000,
@@ -3595,12 +3622,14 @@ async function refreshRuntimeStatus() {
     const channelsSignature = JSON.stringify(status.channels);
     const selectingChannel = document.activeElement === channelElement
       || document.activeElement === ttsChannelElement
-      || document.activeElement === musicChannelElement;
+      || document.activeElement === musicChannelElement
+      || document.activeElement === honeypotChannelElement;
     if (channelsSignature !== lastChannelsSignature && !selectingChannel) {
       lastChannelsSignature = channelsSignature;
       populateChannels(channelElement, status.channels, channelElement.value, t("selectChannel"));
       populateChannels(ttsChannelElement, status.channels, ttsChannelElement.value, t("ttsDisabled"));
       populateChannels(musicChannelElement, status.channels, musicChannelElement.value, t("musicDisabled"));
+      populateChannels(honeypotChannelElement, status.channels, honeypotChannelElement.value, t("honeypotDisabled"));
     }
   } catch {
     setServerStatus({ connected: false, overlayClients: 0 });
@@ -3894,6 +3923,7 @@ refreshChannelsButton.addEventListener("click", async () => {
     populateChannels(channelElement, channels, channelElement.value, t("selectChannel"));
     populateChannels(ttsChannelElement, channels, ttsChannelElement.value, t("ttsDisabled"));
     populateChannels(musicChannelElement, channels, musicChannelElement.value, t("musicDisabled"));
+    populateChannels(honeypotChannelElement, channels, honeypotChannelElement.value, t("honeypotDisabled"));
     saveStateElement.textContent = t("channelsRefreshed");
   } catch (error) {
     saveStateElement.textContent = String(error);

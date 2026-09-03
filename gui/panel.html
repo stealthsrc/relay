@@ -930,6 +930,21 @@
                       <input id="privacy-exempt-role-ids" type="text" autocomplete="off" spellcheck="false" placeholder="&lt;@&amp;123456789012345678&gt;, 123456789012345678">
                       <small data-i18n="privacyExemptRolesHelp">Enter role IDs or Discord role mentions separated by commas or new lines. These roles bypass filter words only; local privacy signals and manual moderation still apply.</small>
                     </label>
+                    <label class="field field--full">
+                      <span data-i18n="honeypotChannel">Compromised account trap</span>
+                      <select id="honeypot-channel" name="honeypotChannelId">
+                        <option value="" data-i18n="honeypotDisabled">Disabled</option>
+                      </select>
+                      <small data-i18n="honeypotChannelHelp">Choose a protected Discord channel. Any non-bot account that posts there is treated as potentially compromised.</small>
+                    </label>
+                    <label class="field field--full">
+                      <span data-i18n="honeypotAction">Trap action</span>
+                      <select id="honeypot-action" name="honeypotAction">
+                        <option value="kick" data-i18n="honeypotKick">Kick</option>
+                        <option value="ban" data-i18n="honeypotBan">Ban</option>
+                      </select>
+                      <small data-i18n="honeypotActionHelp">Relay sends an English security notice, then applies the selected action. The bot needs the matching Discord permission and role position.</small>
+                    </label>
                   </div>
                 </details>
 
