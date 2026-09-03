@@ -102,12 +102,22 @@ impl OutputGeometry {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HoneypotAction {
+    #[default]
+    Kick,
+    Ban,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppConfig {
     pub watched_channel_id: String,
     pub tts_channel_id: String,
     pub music_channel_id: String,
+    pub honeypot_channel_id: String,
+    pub honeypot_action: HoneypotAction,
     pub port: u16,
     pub display_duration_ms: u64,
     pub gif_duration_ms: u64,
@@ -186,6 +196,8 @@ impl Default for AppConfig {
             watched_channel_id: String::new(),
             tts_channel_id: String::new(),
             music_channel_id: String::new(),
+            honeypot_channel_id: String::new(),
+            honeypot_action: HoneypotAction::Kick,
             port: DEFAULT_PORT,
             display_duration_ms: DEFAULT_DISPLAY_DURATION_MS,
             gif_duration_ms: DEFAULT_GIF_DURATION_MS,
@@ -265,10 +277,12 @@ impl AppConfig {
         validate_channel_id(&self.watched_channel_id, "watched")?;
         validate_channel_id(&self.tts_channel_id, "TTS")?;
         validate_channel_id(&self.music_channel_id, "music")?;
+        validate_channel_id(&self.honeypot_channel_id, "honeypot")?;
         let configured_channels = [
             ("media", &self.watched_channel_id),
             ("TTS", &self.tts_channel_id),
             ("music", &self.music_channel_id),
+            ("honeypot", &self.honeypot_channel_id),
         ];
         for (index, (_, left_id)) in configured_channels.iter().enumerate() {
             if left_id.is_empty() {
@@ -278,7 +292,7 @@ impl AppConfig {
                 .iter()
                 .any(|(_, right_id)| left_id == right_id && !right_id.is_empty())
             {
-                bail!("Media, TTS, and music must use separate Discord channels.");
+                bail!("Media, TTS, music, and honeypot must use separate Discord channels.");
             }
         }
         if self.port < 1024 {
@@ -686,6 +700,8 @@ mod tests {
             watched_channel_id: "123456789012345678".into(),
             tts_channel_id: "223456789012345678".into(),
             music_channel_id: "323456789012345678".into(),
+            honeypot_channel_id: "423456789012345678".into(),
+            honeypot_action: HoneypotAction::Ban,
             port: 5_000,
             display_duration_ms: 4_000,
             gif_duration_ms: 6_000,
@@ -826,6 +842,13 @@ mod tests {
             ..AppConfig::default()
         };
         assert!(duplicate_channels.validate().is_err());
+
+        let duplicate_honeypot = AppConfig {
+            watched_channel_id: "123456789012345678".into(),
+            honeypot_channel_id: "123456789012345678".into(),
+            ..AppConfig::default()
+        };
+        assert!(duplicate_honeypot.validate().is_err());
 
         let invalid_geometry = AppConfig {
             media_obs_geometry: OutputGeometry {

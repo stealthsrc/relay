@@ -9,7 +9,7 @@ use crate::{
     bot::{
         apply_bot_presence, invite_url, refresh_channel_list, start_bot, sync_relay_command_schema,
     },
-    config::{AppConfig, DEFAULT_SKIP_SHORTCUT, OutputGeometry},
+    config::{AppConfig, DEFAULT_SKIP_SHORTCUT, HoneypotAction, OutputGeometry},
     credentials::{
         CredentialStatus, DiscordCredentials, credential_status, load_discord_credentials,
         load_or_create_relay_secret, save_discord_credentials, save_youtube_api_key,
@@ -74,6 +74,10 @@ pub struct PanelConfig {
     tts_channel_id: String,
     #[serde(default)]
     music_channel_id: String,
+    #[serde(default)]
+    honeypot_channel_id: String,
+    #[serde(default)]
+    honeypot_action: HoneypotAction,
     port: u16,
     display_duration_ms: u64,
     gif_duration_ms: u64,
@@ -359,6 +363,8 @@ pub async fn apply_config(
             current.watched_channel_id = config.watched_channel_id;
             current.tts_channel_id = config.tts_channel_id;
             current.music_channel_id = config.music_channel_id;
+            current.honeypot_channel_id = config.honeypot_channel_id;
+            current.honeypot_action = config.honeypot_action;
             current.port = config.port;
             current.display_duration_ms = config.display_duration_ms;
             current.gif_duration_ms = config.gif_duration_ms;

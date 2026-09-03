@@ -23,7 +23,7 @@ use std::{
     env,
     path::PathBuf,
     process::Command,
-    sync::{Arc, atomic::Ordering},
+    sync::{Arc, OnceLock, atomic::Ordering},
     time::Duration,
 };
 
@@ -60,6 +60,7 @@ const TRAY_PANEL_LABEL: &str = "tray-panel";
 const TRAY_PANEL_WIDTH: f64 = 336.0;
 const TRAY_PANEL_HEIGHT: f64 = 430.0;
 const TRAY_PANEL_MARGIN: i32 = 10;
+const MAIN_WINDOW_TITLE: &str = "Relay";
 const STARTUP_ARGUMENT: &str = "--startup";
 const WINDOWS_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 
@@ -100,6 +101,10 @@ pub fn run() {
                 .build(app)?;
 
             if let Some(window) = app.get_webview_window("main") {
+                window.set_icon(app.default_window_icon().expect("application icon").clone())?;
+                window.set_title(MAIN_WINDOW_TITLE)?;
+                hide_main_titlebar_identity(&window)?;
+                schedule_main_titlebar_identity(window.clone());
                 let window_to_hide = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -486,7 +491,13 @@ fn set_start_with_windows(enabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> {
+fn set_window_theme(
+    window: WebviewWindow,
+    theme: String,
+    caption: [u8; 3],
+    text: [u8; 3],
+    border: [u8; 3],
+) -> Result<(), String> {
     let dark = match theme.as_str() {
         "dark" => true,
         "light" => false,
@@ -495,7 +506,10 @@ fn set_window_theme(window: WebviewWindow, theme: String) -> Result<(), String> 
     window
         .set_theme(Some(if dark { Theme::Dark } else { Theme::Light }))
         .map_err(|error| error.to_string())?;
-    apply_titlebar_theme(&window, dark).map_err(|error| error.to_string())
+    apply_titlebar_theme(&window, caption, text, border).map_err(|error| error.to_string())?;
+    hide_main_titlebar_identity(&window).map_err(|error| error.to_string())?;
+    schedule_main_titlebar_identity(window);
+    Ok(())
 }
 
 #[tauri::command]
@@ -592,7 +606,9 @@ mod media_widget_wake_tests {
 
 #[cfg(test)]
 mod external_link_tests {
-    use super::{is_discord_invite_url, is_startup_launch, resolve_external_link};
+    use super::{
+        MAIN_WINDOW_TITLE, is_discord_invite_url, is_startup_launch, resolve_external_link,
+    };
 
     const INVITE: &str = "https://discord.com/oauth2/authorize?client_id=123456789012345678&permissions=268510208&scope=bot%20applications.commands";
 
@@ -606,6 +622,14 @@ mod external_link_tests {
         assert_eq!(
             resolve_external_link("relay-changelog"),
             Ok("https://github.com/stealthsrc/relay/blob/main/CHANGELOG.md".to_owned())
+        );
+    }
+
+    #[test]
+    fn opens_the_creator_profile_on_github() {
+        assert_eq!(
+            resolve_external_link("github"),
+            Ok("https://github.com/stealthsrc".to_owned())
         );
     }
 
@@ -624,38 +648,166 @@ mod external_link_tests {
     fn detects_the_startup_launch() {
         assert!(is_startup_launch(&["Relay.exe".into(), "--startup".into()]));
     }
+
+    #[test]
+    fn main_window_keeps_the_relay_title_and_default_icon() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(config["app"]["windows"][0]["title"], MAIN_WINDOW_TITLE);
+        let source = include_str!("lib.rs");
+        assert!(source.contains("window.set_icon(app.default_window_icon()"));
+        assert!(source.contains("hide_main_titlebar_identity(&window)"));
+        assert!(source.contains("schedule_main_titlebar_identity(window.clone())"));
+        assert!(source.contains("ExtractIconExW"));
+        assert!(source.contains("SetClassLongPtrW(hwnd, GCLP_HICON"));
+        assert!(source.contains("SetClassLongPtrW(hwnd, GCLP_HICONSM"));
+        assert!(source.contains("for icon_type in [ICON_SMALL, ICON_SMALL2]"));
+        let legacy_clear = ["[ICON_SMALL, ICON_BIG, ", "ICON_SMALL2]"].concat();
+        assert!(!source.contains(&legacy_clear));
+        assert!(source.contains("(DWMWA_TEXT_COLOR, colorref(caption))"));
+        assert!(include_str!("../Cargo.toml").contains("\"Win32_UI_Shell\""));
+        assert!(!include_bytes!("../icons/icon.ico").is_empty());
+    }
 }
 
 #[cfg(target_os = "windows")]
-fn apply_titlebar_theme(window: &WebviewWindow, dark: bool) -> windows::core::Result<()> {
+fn hide_main_titlebar_identity(window: &WebviewWindow) -> windows::core::Result<()> {
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GCLP_HICON, GCLP_HICONSM, GWL_EXSTYLE, GetWindowLongPtrW, ICON_BIG, ICON_SMALL,
+        ICON_SMALL2, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+        SendMessageW, SetClassLongPtrW, SetWindowLongPtrW, SetWindowPos, WM_GETICON, WM_SETICON,
+        WS_EX_DLGMODALFRAME,
+    };
+
+    let hwnd = main_window_handle(window)?;
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | WS_EX_DLGMODALFRAME.0 as isize);
+        let big_icon = SendMessageW(
+            hwnd,
+            WM_GETICON,
+            Some(WPARAM(ICON_BIG as usize)),
+            Some(LPARAM(0)),
+        )
+        .0;
+        let small_icon = SendMessageW(
+            hwnd,
+            WM_GETICON,
+            Some(WPARAM(ICON_SMALL as usize)),
+            Some(LPARAM(0)),
+        )
+        .0;
+        if big_icon == 0 {
+            let taskbar_icon = if small_icon != 0 {
+                small_icon
+            } else {
+                executable_large_icon().map_or(0, |icon| icon.0 as isize)
+            };
+            if taskbar_icon != 0 {
+                SetClassLongPtrW(hwnd, GCLP_HICON, taskbar_icon);
+                SendMessageW(
+                    hwnd,
+                    WM_SETICON,
+                    Some(WPARAM(ICON_BIG as usize)),
+                    Some(LPARAM(taskbar_icon)),
+                );
+            }
+        }
+        if let Some(icon) = transparent_titlebar_icon() {
+            SetClassLongPtrW(hwnd, GCLP_HICONSM, icon.0 as isize);
+        }
+        for icon_type in [ICON_SMALL, ICON_SMALL2] {
+            SendMessageW(
+                hwnd,
+                WM_SETICON,
+                Some(WPARAM(icon_type as usize)),
+                Some(LPARAM(0)),
+            );
+        }
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+        )?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn transparent_titlebar_icon() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+    use windows::Win32::UI::WindowsAndMessaging::{CreateIcon, HICON};
+
+    static ICON: OnceLock<isize> = OnceLock::new();
+    let handle = *ICON.get_or_init(|| {
+        let and_mask = [0xff_u8; 32];
+        let xor_mask = [0_u8; 32];
+        unsafe { CreateIcon(None, 16, 16, 1, 1, and_mask.as_ptr(), xor_mask.as_ptr()) }
+            .map_or(0, |icon| icon.0 as isize)
+    });
+    (handle != 0).then_some(HICON(handle as *mut _))
+}
+
+#[cfg(target_os = "windows")]
+fn schedule_main_titlebar_identity(window: WebviewWindow) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let _ = hide_main_titlebar_identity(&window);
+    });
+}
+
+#[cfg(target_os = "windows")]
+fn executable_large_icon() -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::{
+        Win32::UI::{Shell::ExtractIconExW, WindowsAndMessaging::HICON},
+        core::PCWSTR,
+    };
+
+    let executable = env::current_exe().ok()?;
+    let path = executable
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let mut icon = HICON(std::ptr::null_mut());
+    let extracted = unsafe { ExtractIconExW(PCWSTR(path.as_ptr()), 0, Some(&mut icon), None, 1) };
+    (extracted > 0 && !icon.is_invalid()).then_some(icon)
+}
+
+#[cfg(target_os = "windows")]
+fn main_window_handle(
+    window: &WebviewWindow,
+) -> windows::core::Result<windows::Win32::Foundation::HWND> {
+    window.hwnd().map_err(|error| {
+        windows::core::Error::new(
+            windows::core::HRESULT(0x80004005_u32 as i32),
+            error.to_string(),
+        )
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn apply_titlebar_theme(
+    window: &WebviewWindow,
+    caption: [u8; 3],
+    _text: [u8; 3],
+    border: [u8; 3],
+) -> windows::core::Result<()> {
     use std::{ffi::c_void, mem::size_of};
     use windows::Win32::Graphics::Dwm::{
         DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DwmSetWindowAttribute,
     };
 
-    let hwnd = window.hwnd().map_err(|error| {
-        windows::core::Error::new(
-            windows::core::HRESULT(0x80004005_u32 as i32),
-            error.to_string(),
-        )
-    })?;
-    let (caption, text, border) = if dark {
-        (
-            colorref(0, 0, 0),
-            colorref(245, 245, 241),
-            colorref(0, 0, 0),
-        )
-    } else {
-        (
-            colorref(244, 244, 241),
-            colorref(17, 17, 16),
-            colorref(222, 222, 216),
-        )
-    };
+    let hwnd = main_window_handle(window)?;
     for (attribute, color) in [
-        (DWMWA_CAPTION_COLOR, caption),
-        (DWMWA_TEXT_COLOR, text),
-        (DWMWA_BORDER_COLOR, border),
+        (DWMWA_CAPTION_COLOR, colorref(caption)),
+        (DWMWA_TEXT_COLOR, colorref(caption)),
+        (DWMWA_BORDER_COLOR, colorref(border)),
     ] {
         unsafe {
             DwmSetWindowAttribute(
@@ -670,8 +822,8 @@ fn apply_titlebar_theme(window: &WebviewWindow, dark: bool) -> windows::core::Re
 }
 
 #[cfg(target_os = "windows")]
-const fn colorref(red: u32, green: u32, blue: u32) -> u32 {
-    red | (green << 8) | (blue << 16)
+const fn colorref([red, green, blue]: [u8; 3]) -> u32 {
+    red as u32 | ((green as u32) << 8) | ((blue as u32) << 16)
 }
 
 #[tauri::command]

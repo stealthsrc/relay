@@ -5,7 +5,7 @@
 <h1 align="center">Relay</h1>
 
 <p align="center">
-  <strong>Turn Discord media into polished OBS overlays — locally, privately, and in real time.</strong>
+  <strong>Routes Discord media from one channel to dedicated OBS Browser Sources on your Windows PC.</strong>
 </p>
 
 <p align="center">
@@ -14,16 +14,8 @@
 </p>
 
 <p align="center">
-  <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6" />
-  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-FFC131" />
-  <img alt="Rust" src="https://img.shields.io/badge/backend-Rust-DE4A00" />
-  <img alt="Localhost only" src="https://img.shields.io/badge/network-localhost%20only-58B989" />
-  <img alt="Version 1.3.1" src="https://img.shields.io/badge/version-1.3.1-2F6FED" />
-</p>
-
-<p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#what-relay-does">Features</a> ·
+  <a href="#what-relay-does">Capabilities</a> ·
   <a href="#obs-browser-sources">OBS sources</a> ·
   <a href="#privacy-by-design">Security</a> ·
   <a href="USAGE.md">User guide</a>
@@ -33,28 +25,11 @@
   <img src="assets/readme/relay-hero.png" alt="Media flowing through a private Relay node into broadcast outputs" width="100%" />
 </p>
 
-## One channel in. Every output ready.
+## Overview
 
 Relay is a Windows desktop application that connects a Discord bot to OBS Studio. Community media enters a controlled local pipeline, reaches the correct output in FIFO order, and disappears cleanly when playback is complete.
 
 There is no hosted Relay account, cloud dashboard, telemetry service, or remote media processor. The server listens on `127.0.0.1`, credentials are protected by Windows, and your OBS source URLs stay private on the same computer.
-
-<table>
-  <tr>
-    <td width="33%" valign="top">
-      <strong>Built for live use</strong><br />
-      Separate visual, audio, TTS, and notification outputs keep OBS scenes flexible and easy to mix.
-    </td>
-    <td width="33%" valign="top">
-      <strong>Safe by default</strong><br />
-      Optional manual moderation, type filters, bounded queues, and one-click skip protect the broadcast.
-    </td>
-    <td width="33%" valign="top">
-      <strong>Local by design</strong><br />
-      The control panel, widgets, WebSocket hub, media cache, and browser sources run on your Windows PC.
-    </td>
-  </tr>
-</table>
 
 ## How Relay moves media
 
@@ -93,7 +68,7 @@ Relay bot ──► optional moderation ──► bounded FIFO queues
 | Widgets | Transparent, always-on-top, movable and resizable windows with persistent geometry, locking, and optional 16:9 media sizing |
 | Output layout | Independent 50–200% content scale and 0–40% crop controls for media and notifications in OBS and Windows widgets |
 | Personalization | Light and OLED-dark themes, five design directions, local interface fonts, RGB accent color, text scale, three sidebar layouts, configurable Discord bot presence, and 12 regional interface locales |
-| Control | System tray panel, live status, overlay count, nine default `/relay` commands with individual switches, up to 16 local custom commands backed by predefined Discord actions, and global `Ctrl+Alt+S` skip shortcut |
+| Control | System tray panel, live status, overlay count, ten default `/relay` commands with individual switches, up to 16 local custom commands backed by predefined Discord actions, and global `Ctrl+Alt+S` skip shortcut |
 
 ## Quick start
 
@@ -268,8 +243,10 @@ relay-bot/
 ├── overlay/             Visual media Browser Source and widget client
 ├── tts/                 Dedicated TTS Browser Source
 ├── notifications/       TTS notification Browser Source and widget
+├── stickers/            Sticker Browser Source and widget client
 ├── assets/              Relay identity and README visuals
 ├── docs/                Design records, YouTube API tutorial, implementation notes
+├── scripts/             Signed release build script
 ├── USAGE.md             Full user guide (incl. YouTube API key)
 └── README.md            Product and developer overview
 ```
@@ -284,6 +261,15 @@ relay-bot/
 - **[Windows smoke tests](docs/windows-smoke-tests.md)** — manual checks for Windows, Discord, OBS, codecs, OCR, and signed releases
 - **[Security policy](SECURITY.md)** — private vulnerability reporting and responsible disclosure
 - **[README design record](docs/readme-redesign.md)** — goals and decisions behind this page
+
+## Limitations
+
+- Windows 10 and 11 only. There is no macOS or Linux build.
+- OBS must run on the same computer: the local server binds to `127.0.0.1` only.
+- One media channel and one optional TTS channel are watched per instance.
+- History keeps the last 50 media items in memory and is cleared when Relay exits.
+- Automatic TTS voice detection distinguishes French and English only; other messages use the English voice.
+- OCR-based privacy inspection recognizes French and English text.
 
 ## License
 
