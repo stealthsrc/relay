@@ -1,6 +1,7 @@
 mod artwork;
 mod bot;
 mod changelog;
+mod channel_cleanup;
 mod commands;
 mod config;
 mod credentials;
@@ -619,6 +620,14 @@ mod external_link_tests {
     #[test]
     fn accepts_the_generated_discord_invite_url() {
         assert_eq!(resolve_external_link(INVITE), Ok(INVITE.to_owned()));
+    }
+
+    #[test]
+    fn opens_releases_on_the_current_github_account() {
+        assert_eq!(
+            resolve_external_link("relay-releases"),
+            Ok("https://github.com/stealthsrc/relay/releases/latest".to_owned())
+        );
     }
 
     #[test]

@@ -222,14 +222,14 @@
             </div>
 
             <div class="split-layout">
-              <section class="panel-section">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" id="disclosure-overview-1">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">01</span>
                     <h3 data-i18n="credentialsTitle">Discord connection</h3>
                   </div>
                   <span id="credential-state" class="save-state" role="status"></span>
-                </div>
+                </summary>
                 <p class="section-copy" data-i18n="credentialsCopy">Credentials are encrypted by Windows and never shown again.</p>
                 <form id="credential-form" class="form-grid">
                   <label class="field field--wide">
@@ -291,10 +291,10 @@
                     </div>
                   </form>
                 </details>
-              </section>
+              </details>
 
-              <section class="panel-section">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" id="disclosure-overview-2" open>
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">02</span>
                     <h3 data-i18n="routingTitle">Input routing</h3>
@@ -303,7 +303,7 @@
                     <span id="save-state" class="save-state" role="status"></span>
                     <button id="refresh-channels" class="button button--quiet" type="button" data-i18n="refreshChannels">Refresh channels</button>
                   </span>
-                </div>
+                </summary>
                 <p class="section-copy" data-i18n="routingCopy">Choose one Discord channel for media and another for spoken messages.</p>
                 <form id="routing-form" class="form-grid">
                   <label class="field field--wide">
@@ -312,11 +312,41 @@
                       <option value="">Select a visible text channel</option>
                     </select>
                   </label>
+                  <label class="setting-row setting-row--switch field--wide">
+                    <span>
+                      <strong data-i18n="mediaCleanup24h">Delete media channel messages after 24 hours</strong>
+                      <small data-i18n="channelCleanup24hHelp">Checks every 5 minutes while Relay runs. Deletes messages older than 24 hours, except the protected welcome message. Requires Manage Messages.</small>
+                    </span>
+                    <span class="switch">
+                      <input id="media-cleanup-enabled" type="checkbox">
+                      <span class="switch__track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="mediaWelcomeMessage">Media welcome message (optional)</span>
+                    <input id="media-welcome-message" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="musicWelcomePlaceholder" placeholder="Discord message link or ID">
+                    <small data-i18n="channelWelcomeOptionalHelp">Leave empty only if no message needs to be kept. A supplied message must belong to this channel.</small>
+                  </label>
                   <label class="field field--wide">
                     <span data-i18n="ttsChannel">TTS message channel</span>
                     <select id="tts-channel" name="ttsChannelId">
                       <option value="">TTS disabled</option>
                     </select>
+                  </label>
+                  <label class="setting-row setting-row--switch field--wide">
+                    <span>
+                      <strong data-i18n="ttsCleanup24h">Delete TTS channel messages after 24 hours</strong>
+                      <small data-i18n="channelCleanup24hHelp">Checks every 5 minutes while Relay runs. Deletes messages older than 24 hours, except the protected welcome message. Requires Manage Messages.</small>
+                    </span>
+                    <span class="switch">
+                      <input id="tts-cleanup-enabled" type="checkbox">
+                      <span class="switch__track" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="field field--wide">
+                    <span data-i18n="ttsWelcomeMessage">TTS welcome message (optional)</span>
+                    <input id="tts-welcome-message" type="text" autocomplete="off" spellcheck="false" data-i18n-placeholder="musicWelcomePlaceholder" placeholder="Discord message link or ID">
+                    <small data-i18n="channelWelcomeOptionalHelp">Leave empty only if no message needs to be kept. A supplied message must belong to this channel.</small>
                   </label>
                   <label class="field field--wide">
                     <span data-i18n="localPort">Local port</span>
@@ -324,7 +354,7 @@
                   </label>
                   <button class="button button--primary field--wide" type="submit" data-i18n="saveRouting">Save routing</button>
                 </form>
-              </section>
+              </details>
             </div>
           </section>
 
@@ -336,14 +366,14 @@
             </div>
 
             <div class="split-layout">
-              <section class="panel-section">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" id="disclosure-music-1" open>
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">01</span>
                     <h3 data-i18n="musicSettingsTitle">Music settings</h3>
                   </div>
                   <span id="music-save-state" class="save-state" role="status"></span>
-                </div>
+                </summary>
                 <p class="section-copy" data-i18n="musicSettingsCopy">The API key stays in Windows Credential Manager. Discord replies follow Relay’s interface language.</p>
                 <form id="music-form" class="form-grid">
                   <label class="field field--wide">
@@ -381,15 +411,15 @@
                   <button id="music-cleanup-confirm" class="button button--quiet" type="button" data-i18n="musicCleanupConfirm">Delete these messages</button>
                   <button id="music-cleanup-cancel" class="button button--quiet" type="button" data-i18n="musicCleanupCancel">Cancel</button>
                 </div>
-              </section>
+              </details>
 
-              <section class="panel-section" lang="en">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" lang="en" id="disclosure-music-2">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">02</span>
                     <h3>YouTube Data API setup</h3>
                   </div>
-                </div>
+                </summary>
                 <p class="section-copy">English-only guide. Relay uses an API key, not OAuth — no client ID, secret, or redirect URI.</p>
                 <div class="help-accordions">
                   <details class="help-disclosure" open>
@@ -467,17 +497,17 @@
                     </div>
                   </details>
                 </div>
-              </section>
+              </details>
             </div>
 
-            <section class="panel-section panel-section--wide">
-              <div class="section-heading">
+            <details class="panel-section panel-disclosure panel-section--wide" id="disclosure-music-3">
+              <summary class="section-heading">
                 <div>
                   <span class="section-number">03</span>
                   <h3 data-i18n="musicOverlayTitle">Overlay OBS / Windows</h3>
                 </div>
                 <span id="music-overlay-save-state" class="save-state" role="status"></span>
-              </div>
+              </summary>
               <p class="section-copy" data-i18n="musicOverlayCopy">Windows Now Playing uses the 16:9 media floating widget. TTS uses the separate compact notification widget.</p>
               <div class="form-grid">
                 <div class="source-field field--wide">
@@ -500,7 +530,7 @@
                   <button id="save-music-overlay" class="button button--primary" type="button" data-i18n="saveMusicOverlay">Save media widget size</button>
                 </div>
               </div>
-            </section>
+            </details>
           </section>
 
           <section class="page" data-page="media" hidden>
@@ -721,23 +751,23 @@
               <p data-i18n="overlayCopy">The canvas stays transparent until media enters the queue.</p>
             </div>
 
-            <section class="preview-section">
-              <div class="preview-toolbar">
+            <details class="preview-section geometry-disclosure" id="disclosure-overlay-preview">
+              <summary class="preview-toolbar">
                 <span data-i18n="livePreview">Live preview</span>
                 <span class="preview-badge" data-i18n="transparentCanvas">Transparent canvas</span>
-              </div>
+              </summary>
               <div class="preview-shell">
                 <iframe id="preview" title="Live OBS overlay preview"></iframe>
               </div>
-            </section>
+            </details>
 
-            <section class="panel-section panel-section--wide output-readiness-section">
-              <div class="section-heading">
+            <details class="panel-section panel-disclosure panel-section--wide output-readiness-section" id="disclosure-overlay-1" open>
+              <summary class="section-heading">
                 <div>
                   <span class="section-number">04</span>
                   <h3 data-i18n="outputReadiness">Output readiness</h3>
                 </div>
-              </div>
+              </summary>
               <p class="section-copy" data-i18n="outputReadinessHelp">See which local outputs are connected. Tests stay local and never post to Discord.</p>
               <div class="output-readiness-grid">
                 <article class="output-readiness-card" data-output-card="visual">
@@ -781,16 +811,16 @@
                   <button class="button button--quiet output-readiness-card__test" type="button" data-test-output="sticker" data-i18n="testOutput" disabled>Test output</button>
                 </article>
               </div>
-            </section>
+            </details>
 
             <div class="split-layout split-layout--overlay">
-              <section class="panel-section">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" id="disclosure-overlay-2">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">05</span>
                     <h3 data-i18n="browserSource">OBS Browser Sources</h3>
                   </div>
-                </div>
+                </summary>
                 <p class="section-copy" data-i18n="browserSourceHelp">Add these two URLs as OBS Browser Sources. They replace the old separate medias / audios / stickers / TTS / notifications / YouTube sources.</p>
                 <div class="source-field">
                   <span data-i18n="visualSource">Relay Visual</span>
@@ -809,33 +839,33 @@
                   <small data-i18n="audioSourceHelp">Discord file audio and TTS voice. Separate mixer fader from Visual.</small>
                 </div>
                 <button id="regenerate-secret" class="text-button" type="button" data-i18n="regenerateSecret">Reconnect OBS sources</button>
-              </section>
+              </details>
 
-              <section class="panel-section">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure" id="disclosure-overlay-3">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">06</span>
                     <h3 data-i18n="floatingWidget">Media floating widget</h3>
                   </div>
-                </div>
+                </summary>
                 <p id="widget-state" class="section-copy">Widget hidden</p>
                 <div class="button-row">
                   <button id="toggle-widget" class="button button--primary" type="button">Show widget</button>
                   <button id="lock-widget" class="button button--quiet" type="button">Unlock to move</button>
                 </div>
                 <p class="fine-print" data-i18n="widgetHelp">Unlock, position it on any monitor, then lock it to pass clicks through.</p>
-              </section>
+              </details>
             </div>
 
             <div class="notification-output-grid">
-              <section class="panel-section panel-section--wide notification-output-card" data-output="obs">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure panel-section--wide notification-output-card" data-output="obs" id="disclosure-overlay-4">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">07</span>
                     <h3 data-i18n="obsNotificationOutput">OBS TTS notification overlay</h3>
                   </div>
                   <span id="obs-notification-save-state" class="save-state" role="status"></span>
-                </div>
+                </summary>
                 <p class="section-copy" data-i18n="obsNotificationOutputHelp">Notification cards are included in Relay Visual (Overview → OBS Browser Sources). No separate Browser Source needed.</p>
                 <div class="source-field notification-output-url">
                   <span data-i18n="notificationSource">Relay Visual (includes notifications)</span>
@@ -864,15 +894,15 @@
                     <span class="switch__track" aria-hidden="true"></span>
                   </span>
                 </label>
-              </section>
+              </details>
 
-              <section class="panel-section panel-section--wide notification-output-card" data-output="windows">
-                <div class="section-heading">
+              <details class="panel-section panel-disclosure panel-section--wide notification-output-card" data-output="windows" id="disclosure-overlay-5">
+                <summary class="section-heading">
                   <div>
                     <span class="section-number">08</span>
                     <h3 data-i18n="windowsNotificationWidget">Windows Notification Widget</h3>
                   </div>
-                </div>
+                </summary>
                 <p id="notification-widget-state" class="section-copy">Widget hidden</p>
                 <p class="fine-print notification-output-copy" data-i18n="windowsNotificationWidgetHelp">Independent desktop window that can be placed on any monitor.</p>
                 <div class="notification-output-actions">
@@ -900,19 +930,19 @@
                   <span data-i18n="notificationSoundHelp">Played by the Windows widget for each message. Any audio file up to 10 seconds.</span>
                   <span id="notification-sound-state"></span>
                 </p>
-              </section>
+              </details>
             </div>
 
-            <section class="panel-section panel-section--wide output-geometry-section">
-              <div class="section-heading">
+            <details class="panel-section panel-disclosure panel-section--wide output-geometry-section" id="disclosure-overlay-6">
+              <summary class="section-heading">
                 <div>
                   <span class="section-number">09</span>
                   <h3 data-i18n="sizeAndCrop">Size and crop</h3>
                 </div>
-              </div>
+              </summary>
               <p class="section-copy" data-i18n="sizeAndCropHelp">Adjust each output independently. OBS keeps control of the Browser Source canvas size.</p>
               <div id="output-geometry-grid" class="output-geometry-grid"></div>
-            </section>
+            </details>
           </section>
 
           <section class="page" data-page="moderation" hidden>

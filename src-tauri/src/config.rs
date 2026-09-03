@@ -115,6 +115,10 @@ pub enum HoneypotAction {
 pub struct AppConfig {
     pub watched_channel_id: String,
     pub tts_channel_id: String,
+    pub media_cleanup_enabled: bool,
+    pub media_welcome_message_id: String,
+    pub tts_cleanup_enabled: bool,
+    pub tts_welcome_message_id: String,
     pub music_channel_id: String,
     pub music_cleanup_enabled: bool,
     pub music_welcome_message_id: String,
@@ -197,6 +201,10 @@ impl Default for AppConfig {
         Self {
             watched_channel_id: String::new(),
             tts_channel_id: String::new(),
+            media_cleanup_enabled: false,
+            media_welcome_message_id: String::new(),
+            tts_cleanup_enabled: false,
+            tts_welcome_message_id: String::new(),
             music_channel_id: String::new(),
             music_cleanup_enabled: false,
             music_welcome_message_id: String::new(),
@@ -280,6 +288,25 @@ impl AppConfig {
     pub fn validate(&self) -> Result<()> {
         validate_channel_id(&self.watched_channel_id, "watched")?;
         validate_channel_id(&self.tts_channel_id, "TTS")?;
+        for (enabled, channel, welcome) in [
+            (
+                self.media_cleanup_enabled,
+                &self.watched_channel_id,
+                &self.media_welcome_message_id,
+            ),
+            (
+                self.tts_cleanup_enabled,
+                &self.tts_channel_id,
+                &self.tts_welcome_message_id,
+            ),
+        ] {
+            if enabled && channel.parse::<u64>().ok().filter(|id| *id > 0).is_none() {
+                bail!("24-hour cleanup requires a valid channel.");
+            }
+            if !welcome.is_empty() && welcome.parse::<u64>().ok().filter(|id| *id > 0).is_none() {
+                bail!("The protected welcome message ID is invalid.");
+            }
+        }
         validate_channel_id(&self.music_channel_id, "music")?;
         validate_channel_id(&self.music_welcome_message_id, "welcome message")?;
         if self.music_cleanup_enabled
@@ -709,6 +736,10 @@ mod tests {
         let updated = AppConfig {
             watched_channel_id: "123456789012345678".into(),
             tts_channel_id: "223456789012345678".into(),
+            media_cleanup_enabled: true,
+            media_welcome_message_id: "623456789012345678".into(),
+            tts_cleanup_enabled: true,
+            tts_welcome_message_id: String::new(),
             music_channel_id: "323456789012345678".into(),
             music_cleanup_enabled: true,
             music_welcome_message_id: "523456789012345678".into(),

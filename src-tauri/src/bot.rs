@@ -1880,9 +1880,15 @@ pub async fn start_bot(core: Arc<AppCore>) -> Result<bool> {
     let http = client.http.clone();
     let cache = client.cache.clone();
     let status_core = core.clone();
+    let cleanup_http = http.clone();
     let task = tokio::spawn(async move {
-        if let Err(error) = client.start().await {
-            set_bot_error(&status_core, format!("Discord connection failed: {error}")).await;
+        tokio::select! {
+            result = client.start() => {
+                if let Err(error) = result {
+                    set_bot_error(&status_core, format!("Discord connection failed: {error}")).await;
+                }
+            }
+            _ = crate::channel_cleanup::run(status_core.clone(), cleanup_http) => {}
         }
         status_core.bot_status.write().await.connected = false;
     });
@@ -2636,6 +2642,14 @@ fn replace_configured_channel_id(
 ) {
     let old_channel_id = old_channel_id.to_string();
     let replacement_channel_id = replacement_channel_id.to_string();
+    if config.watched_channel_id == old_channel_id {
+        config.media_cleanup_enabled = false;
+        config.media_welcome_message_id.clear();
+    }
+    if config.tts_channel_id == old_channel_id {
+        config.tts_cleanup_enabled = false;
+        config.tts_welcome_message_id.clear();
+    }
     if config.music_channel_id == old_channel_id {
         config.music_cleanup_enabled = false;
         config.music_welcome_message_id.clear();

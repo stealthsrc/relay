@@ -14,70 +14,124 @@ Release 1.3.0 and later include every Relay interface language. Earlier releases
 
 ## [Unreleased]
 
-## [1.3.3] - 2026-09-03
+## [1.3.3] - 2026-09-04
 
 ### English
 
+- Fixed scroll containment in short windows so expanded settings and their save buttons remain reachable; the sidebar scrolls independently.
+- Updated release, changelog, and updater links to the current stealthsrc/relay repository.
+- Added separate opt-in 24-hour cleanup for the media and TTS channels under Input routing, with optional protected welcome messages and five-minute history checks.
+- Notifications are wider and display up to six text lines, wrapping long text even without spaces.
+- The OBS music credit shows the track title and Discord requester instead of the YouTube channel name.
 - Added automatic music channel cleanup with a verified, protected welcome message, 120-second result expiration, and a separate preview and confirmation for historical messages.
 - Added a requester-only Loop button alongside Skip. Repeats keep the selected range, reuse the Discord card, and yield to queued work. Media volume help now explicitly includes YouTube.
-
 - Automatically delete the triggering honeypot message after the kick or ban attempt, including when the action fails. Report deletion failures in the bot status.
+- Added collapsible sections in Overview, Music, and Overlay, including size and crop controls.
+- Removed the unused notification YouTube player and its styles; test-only Rust helpers are excluded from release builds.
 
 ### Français
 
+- Correction du défilement dans les fenêtres basses pour garder les paramètres dépliés et leurs boutons d’enregistrement accessibles ; la barre latérale défile indépendamment.
+- Mise à jour des liens de release, du changelog et de l’outil de mise à jour vers le dépôt actuel stealthsrc/relay.
+- Ajout du nettoyage optionnel après 24 heures pour les salons médias et TTS dans le routage des entrées, avec messages d’accueil protégés facultatifs et vérification de l’historique toutes les cinq minutes.
+- Les notifications sont plus larges et affichent jusqu’à six lignes de texte, avec retour à la ligne même sans espaces.
+- Le cartouche musical OBS affiche le titre du morceau et le demandeur Discord à la place du nom de la chaîne YouTube.
 - Ajout du nettoyage automatique du salon musique avec message d’accueil vérifié et protégé, expiration des résultats après 120 secondes et aperçu avec confirmation pour l’historique.
 - Ajout du bouton Loop, réservé au demandeur, à côté de Skip. La boucle conserve l’extrait choisi et la carte Discord, et laisse passer les demandes en attente. L’aide du volume mentionne désormais YouTube.
-
 - Supprime automatiquement le message déclencheur du honeypot après la tentative de kick ou de ban, même si elle échoue. Signale les échecs de suppression dans l’état du bot.
+- Ajout de sections repliables dans Overview, Music et Overlay, y compris les réglages de taille et de recadrage.
+- Suppression de l’ancien lecteur YouTube inutilisé des notifications et de ses styles ; les helpers Rust réservés aux tests sont exclus des builds de production.
 
 ### Español
 
+- Corregido el desplazamiento en ventanas bajas para acceder a los ajustes abiertos y sus botones de guardado; la barra lateral se desplaza de forma independiente.
+- Actualizados los enlaces de versiones, historial de cambios y actualización al repositorio actual stealthsrc/relay.
+- Añadida limpieza opcional tras 24 horas para los canales de medios y TTS en el enrutamiento de entradas, con bienvenida protegida opcional y revisión del historial cada cinco minutos.
+- Las notificaciones son más anchas y muestran hasta seis líneas, incluso con texto largo sin espacios.
+- El crédito musical de OBS muestra el título y el solicitante de Discord en lugar del nombre del canal de YouTube.
 - Añadida limpieza automática del canal de música con bienvenida verificada y protegida, resultados que caducan a los 120 segundos y vista previa con confirmación para el historial.
 - Añadido Loop junto a Skip, solo para quien solicita la canción. Conserva el fragmento y la tarjeta de Discord y cede el turno a la cola. La ayuda del volumen incluye YouTube.
-
 - Elimina automáticamente el mensaje que activa la trampa tras intentar expulsar o banear, incluso si la acción falla. Muestra los fallos de eliminación en el estado del bot.
+- Añadidas secciones plegables en Overview, Music y Overlay, incluidos los ajustes de tamaño y recorte.
+- Eliminados el reproductor YouTube sin uso de las notificaciones y sus estilos; las funciones Rust exclusivas de pruebas se excluyen de producción.
 
 ### Deutsch
 
+- Scrollbereiche in niedrigen Fenstern korrigiert, damit geöffnete Einstellungen und Speichern-Schaltflächen erreichbar bleiben; die Seitenleiste scrollt unabhängig.
+- Release-, Änderungsprotokoll- und Updater-Links auf das aktuelle Repository stealthsrc/relay umgestellt.
+- Optionale 24-Stunden-Bereinigung für Medien- und TTS-Kanäle unter Eingangszuordnung hinzugefügt, mit optional geschützter Begrüßung und Verlaufsprüfung alle fünf Minuten.
+- Benachrichtigungen sind breiter und zeigen bis zu sechs Textzeilen, auch bei langen Texten ohne Leerzeichen.
+- Die OBS-Musikeinblendung zeigt den Titel und den Discord-Anfragenden statt des YouTube-Kanalnamens.
 - Automatische Musikkanalbereinigung mit geprüfter, geschützter Willkommensnachricht, 120 Sekunden gültigen Ergebnissen sowie Vorschau und Bestätigung für den Verlauf hinzugefügt.
 - Loop neben Skip ist nur für den Anfragenden verfügbar. Wiederholungen behalten Ausschnitt und Discord-Karte und lassen wartende Einträge vor. Die Lautstärkehilfe nennt jetzt YouTube.
-
 - Löscht die auslösende Honeypot-Nachricht automatisch nach dem Kick- oder Ban-Versuch, auch wenn dieser fehlschlägt. Zeigt Löschfehler im Bot-Status an.
+- Einklappbare Bereiche in Overview, Music und Overlay einschließlich Größe und Zuschnitt hinzugefügt.
+- Ungenutzten YouTube-Player der Benachrichtigungen und seine Stile entfernt; reine Rust-Testhelfer werden nicht mehr im Release gebaut.
 
 ### Русский
 
+- Исправлена прокрутка в невысоких окнах: развёрнутые настройки и кнопки сохранения остаются доступны, боковая панель прокручивается отдельно.
+- Ссылки на релизы, журнал изменений и обновления переведены на текущий репозиторий stealthsrc/relay.
+- В маршрутизацию входов добавлена отдельная очистка медиаканала и TTS через 24 часа с необязательным защищённым приветствием и проверкой истории каждые пять минут.
+- Уведомления стали шире и показывают до шести строк с переносом длинного текста без пробелов.
+- Музыкальная подпись OBS показывает название трека и автора запроса в Discord вместо названия канала YouTube.
 - Добавлена автоматическая очистка музыкального канала с проверенным защищённым приветствием, удалением результатов через 120 секунд и отдельным предпросмотром с подтверждением очистки истории.
 - Рядом со Skip добавлена кнопка Loop для автора запроса. Повтор сохраняет отрывок и карточку Discord, уступая очередь другим запросам. В описании громкости указан YouTube.
-
 - Автоматически удаляет сообщение, активировавшее ловушку, после попытки исключения или блокировки, даже если она не удалась. Ошибки удаления отображаются в статусе бота.
+- Добавлены сворачиваемые разделы Overview, Music и Overlay, включая размер и обрезку.
+- Удалены неиспользуемый проигрыватель YouTube уведомлений и его стили; тестовые функции Rust исключены из релизных сборок.
 
 ### 简体中文
 
+- 修复较矮窗口中的滚动，使展开的设置和保存按钮保持可访问；侧边栏可独立滚动。
+- 发布、更新日志和更新程序链接已改为当前的 stealthsrc/relay 仓库。
+- 在输入路由中新增媒体和TTS频道的独立24小时清理选项，可保护欢迎消息，每五分钟检查一次历史记录。
+- 通知更宽，最多显示六行文字，无空格的长文本也会自动换行。
+- OBS 音乐信息显示曲目标题和 Discord 请求者，不再显示 YouTube 频道名称。
 - 新增音乐频道自动清理：验证并保护欢迎消息，搜索结果在120秒后过期，历史消息清理需要单独预览和确认。
 - 在 Skip 旁新增仅请求者可用的 Loop 按钮。循环保留所选片段和 Discord 卡片，并让等待中的请求先播放。音量说明明确包含 YouTube。
-
 - 尝试踢出或封禁后自动删除触发陷阱的消息，即使操作失败也会尝试删除。删除失败会显示在机器人状态中。
+- 在 Overview、Music 和 Overlay 中新增可折叠区域，包括尺寸和裁剪设置。
+- 移除了通知中未使用的 YouTube 播放器及其样式；仅供测试的 Rust 辅助函数不再编入发布版本。
 
 ### 한국어
 
+- 높이가 작은 창에서도 펼친 설정과 저장 버튼에 접근하도록 스크롤을 수정했습니다. 사이드바는 별도로 스크롤됩니다.
+- 릴리스, 변경 기록 및 업데이터 링크를 현재 stealthsrc/relay 저장소로 변경했습니다.
+- 입력 라우팅에 미디어 및 TTS 채널의 선택적 24시간 정리를 추가했습니다. 환영 메시지를 보호할 수 있으며 5분마다 기록을 확인합니다.
+- 알림 너비를 늘리고 최대 여섯 줄을 표시하며 공백 없는 긴 텍스트도 줄바꿈합니다.
+- OBS 음악 정보에 YouTube 채널 이름 대신 곡 제목과 Discord 요청자를 표시합니다.
 - 확인된 환영 메시지를 보호하는 음악 채널 자동 정리를 추가했습니다. 검색 결과는 120초 후 만료되며 기록 정리는 미리 보기와 확인이 필요합니다.
 - Skip 옆에 요청자 전용 Loop 버튼을 추가했습니다. 선택한 구간과 Discord 카드를 유지하고 대기 중인 요청에 순서를 양보합니다. 볼륨 설명에 YouTube를 명시했습니다.
-
 - 추방 또는 차단 시도 후 실패 여부와 관계없이 함정을 작동시킨 메시지를 자동으로 삭제합니다. 삭제 실패는 봇 상태에 표시됩니다.
+- Overview, Music, Overlay에 크기 및 자르기 설정을 포함한 접이식 섹션을 추가했습니다.
+- 알림의 사용하지 않는 YouTube 플레이어와 스타일을 제거하고 테스트 전용 Rust 함수를 릴리스 빌드에서 제외했습니다.
 
 ### 日本語
 
+- 高さの低いウィンドウでも展開した設定と保存ボタンにアクセスできるようスクロールを修正しました。サイドバーは独立してスクロールします。
+- リリース、変更履歴、更新機能のリンクを現在の stealthsrc/relay リポジトリに変更しました。
+- 入力ルーティングにメディアとTTSチャンネル個別の24時間整理を追加しました。案内メッセージを任意で保護し、5分ごとに履歴を確認します。
+- 通知の幅を広げ、最大6行を表示します。空白のない長い文章も折り返します。
+- OBS の音楽表示に YouTube チャンネル名ではなく曲名と Discord のリクエスト者を表示します。
 - 確認済みの案内メッセージを保護する音楽チャンネルの自動整理を追加しました。検索結果は120秒で失効し、履歴の整理にはプレビューと確認が必要です。
 - Skip の隣にリクエスト者専用の Loop を追加しました。選択区間と Discord カードを保持し、待機中のリクエストに順番を譲ります。音量説明に YouTube を明記しました。
-
 - キックまたは BAN の試行後、処理が失敗してもトラップを作動させたメッセージを自動削除します。削除の失敗は Bot の状態に表示されます。
+- Overview、Music、Overlayにサイズとトリミングを含む折りたたみ式セクションを追加しました。
+- 通知の未使用YouTubeプレーヤーとスタイルを削除し、テスト専用Rust関数をリリースビルドから除外しました。
 
 ### Bahasa Indonesia
 
+- Memperbaiki gulir pada jendela pendek agar pengaturan terbuka dan tombol simpan tetap terjangkau; bilah samping bergulir sendiri.
+- Memperbarui tautan rilis, changelog, dan pembaruan ke repositori stealthsrc/relay saat ini.
+- Menambahkan pembersihan 24 jam opsional terpisah untuk channel media dan TTS pada perutean input, dengan sambutan terlindungi opsional dan pemeriksaan riwayat setiap lima menit.
+- Notifikasi lebih lebar dan menampilkan hingga enam baris, termasuk teks panjang tanpa spasi.
+- Kredit musik OBS menampilkan judul lagu dan peminta Discord, bukan nama channel YouTube.
 - Menambahkan pembersihan channel musik otomatis dengan pesan sambutan terverifikasi dan dilindungi, hasil kedaluwarsa setelah 120 detik, serta pratinjau dan konfirmasi terpisah untuk riwayat.
 - Menambahkan Loop di samping Skip, hanya untuk peminta lagu. Pengulangan mempertahankan cuplikan dan kartu Discord serta memberi giliran antrean. Bantuan volume kini menyebut YouTube.
-
 - Otomatis menghapus pesan pemicu perangkap setelah percobaan kick atau ban, termasuk jika tindakan gagal. Kegagalan penghapusan ditampilkan dalam status bot.
+- Menambahkan bagian lipat di Overview, Music, dan Overlay, termasuk ukuran dan pemotongan.
+- Menghapus pemutar YouTube notifikasi yang tidak digunakan beserta gayanya; fungsi Rust khusus pengujian tidak disertakan dalam build rilis.
 
 ## [1.3.2] - 2026-09-03
 

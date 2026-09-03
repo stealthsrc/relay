@@ -44,6 +44,21 @@ Turning Loop off lets the current pass finish. If a repetition is still queued,
 turning Loop off removes it. Skip removes the track immediately, including a queued
 repetition. Stale or duplicated playback-end notifications cannot repeat an old track.
 
+## Media and TTS channel retention
+
+In **Overview → Input routing**, media and TTS each have a separate **Delete messages
+after 24 hours** switch and an optional welcome message link or ID. Save routing to
+apply them. Both switches default to off. An empty welcome field means every message
+older than 24 hours is eligible; a supplied message is verified in that channel and
+preserved. If that message cannot be verified later, cleanup pauses for that channel.
+
+While the bot is connected, Relay checks history every five minutes, including messages
+sent before Relay started. Each pass scans up to 1,000 messages per channel and resumes
+older history on subsequent passes. Deletions are sequential; large backlogs can take
+several passes. No message younger than 24 hours is deleted by these switches. Bot
+permissions are the same as for music cleanup. Recreating a channel disables its
+cleanup option and clears its old welcome message reference.
+
 ## Limits
 
 - Cleanup runs while Relay is running. An interrupted cleanup can leave messages;

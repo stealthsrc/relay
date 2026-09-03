@@ -3,6 +3,15 @@ const fs = require("node:fs");
 const test = require("node:test");
 const vm = require("node:vm");
 
+test("notification assets no longer embed the unused YouTube player", () => {
+  const html = fs.readFileSync(__dirname + "/index.html", "utf8");
+  const css = fs.readFileSync(__dirname + "/notifications.css", "utf8");
+  const script = fs.readFileSync(__dirname + "/notifications.js", "utf8");
+  assert.doesNotMatch(html, /id="music(?:-|"\s)/);
+  assert.doesNotMatch(css, /\.music-card/);
+  assert.doesNotMatch(script, /new\s+window\.YT\.Player|requestMusicNowPlaying/);
+});
+
 function classList() {
   const values = new Set();
   return {
@@ -370,12 +379,7 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   assert.doesNotMatch(css, /\.notification-card\.is-visible\s*\{[^}]*scale\(/);
   // Idle cards must not paint — opacity:0 + inset:4px left a large black WebView2 hole.
   assert.match(css, /\.notification-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
-  assert.match(css, /\.music-card\[aria-hidden="true"\]\s*\{[^}]*display:\s*none/s);
-  // Both cards fill their dedicated, user-configured widget window.
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card\s*\{[^}]*inset:\s*4px[^}]*height:\s*auto[^}]*min-height:\s*0/s,
-  );
+  // Notifications fill their dedicated, user-configured widget window.
   assert.match(
     css,
     /html\.notification-widget \.notification-card\s*\{[^}]*width:\s*calc\(100%\s*-\s*8px\)[^}]*max-width:\s*none[^}]*height:\s*calc\(100%\s*-\s*8px\)[^}]*max-height:\s*calc\(100%\s*-\s*8px\)[^}]*min-height:\s*0/s,
@@ -385,32 +389,9 @@ test("notification output applies live crop and scale for OBS and widgets", () =
     css,
     /html\.notification-widget \.notification-card\s*\{[^}]*--notification-scale:\s*calc\([\s\S]*1\.15/s,
   );
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card\s*\{[^}]*container-type:\s*size[^}]*--music-scale:\s*calc\([\s\S]*100cqh\s*\/\s*94px[\s\S]*100cqw\s*\/\s*520px[\s\S]*1\.15/s,
-  );
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card\s*\{[^}]*grid-template-columns:\s*calc\(104px \* var\(--music-scale\)\)/s,
-  );
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card__stage\s*\{[^}]*width:\s*calc\(104px \* var\(--music-scale\)\)[^}]*height:\s*calc\(58px \* var\(--music-scale\)\)/s,
-  );
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card__details\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/s,
-  );
-  assert.match(
-    css,
-    /html\.notification-widget \.music-card__time\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s,
-  );
-  assert.match(css, /\.music-card[\s\S]*--music-scale:\s*var\(--content-scale\)/);
-  assert.doesNotMatch(css, /html\.notification-widget \.music-card\s*\{[^}]*--notification-scale/s);
   assert.doesNotMatch(css, /100cqh\s*\/\s*84px/);
-  // Message + music chrome accents follow personalization --accent (not hard-coded blue).
+  // Notification accents follow personalization --accent.
   assert.match(css, /\.notification-card::before\s*\{[^}]*background:\s*var\(--accent\)/s);
-  assert.match(css, /\.music-card::before\s*\{[^}]*background:\s*var\(--accent\)/s);
   assert.match(css, /\.notification-card__signal\s*\{[^}]*var\(--accent\)/s);
   assert.match(
     css,
@@ -422,23 +403,14 @@ test("notification output applies live crop and scale for OBS and widgets", () =
   assert.match(source, /probeWatchdog[\s\S]*probe\.close\(\)/);
   // No outer glow on transparent OBS / widget chrome (opaque cards, no blur halo).
   assert.match(css, /\.notification-card\s*\{[^}]*box-shadow:\s*none[^}]*filter:\s*none/s);
-  assert.match(css, /\.music-card\s*\{[^}]*box-shadow:\s*none[^}]*filter:\s*none/s);
   assert.match(css, /\.notification-card\s*\{[^}]*border:\s*1px\s+solid\s+#2a2e36/s);
-  assert.match(css, /\.music-card\s*\{[^}]*border:\s*1px\s+solid\s+#2a2e36/s);
   assert.doesNotMatch(css, /color-scheme:\s*(dark|only\s+light)/);
   assert.doesNotMatch(css, /backdrop-filter/);
   assert.doesNotMatch(css, /drop-shadow/);
   assert.doesNotMatch(css, /box-shadow:\s*0\s/);
   assert.doesNotMatch(css, /border:\s*1px\s+solid\s+rgb\(255\s+255\s+255\s*\/\s*18%\)/);
-  // Compact horizontal Now Playing: fixed thumb left, copy+progress right.
-  assert.match(css, /\.music-card\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*calc\(72px/s);
-  assert.match(css, /\.music-card__stage\s*\{[^}]*width:\s*calc\(72px \* var\(--music-scale\)\)/s);
-  assert.doesNotMatch(css, /\.music-card\s*\{[^}]*flex-direction:\s*column/s);
-  assert.doesNotMatch(css, /\.music-card__stage\s*\{[^}]*flex:\s*1\s+1\s+auto/s);
+
   assert.doesNotMatch(css, /min-height:\s*calc\(160px/);
-  assert.match(css, /\.music-card\s*\{[^}]*min-height:\s*calc\(94px/s);
-  assert.match(css, /\.music-card__progress\s*\{[^}]*height:\s*3px/s);
-  assert.match(css, /\.music-card__details\s*\{[^}]*display:\s*flex/s);
 });
 
 test("musicPlay only marks stage occupancy for every notification target", async () => {
